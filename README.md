@@ -2,9 +2,8 @@
 
 A reproducible, idempotent pipeline that builds per-chromosome PLINK2 pfiles
 holding the ~7.35 M SBayesRC SNPs from the All of Us v8 ACAF WGS callset, with
-the variant `ID` column populated with SBayesRC rsids. The AoU analog of the
-early phase of the UKBB SBayesRC GWAS pipeline (UKBB steps 1–3: generate
-variant ID list, upload, extract).
+the variant `ID` column populated with SBayesRC rsids. It also builds the
+~501k direct-SNP bfile used as the REGENIE step-1 marker backbone.
 
 The pipeline **must be run from inside an AoU Verily Jupyter session
 terminal** (the standard interactive analysis environment on the All of Us
@@ -41,6 +40,8 @@ the Jupyter session open or close the browser (background the run with
 ```
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/wgs_pfiles/chr{1..22}.{pgen,pvar,psam}
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/wgs_pfiles/chr{1..22}.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_pfiles/chr{1..22}.{pgen,pvar,psam}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile/chr1_22_merged.{bed,bim,fam}
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
@@ -48,9 +49,10 @@ biallelic_total / extracted / out_samples / missing / remapped / unmapped`
 for that chromosome. A combined summary across all processed chromosomes is
 also written to `logs/sbayesrc_extract_summary.tsv` at the end of each run.
 
-Downstream UKBB-analog steps (kinship, ADMIXTURE, PCA, REGENIE) are not yet
-ported — see `reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full
-target pipeline (gitignored locally; cloned for reference).
+Downstream UKBB-analog steps after the direct-SNP bfile (kinship, ADMIXTURE,
+PCA, REGENIE phenotype setup) are not yet ported — see
+`reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full target pipeline
+(gitignored locally; cloned for reference).
 
 ## Pipeline steps
 
@@ -90,6 +92,28 @@ code can apply additional filters (e.g. `--extract-if-info
 Per-task stdout/stderr lives at
 `${WORKSPACE_BUCKET}/sbayesrc_genotypes/logs/dsub/<job-id>.<task>-{stdout,stderr}.log`.
 
+### Step 3 — Direct-SNP bfile for REGENIE step 1
+
+`get_genotypes.sh` downloads the UKBB-derived direct-SNP rsid list to
+`data/support/direct_snps/ukbb_500k_qc_pass_direct_snps.txt` if it is not
+already cached. `prepare_direct_snps.py` cross-references that list against
+`sbayesrc_hg38.csv` and the extracted WGS pvars, writing per-chromosome rsid
+extract lists and a missing-SNP report for direct SNPs absent from the
+AoU/SBayesRC pfiles.
+
+`extract_direct_snps.sh` then builds
+`${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_pfiles/chr{N}.{pgen,pvar,psam}`.
+Present SNPs are extracted from the WGS pfiles. Direct SNPs absent from the
+AoU/SBayesRC pfiles are tracked in `data/direct_snps/missing_direct_snps.tsv`.
+
+`make_direct_bfile.sh` submits one Google Batch/dsub worker in `us-central1`
+with an SSD data disk (default: 8 vCPU, 32 GB RAM, 300 GB `pd-ssd`) to merge
+the 22 direct pfiles into
+`${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile/chr1_22_merged.{bed,bim,fam}`.
+The merged bfile contains the direct SNPs present in the AoU extracted pfiles;
+absent SNPs are not encoded as all-missing variants. The merged bfile is
+intended for REGENIE step 1.
+
 ## Prerequisites
 
 You are inside an AoU Verily Jupyter session terminal (the standard
@@ -114,12 +138,14 @@ The session provides everything the pipeline needs:
 - **Pet service account** of the pod, used as the Batch worker identity
   (auto-detected via `gcloud config get-value account`).
 
-Python dependencies (`pandas`, `dsub`) are pinned in `requirements.txt` and
-auto-installed by `get_genotypes.sh`.
+Python dependencies for the local helper scripts are listed in
+`requirements.txt` and auto-installed by `get_genotypes.sh`. `dsub` is provided
+by the Workbench image.
 
 ## Usage
 
-Smoke-test a single chromosome end-to-end (one dsub task, ~15–25 min):
+Smoke-test one chromosome of the WGS extraction step (one dsub task, ~15–25 min;
+the direct-bfile step is skipped because it requires all 22 chromosomes):
 ```bash
 SBAYESRC_TEST_CHROM=22 bash get_genotypes.sh 2>&1
 ```
@@ -153,6 +179,8 @@ repo and run it as-is.
 - Step 2 skips chromosomes whose `chr{N}.pgen` already exists at the
   destination (cheap gcsfuse metadata-only lookup via `test -f` on the
   workspace bucket mount — no API call needed for the skip check).
+- Step 3 skips direct pfiles and the merged direct bfile when they already
+  exist with the expected variant counts.
 
 A re-run of `get_genotypes.sh` after a successful run should skip every step
 and submit zero dsub tasks.
@@ -166,6 +194,10 @@ and submit zero dsub tasks.
 | `wgs_extract_variants.sh` | Step 2 — submits the dsub `--tasks` TSV (one row per missing chrom), waits, polls dstat until every task is terminal, verifies bucket outputs, writes combined summary. |
 | `dsub_extract_worker.sh` | Per-Batch-worker script — the four-pass extract for one chromosome. |
 | `normalize_pvar_alleles.py` | Canonical, testable reference for the pass-1.5 right-trim logic that's inlined as awk in the worker. Not used at runtime — kept for unit-testability and local debugging. |
-| `requirements.txt` | `pandas` (step 1), `dsub` (step 2 orchestration). |
+| `prepare_direct_snps.py` | Step 3a — prepares per-chromosome direct-SNP extraction lists and missing-SNP reports. |
+| `extract_direct_snps.sh` | Step 3b — extracts present direct SNPs from WGS pfiles. |
+| `make_direct_bfile.sh` | Step 3c — submits/verifies the direct-bfile dsub merge. |
+| `dsub_direct_bfile_worker.sh` | Per-Batch-worker script — merges direct pfiles into a sorted intermediate pgen, converts to `chr1_22_merged.{bed,bim,fam}`, and writes a summary. |
+| `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
 | `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |

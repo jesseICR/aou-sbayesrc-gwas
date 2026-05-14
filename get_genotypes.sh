@@ -1,22 +1,27 @@
 #!/bin/bash
-# get_genotypes.sh — AoU SBayesRC genotype-extraction pipeline (early phase).
+# get_genotypes.sh — AoU SBayesRC genotype-extraction pipeline.
 #
 # Runs interactively in an AoU Verily Jupyter terminal. Reads the locally
 # FUSE-mounted controlled-tier dataset (read-only) and writes per-chromosome
 # PLINK2 pfiles holding the ~7.35M SBayesRC SNPs to the locally FUSE-mounted
-# workspace bucket (read-write). No dsub, no batch infrastructure.
+# workspace bucket (read-write), then builds the direct-SNP bfile used by
+# REGENIE step 1.
 #
 # Steps:
 #   1. Generate per-chromosome SBayesRC variant ID + idmap files (local)
 #   2. Extract matching variants from AoU acaf_threshold pgen via plink2,
 #      remapping IDs to SBayesRC rsids. Per-chrom work runs as parallel dsub
 #      tasks on Google Batch in us-central1 (one Batch worker per chrom).
+#   3. Prepare/extract the UKBB direct-SNP set from the extracted pfiles,
+#      track absent direct SNPs for reporting, then merge present SNPs across
+#      chr1..22 into direct_bfile/chr1_22_merged.{bed,bim,fam}.
 #
 # Idempotent: each step checks for existing outputs and skips if already done.
 #
 # Smoke-test override:
 #   SBAYESRC_TEST_CHROM=21 bash get_genotypes.sh 2>&1
-#     → runs only chr21 in step 2 (step 1 always processes all 22; cheap).
+#     → runs only chr21 in step 2 and skips step 3, which requires all 22
+#       extracted pfiles.
 
 set -euo pipefail
 
@@ -59,14 +64,22 @@ export WORKSPACE_BUCKET_URI
 export DX_OUTPUT_DIR="${WORKSPACE_BUCKET_MOUNT}/sbayesrc_genotypes"
 export DX_SBAYESRC_ID_DIR="${DX_OUTPUT_DIR}/sbayesrc_ids"
 export DX_WGS_PFILE_DIR="${DX_OUTPUT_DIR}/wgs_pfiles"
+export DX_DIRECT_PFILE_DIR="${DX_OUTPUT_DIR}/direct_pfiles"
+export DX_DIRECT_BFILE_DIR="${DX_OUTPUT_DIR}/direct_bfile"
 export DX_LOGS_DIR="${DX_OUTPUT_DIR}/logs"
 # gs:// path for `gcloud storage cp` (large-pfile uploads — bypasses gcsfuse).
 export DX_WGS_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/wgs_pfiles"
+export DX_DIRECT_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/direct_pfiles"
+export DX_DIRECT_BFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/direct_bfile"
 
 # Local paths
 export LOCAL_SBAYESRC_ID_DIR="${SCRIPT_DIR}/data/sbayesrc_ids"
 export LOCAL_WGS_PFILE_DIR="${SCRIPT_DIR}/data/wgs_pfiles"
+export LOCAL_DIRECT_SNPS_DIR="${SCRIPT_DIR}/data/support/direct_snps"
+export LOCAL_DIRECT_SNPS_FILE="${LOCAL_DIRECT_SNPS_DIR}/ukbb_500k_qc_pass_direct_snps.txt"
+export LOCAL_DIRECT_PREP_DIR="${SCRIPT_DIR}/data/direct_snps"
 export ALIGNMENT_FILE="${SCRIPT_DIR}/data/support/sbayesrc_hg38.csv"
+export DIRECT_SNPS_URL="https://raw.githubusercontent.com/jesseICR/ukbb-sbayesrc-gwas/main/data/support/direct_snps/ukbb_500k_qc_pass_direct_snps.txt"
 
 # Tools — plink2 is preinstalled on the AoU Verily Jupyter VM.
 export PLINK2="${PLINK2:-/opt/workbench-tools/binaries/bin/plink2}"
@@ -75,7 +88,7 @@ export PLINK2="${PLINK2:-/opt/workbench-tools/binaries/bin/plink2}"
 export THREADS="${THREADS:-$(nproc)}"
 
 # ---------------------------------------------------------------------------
-# dsub / Google Batch fan-out config (Step 2)
+# dsub / Google Batch fan-out config
 # ---------------------------------------------------------------------------
 # Extraction runs as parallel dsub tasks against Google Batch (one task per
 # chromosome). See CLAUDE.md "dsub from inside Jupyter does work" section for
@@ -99,6 +112,13 @@ export DSUB_MIN_CORES="${DSUB_MIN_CORES:-4}"
 export DSUB_MIN_RAM="${DSUB_MIN_RAM:-32}"
 export DSUB_BOOT_DISK_SIZE="${DSUB_BOOT_DISK_SIZE:-50}"
 export DSUB_DISK_SIZE="${DSUB_DISK_SIZE:-300}"
+
+# Direct-bfile merge is a single large binary pmerge/write. Use an SSD data
+# disk; pd-standard was much slower for this workload.
+export DIRECT_BFILE_DSUB_MIN_CORES="${DIRECT_BFILE_DSUB_MIN_CORES:-8}"
+export DIRECT_BFILE_DSUB_MIN_RAM="${DIRECT_BFILE_DSUB_MIN_RAM:-32}"
+export DIRECT_BFILE_DSUB_DISK_SIZE="${DIRECT_BFILE_DSUB_DISK_SIZE:-300}"
+export DIRECT_BFILE_DSUB_DISK_TYPE="${DIRECT_BFILE_DSUB_DISK_TYPE:-pd-ssd}"
 
 # Worker-staging paths on the workspace bucket
 export DSUB_BIN_URI="${WORKSPACE_BUCKET_URI}/bin"
@@ -129,12 +149,16 @@ fi
 
 mkdir -p \
     "${SCRIPT_DIR}/data/support" \
+    "${LOCAL_DIRECT_SNPS_DIR}" \
+    "${LOCAL_DIRECT_PREP_DIR}" \
     "${LOCAL_SBAYESRC_ID_DIR}" \
     "${LOCAL_WGS_PFILE_DIR}" \
     "${SCRIPT_DIR}/logs/extract" \
     "${DX_OUTPUT_DIR}" \
     "${DX_SBAYESRC_ID_DIR}" \
     "${DX_WGS_PFILE_DIR}" \
+    "${DX_DIRECT_PFILE_DIR}" \
+    "${DX_DIRECT_BFILE_DIR}" \
     "${DX_LOGS_DIR}"
 
 # ---------------------------------------------------------------------------
@@ -152,6 +176,7 @@ echo "  WORKSPACE_BUCKET_MNT = ${WORKSPACE_BUCKET_MOUNT}"
 echo "  AOU_PGEN_DIR         = ${AOU_PGEN_DIR}"
 echo "  DX_OUTPUT_DIR        = ${DX_OUTPUT_DIR}"
 echo "  LOCAL_WGS_PFILE_DIR  = ${LOCAL_WGS_PFILE_DIR}"
+echo "  LOCAL_DIRECT_SNPS    = ${LOCAL_DIRECT_SNPS_FILE}"
 echo "  PLINK2               = ${PLINK2} ($("${PLINK2}" --version 2>&1 | head -1))"
 echo "  THREADS              = ${THREADS}"
 echo "  LOG_FILE             = ${LOG_FILE}"
@@ -160,6 +185,7 @@ echo "  DSUB_REGION          = ${DSUB_REGION}"
 echo "  DSUB_PET_SA          = ${DSUB_PET_SA}"
 echo "  DSUB_IMAGE           = ${DSUB_IMAGE}"
 echo "  DSUB worker resources= ${DSUB_MIN_CORES} vCPU, ${DSUB_MIN_RAM} GB RAM, ${DSUB_BOOT_DISK_SIZE}+${DSUB_DISK_SIZE} GB disk per task"
+echo "  DIRECT_BFILE worker = ${DIRECT_BFILE_DSUB_MIN_CORES} vCPU, ${DIRECT_BFILE_DSUB_MIN_RAM} GB RAM, ${DIRECT_BFILE_DSUB_DISK_SIZE} GB ${DIRECT_BFILE_DSUB_DISK_TYPE}"
 if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
     echo "  SBAYESRC_TEST_CHROM  = ${SBAYESRC_TEST_CHROM}  (smoke-test mode)"
 fi
@@ -187,6 +213,19 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Setup: direct SNP list for REGENIE step 1
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Setup: direct SNP list ==="
+if [[ -s "${LOCAL_DIRECT_SNPS_FILE}" ]]; then
+    echo "  Already cached at ${LOCAL_DIRECT_SNPS_FILE} ($(wc -l < "${LOCAL_DIRECT_SNPS_FILE}") lines) — skipping download"
+else
+    echo "  Downloading direct SNP list ..."
+    curl -fsSL -o "${LOCAL_DIRECT_SNPS_FILE}" "${DIRECT_SNPS_URL}"
+    echo "  Downloaded ($(wc -l < "${LOCAL_DIRECT_SNPS_FILE}") lines)"
+fi
+
+# ---------------------------------------------------------------------------
 # Step 1: Generate SBayesRC variant IDs + idmap (local)
 # ---------------------------------------------------------------------------
 echo ""
@@ -201,6 +240,37 @@ python3 "${SCRIPT_DIR}/store_sbayesrc_ids.py" \
 echo ""
 echo "=== Step 2: Extract SBayesRC variants per chromosome ==="
 bash "${SCRIPT_DIR}/wgs_extract_variants.sh"
+
+if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
+    echo ""
+    echo "=== Step 3: Direct-SNP bfile ==="
+    echo "  Skipping in SBAYESRC_TEST_CHROM mode; direct bfile requires all 22 chromosomes."
+else
+    # -----------------------------------------------------------------------
+    # Step 3a: Prepare direct-SNP per-chromosome lists + missing metadata
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 3a: Prepare direct SNP metadata ==="
+    python3 "${SCRIPT_DIR}/prepare_direct_snps.py" \
+        --direct-snps "${LOCAL_DIRECT_SNPS_FILE}" \
+        --alignment "${ALIGNMENT_FILE}" \
+        --wgs-pfile-dir "${DX_WGS_PFILE_DIR}" \
+        --output-dir "${LOCAL_DIRECT_PREP_DIR}"
+
+    # -----------------------------------------------------------------------
+    # Step 3b: Extract present direct SNPs
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 3b: Extract direct SNP pfiles ==="
+    bash "${SCRIPT_DIR}/extract_direct_snps.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 3c: Merge direct-SNP pfiles into one bfile
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 3c: Merge direct SNP bfile ==="
+    bash "${SCRIPT_DIR}/make_direct_bfile.sh"
+fi
 
 echo ""
 echo "=== Pipeline complete ==="

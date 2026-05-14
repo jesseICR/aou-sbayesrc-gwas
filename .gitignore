@@ -4,6 +4,8 @@ data/
 logs/
 scrap/
 
+AGENTS.md
 CLAUDE.md
+
 .ipynb_checkpoints/
 nohup.out
