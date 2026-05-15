@@ -5,7 +5,7 @@ holding the ~7.35 M SBayesRC SNPs from the All of Us v8 ACAF WGS callset, with
 the variant `ID` column populated with SBayesRC rsids. It also builds the
 ~501k direct-SNP bfile used as the REGENIE step-1 marker backbone, plus a
 higher-quality direct-SNP bfile filtered with AoU EUR frequency/missingness
-metrics.
+metrics, and runs ADMIXTURE K=6 ancestry projection.
 
 The pipeline **must be run from inside an AoU Verily Jupyter session
 terminal** (the standard interactive analysis environment on the All of Us
@@ -47,6 +47,7 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile/chr1_22_merged.{bed,bim,fam}
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.{bed,bim,fam}
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.filter_summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.sample_missingness_summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/aou_admixture_k6.tsv
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
@@ -54,8 +55,8 @@ biallelic_total / extracted / out_samples / missing / remapped / unmapped`
 for that chromosome. A combined summary across all processed chromosomes is
 also written to `logs/sbayesrc_extract_summary.tsv` at the end of each run.
 
-Downstream UKBB-analog steps after the direct-SNP bfiles (kinship, ADMIXTURE,
-PCA, REGENIE phenotype setup) are not yet ported — see
+Downstream UKBB-analog steps after ADMIXTURE (kinship, PCA, REGENIE phenotype
+setup) are not yet ported — see
 `reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full target pipeline
 (gitignored locally; cloned for reference).
 
@@ -178,6 +179,65 @@ chr1_22_merged_hq.sample_missingness_eur.smiss
 chr1_22_merged_hq.sample_missingness_summary.tsv
 ```
 
+### Step 5 — ADMIXTURE K=6 projection
+
+ADMIXTURE projection starts from the high-quality direct bfile:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq
+```
+
+`admixture_prep.sh` downloads two public inputs if they are not already cached
+locally under gitignored paths: the ADMIXTURE Linux binary and the K=6 global
+reference allele-frequency TSV from `public-statgen`. It stages those files to
+the workspace bucket for Batch workers.
+
+The prep worker then:
+
+```text
+1. computes all-sample variant missingness on the HQ direct bfile
+2. keeps SNPs with all-sample missingness <= 0.05
+3. intersects those SNPs with the K=6 reference SNPs
+4. extracts the overlap into an ADMIXTURE-specific bfile
+5. aligns PLINK BIM alleles to the reference frequencies
+6. writes the aligned bfile plus ref_aligned.P
+```
+
+The all-sample missingness filter is specific to ADMIXTURE projection. It does
+not modify the REGENIE Step-1 HQ direct bfile on disk.
+
+Outputs from prep are written to:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/scrap/aou_admixture_aligned.{bed,bim,fam}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/scrap/ref_aligned.P
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/scrap/admixture_prep_summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/scrap/admixture_align_log.txt
+```
+
+`admixture_split_batches.sh` splits the aligned bfile into batches of 20,000
+people and copies `ref_aligned.P` to each batch as `batch_NNN.6.P.in`, which is
+the filename ADMIXTURE expects in projection mode.
+
+`admixture_run_projection.sh` submits one dsub task per missing batch Q file,
+runs:
+
+```text
+admixture -j$(nproc) -P batch_NNN.bed 6
+```
+
+and concatenates the per-batch Q files into:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/aou_admixture_k6.tsv
+```
+
+The final TSV columns are:
+
+```text
+FID IID European East_Asian American African South_Asian Oceanian
+```
+
 ## Prerequisites
 
 You are inside an AoU Verily Jupyter session terminal (the standard
@@ -196,6 +256,9 @@ The session provides everything the pipeline needs:
   The orchestrator stages this binary to the workspace bucket once, and each
   Batch worker `--input`s it back.
 - **`dsub`** preinstalled at `/opt/conda/envs/jupyter/bin/dsub`.
+- **Internet access from the Jupyter pod** for public reference downloads.
+  Batch workers use private networking, so the orchestrator downloads public
+  ADMIXTURE inputs and stages them to the workspace bucket.
 - **gcloud Application Default Credentials** (run `gcloud auth
   application-default login` once if `gcloud storage` or dsub return auth
   errors).
@@ -249,6 +312,9 @@ repo and run it as-is.
   bfile, and sample-missingness summary already exist with matching thresholds
   and expected variant counts. The EUR frequency/missingness metrics are also
   skipped when their output line counts match the raw direct bfile.
+- Step 5 skips ADMIXTURE prep, split, projection batches, and final concat
+  independently when their parameter files and expected row counts match.
+  Projection only submits missing or stale batch `.Q` files.
 
 A re-run of `get_genotypes.sh` after a successful run should skip every step
 and submit zero dsub tasks.
@@ -270,6 +336,14 @@ and submit zero dsub tasks.
 | `dsub_hq_direct_metrics_worker.sh` | Step 4 metrics worker — computes EUR allele frequencies and variant missingness on the raw direct bfile. |
 | `filter_hq_direct_snps.py` | Step 4 local filter builder — joins EUR metrics to SBayesRC liftover frequencies and writes the ordered filter summary, variant QC table, and final extract list. |
 | `dsub_hq_direct_bfile_worker.sh` | Step 4 bfile worker — extracts the passing variants, writes `chr1_22_merged_hq.{bed,bim,fam}`, and computes sample missingness over the final variant set. |
+| `admixture_prep.sh` | Step 5a — stages ADMIXTURE inputs and submits the prep/alignment worker. |
+| `dsub_admixture_prep_worker.sh` | Step 5a worker — applies all-sample `geno <= 0.05`, intersects reference SNPs, aligns alleles, and writes `aou_admixture_aligned` plus `ref_aligned.P`. |
+| `admixture_align_alleles.py` | Step 5a reference helper — readable/testable Python version of the allele-alignment logic; the Batch worker uses an inline awk implementation to avoid depending on python inside the worker image. |
+| `admixture_split_batches.sh` | Step 5b — submits the batch-splitting worker. |
+| `dsub_admixture_split_worker.sh` | Step 5b worker — creates 20,000-person batch bfiles and per-batch `.P.in` files. |
+| `admixture_run_projection.sh` | Step 5c — submits projection tasks and the final concat job. |
+| `dsub_admixture_project_worker.sh` | Step 5c worker — runs ADMIXTURE `-P` for one batch and verifies Q row counts. |
+| `dsub_admixture_concat_worker.sh` | Step 5c worker — concatenates batch Q files and writes `aou_admixture_k6.tsv`. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
 | `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |

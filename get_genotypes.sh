@@ -17,6 +17,8 @@
 #      chr1..22 into direct_bfile/chr1_22_merged.{bed,bim,fam}.
 #   4. Build a higher-quality direct bfile by filtering direct SNPs on AoU
 #      EUR-only ALT-frequency concordance, EUR MAF, and EUR missingness.
+#   5. Run ADMIXTURE K=6 projection from the HQ direct bfile, with an
+#      ADMIXTURE-specific all-sample missingness filter and allele alignment.
 #
 # Idempotent: each step checks for existing outputs and skips if already done.
 #
@@ -69,12 +71,20 @@ export DX_WGS_PFILE_DIR="${DX_OUTPUT_DIR}/wgs_pfiles"
 export DX_DIRECT_PFILE_DIR="${DX_OUTPUT_DIR}/direct_pfiles"
 export DX_DIRECT_BFILE_DIR="${DX_OUTPUT_DIR}/direct_bfile"
 export DX_HQ_DIRECT_BFILE_DIR="${DX_OUTPUT_DIR}/direct_bfile_hq"
+export DX_STATGEN_DIR="${DX_OUTPUT_DIR}/statgen"
+export DX_ADMIXTURE_SCRAP_DIR="${DX_OUTPUT_DIR}/statgen/scrap"
+export DX_ADMIXTURE_BATCH_DIR="${DX_OUTPUT_DIR}/statgen/scrap/batches"
+export DX_ADMIXTURE_Q_DIR="${DX_OUTPUT_DIR}/statgen/scrap/q"
 export DX_LOGS_DIR="${DX_OUTPUT_DIR}/logs"
 # gs:// path for `gcloud storage cp` (large-pfile uploads — bypasses gcsfuse).
 export DX_WGS_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/wgs_pfiles"
 export DX_DIRECT_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/direct_pfiles"
 export DX_DIRECT_BFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/direct_bfile"
 export DX_HQ_DIRECT_BFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/direct_bfile_hq"
+export DX_STATGEN_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen"
+export DX_ADMIXTURE_SCRAP_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap"
+export DX_ADMIXTURE_BATCH_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap/batches"
+export DX_ADMIXTURE_Q_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap/q"
 
 # Local paths
 export LOCAL_SBAYESRC_ID_DIR="${SCRIPT_DIR}/data/sbayesrc_ids"
@@ -83,10 +93,13 @@ export LOCAL_DIRECT_SNPS_DIR="${SCRIPT_DIR}/data/support/direct_snps"
 export LOCAL_DIRECT_SNPS_FILE="${LOCAL_DIRECT_SNPS_DIR}/ukbb_500k_qc_pass_direct_snps.txt"
 export LOCAL_DIRECT_PREP_DIR="${SCRIPT_DIR}/data/direct_snps"
 export LOCAL_HQ_DIRECT_DIR="${SCRIPT_DIR}/data/high_quality_direct"
+export LOCAL_ADMIXTURE_DIR="${SCRIPT_DIR}/data/admixture"
 export ALIGNMENT_FILE="${SCRIPT_DIR}/data/support/sbayesrc_hg38.csv"
 export SBAYESRC_LIFTOVER_FILE="${SCRIPT_DIR}/data/support/sbayesrc_liftover_results.csv"
 export DIRECT_SNPS_URL="https://raw.githubusercontent.com/jesseICR/ukbb-sbayesrc-gwas/main/data/support/direct_snps/ukbb_500k_qc_pass_direct_snps.txt"
 export SBAYESRC_LIFTOVER_URL="https://github.com/jesseICR/sbayesrc-liftover/releases/download/v1.0/sbayesrc_liftover_results.csv"
+export ADMIXTURE_TSV_URL="https://raw.githubusercontent.com/jesseICR/public-statgen/main/outputs/admixture-global-6/admixture_allele_freqs.tsv"
+export ADMIXTURE_DOWNLOAD_URL="https://dalexander.github.io/admixture/binaries/admixture_linux-1.3.0.tar.gz"
 
 # AoU computed ancestry predictions; used to make the EUR keep-list for
 # direct-SNP QC metrics. This file stays inside the AoU environment.
@@ -96,6 +109,11 @@ export AOU_ANCESTRY_PRED_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/
 export HQ_AF_DIFF_MAX="${HQ_AF_DIFF_MAX:-0.04}"          # absolute ALT-frequency difference
 export HQ_EUR_MAF_MIN="${HQ_EUR_MAF_MIN:-0.007}"        # AoU EUR MAF >= 0.7%
 export HQ_EUR_MISSING_MAX="${HQ_EUR_MISSING_MAX:-0.05}" # AoU EUR variant missingness <= 5%
+
+# ADMIXTURE K=6 projection settings.
+export ADMIXTURE_K="${ADMIXTURE_K:-6}"
+export ADMIXTURE_BATCH_SIZE="${ADMIXTURE_BATCH_SIZE:-20000}"
+export ADMIXTURE_GENO_MAX="${ADMIXTURE_GENO_MAX:-0.05}" # all-sample variant missingness <= 5%
 
 # Tools — plink2 is preinstalled on the AoU Verily Jupyter VM.
 export PLINK2="${PLINK2:-/opt/workbench-tools/binaries/bin/plink2}"
@@ -142,6 +160,24 @@ export HQ_DIRECT_DSUB_MIN_RAM="${HQ_DIRECT_DSUB_MIN_RAM:-32}"
 export HQ_DIRECT_DSUB_DISK_SIZE="${HQ_DIRECT_DSUB_DISK_SIZE:-300}"
 export HQ_DIRECT_DSUB_DISK_TYPE="${HQ_DIRECT_DSUB_DISK_TYPE:-pd-ssd}"
 
+# ADMIXTURE prep/split scan large bfiles; projection runs small independent batches.
+export ADMIXTURE_PREP_DSUB_MIN_CORES="${ADMIXTURE_PREP_DSUB_MIN_CORES:-8}"
+export ADMIXTURE_PREP_DSUB_MIN_RAM="${ADMIXTURE_PREP_DSUB_MIN_RAM:-32}"
+export ADMIXTURE_PREP_DSUB_DISK_SIZE="${ADMIXTURE_PREP_DSUB_DISK_SIZE:-300}"
+export ADMIXTURE_PREP_DSUB_DISK_TYPE="${ADMIXTURE_PREP_DSUB_DISK_TYPE:-pd-ssd}"
+export ADMIXTURE_SPLIT_DSUB_MIN_CORES="${ADMIXTURE_SPLIT_DSUB_MIN_CORES:-8}"
+export ADMIXTURE_SPLIT_DSUB_MIN_RAM="${ADMIXTURE_SPLIT_DSUB_MIN_RAM:-32}"
+export ADMIXTURE_SPLIT_DSUB_DISK_SIZE="${ADMIXTURE_SPLIT_DSUB_DISK_SIZE:-300}"
+export ADMIXTURE_SPLIT_DSUB_DISK_TYPE="${ADMIXTURE_SPLIT_DSUB_DISK_TYPE:-pd-ssd}"
+export ADMIXTURE_PROJECT_DSUB_MIN_CORES="${ADMIXTURE_PROJECT_DSUB_MIN_CORES:-8}"
+export ADMIXTURE_PROJECT_DSUB_MIN_RAM="${ADMIXTURE_PROJECT_DSUB_MIN_RAM:-16}"
+export ADMIXTURE_PROJECT_DSUB_DISK_SIZE="${ADMIXTURE_PROJECT_DSUB_DISK_SIZE:-100}"
+export ADMIXTURE_PROJECT_DSUB_DISK_TYPE="${ADMIXTURE_PROJECT_DSUB_DISK_TYPE:-pd-ssd}"
+export ADMIXTURE_CONCAT_DSUB_MIN_CORES="${ADMIXTURE_CONCAT_DSUB_MIN_CORES:-2}"
+export ADMIXTURE_CONCAT_DSUB_MIN_RAM="${ADMIXTURE_CONCAT_DSUB_MIN_RAM:-8}"
+export ADMIXTURE_CONCAT_DSUB_DISK_SIZE="${ADMIXTURE_CONCAT_DSUB_DISK_SIZE:-50}"
+export ADMIXTURE_CONCAT_DSUB_DISK_TYPE="${ADMIXTURE_CONCAT_DSUB_DISK_TYPE:-pd-ssd}"
+
 # Worker-staging paths on the workspace bucket
 export DSUB_BIN_URI="${WORKSPACE_BUCKET_URI}/bin"
 export DSUB_PLINK2_GS="${DSUB_BIN_URI}/plink2"
@@ -174,6 +210,7 @@ mkdir -p \
     "${LOCAL_DIRECT_SNPS_DIR}" \
     "${LOCAL_DIRECT_PREP_DIR}" \
     "${LOCAL_HQ_DIRECT_DIR}" \
+    "${LOCAL_ADMIXTURE_DIR}" \
     "${LOCAL_SBAYESRC_ID_DIR}" \
     "${LOCAL_WGS_PFILE_DIR}" \
     "${SCRIPT_DIR}/logs/extract" \
@@ -183,6 +220,10 @@ mkdir -p \
     "${DX_DIRECT_PFILE_DIR}" \
     "${DX_DIRECT_BFILE_DIR}" \
     "${DX_HQ_DIRECT_BFILE_DIR}" \
+    "${DX_STATGEN_DIR}" \
+    "${DX_ADMIXTURE_SCRAP_DIR}" \
+    "${DX_ADMIXTURE_BATCH_DIR}" \
+    "${DX_ADMIXTURE_Q_DIR}" \
     "${DX_LOGS_DIR}"
 
 # ---------------------------------------------------------------------------
@@ -202,6 +243,7 @@ echo "  DX_OUTPUT_DIR        = ${DX_OUTPUT_DIR}"
 echo "  LOCAL_WGS_PFILE_DIR  = ${LOCAL_WGS_PFILE_DIR}"
 echo "  LOCAL_DIRECT_SNPS    = ${LOCAL_DIRECT_SNPS_FILE}"
 echo "  LOCAL_HQ_DIRECT_DIR  = ${LOCAL_HQ_DIRECT_DIR}"
+echo "  LOCAL_ADMIXTURE_DIR  = ${LOCAL_ADMIXTURE_DIR}"
 echo "  PLINK2               = ${PLINK2} ($("${PLINK2}" --version 2>&1 | head -1))"
 echo "  THREADS              = ${THREADS}"
 echo "  LOG_FILE             = ${LOG_FILE}"
@@ -213,6 +255,9 @@ echo "  DSUB worker resources= ${DSUB_MIN_CORES} vCPU, ${DSUB_MIN_RAM} GB RAM, $
 echo "  DIRECT_BFILE worker = ${DIRECT_BFILE_DSUB_MIN_CORES} vCPU, ${DIRECT_BFILE_DSUB_MIN_RAM} GB RAM, ${DIRECT_BFILE_DSUB_DISK_SIZE} GB ${DIRECT_BFILE_DSUB_DISK_TYPE}"
 echo "  HQ_DIRECT thresholds = |AoU_EUR_AF - SBayesRC_AF| <= ${HQ_AF_DIFF_MAX}, EUR MAF >= ${HQ_EUR_MAF_MIN}, EUR missingness <= ${HQ_EUR_MISSING_MAX}"
 echo "  HQ_DIRECT worker     = ${HQ_DIRECT_DSUB_MIN_CORES} vCPU, ${HQ_DIRECT_DSUB_MIN_RAM} GB RAM, ${HQ_DIRECT_DSUB_DISK_SIZE} GB ${HQ_DIRECT_DSUB_DISK_TYPE}"
+echo "  ADMIXTURE settings   = K=${ADMIXTURE_K}, batch_size=${ADMIXTURE_BATCH_SIZE}, source=direct_bfile_hq, all-sample geno <= ${ADMIXTURE_GENO_MAX}"
+echo "  ADMIXTURE prep/split = ${ADMIXTURE_PREP_DSUB_MIN_CORES}/${ADMIXTURE_SPLIT_DSUB_MIN_CORES} vCPU, ${ADMIXTURE_PREP_DSUB_MIN_RAM}/${ADMIXTURE_SPLIT_DSUB_MIN_RAM} GB RAM, ${ADMIXTURE_PREP_DSUB_DISK_SIZE}/${ADMIXTURE_SPLIT_DSUB_DISK_SIZE} GB disk"
+echo "  ADMIXTURE project    = ${ADMIXTURE_PROJECT_DSUB_MIN_CORES} vCPU, ${ADMIXTURE_PROJECT_DSUB_MIN_RAM} GB RAM, ${ADMIXTURE_PROJECT_DSUB_DISK_SIZE} GB ${ADMIXTURE_PROJECT_DSUB_DISK_TYPE}"
 if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
     echo "  SBAYESRC_TEST_CHROM  = ${SBAYESRC_TEST_CHROM}  (smoke-test mode)"
 fi
@@ -317,6 +362,21 @@ else
     echo ""
     echo "=== Step 4: Build high-quality direct SNP bfile ==="
     bash "${SCRIPT_DIR}/make_hq_direct_bfile.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 5: ADMIXTURE K=6 projection
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 5a: Prepare ADMIXTURE projection inputs ==="
+    bash "${SCRIPT_DIR}/admixture_prep.sh"
+
+    echo ""
+    echo "=== Step 5b: Split ADMIXTURE batches ==="
+    bash "${SCRIPT_DIR}/admixture_split_batches.sh"
+
+    echo ""
+    echo "=== Step 5c: Run ADMIXTURE projection ==="
+    bash "${SCRIPT_DIR}/admixture_run_projection.sh"
 fi
 
 echo ""

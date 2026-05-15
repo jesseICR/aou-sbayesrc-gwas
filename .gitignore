@@ -3,6 +3,8 @@ reference/
 data/
 logs/
 scrap/
+tools/
+__pycache__/
 
 AGENTS.md
 CLAUDE.md
