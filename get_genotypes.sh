@@ -4,7 +4,7 @@
 # Runs interactively in an AoU Verily Jupyter terminal. Reads the locally
 # FUSE-mounted controlled-tier dataset (read-only) and writes per-chromosome
 # PLINK2 pfiles holding the ~7.35M SBayesRC SNPs to the locally FUSE-mounted
-# workspace bucket (read-write), then builds the direct-SNP bfile used by
+# workspace bucket (read-write), then builds direct-SNP bfiles used by
 # REGENIE step 1.
 #
 # Steps:
@@ -15,6 +15,8 @@
 #   3. Prepare/extract the UKBB direct-SNP set from the extracted pfiles,
 #      track absent direct SNPs for reporting, then merge present SNPs across
 #      chr1..22 into direct_bfile/chr1_22_merged.{bed,bim,fam}.
+#   4. Build a higher-quality direct bfile by filtering direct SNPs on AoU
+#      EUR-only ALT-frequency concordance, EUR MAF, and EUR missingness.
 #
 # Idempotent: each step checks for existing outputs and skips if already done.
 #
@@ -66,11 +68,13 @@ export DX_SBAYESRC_ID_DIR="${DX_OUTPUT_DIR}/sbayesrc_ids"
 export DX_WGS_PFILE_DIR="${DX_OUTPUT_DIR}/wgs_pfiles"
 export DX_DIRECT_PFILE_DIR="${DX_OUTPUT_DIR}/direct_pfiles"
 export DX_DIRECT_BFILE_DIR="${DX_OUTPUT_DIR}/direct_bfile"
+export DX_HQ_DIRECT_BFILE_DIR="${DX_OUTPUT_DIR}/direct_bfile_hq"
 export DX_LOGS_DIR="${DX_OUTPUT_DIR}/logs"
 # gs:// path for `gcloud storage cp` (large-pfile uploads — bypasses gcsfuse).
 export DX_WGS_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/wgs_pfiles"
 export DX_DIRECT_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/direct_pfiles"
 export DX_DIRECT_BFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/direct_bfile"
+export DX_HQ_DIRECT_BFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/direct_bfile_hq"
 
 # Local paths
 export LOCAL_SBAYESRC_ID_DIR="${SCRIPT_DIR}/data/sbayesrc_ids"
@@ -78,8 +82,20 @@ export LOCAL_WGS_PFILE_DIR="${SCRIPT_DIR}/data/wgs_pfiles"
 export LOCAL_DIRECT_SNPS_DIR="${SCRIPT_DIR}/data/support/direct_snps"
 export LOCAL_DIRECT_SNPS_FILE="${LOCAL_DIRECT_SNPS_DIR}/ukbb_500k_qc_pass_direct_snps.txt"
 export LOCAL_DIRECT_PREP_DIR="${SCRIPT_DIR}/data/direct_snps"
+export LOCAL_HQ_DIRECT_DIR="${SCRIPT_DIR}/data/high_quality_direct"
 export ALIGNMENT_FILE="${SCRIPT_DIR}/data/support/sbayesrc_hg38.csv"
+export SBAYESRC_LIFTOVER_FILE="${SCRIPT_DIR}/data/support/sbayesrc_liftover_results.csv"
 export DIRECT_SNPS_URL="https://raw.githubusercontent.com/jesseICR/ukbb-sbayesrc-gwas/main/data/support/direct_snps/ukbb_500k_qc_pass_direct_snps.txt"
+export SBAYESRC_LIFTOVER_URL="https://github.com/jesseICR/sbayesrc-liftover/releases/download/v1.0/sbayesrc_liftover_results.csv"
+
+# AoU computed ancestry predictions; used to make the EUR keep-list for
+# direct-SNP QC metrics. This file stays inside the AoU environment.
+export AOU_ANCESTRY_PRED_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/ancestry/echo_v4_r2.ancestry_preds.tsv"
+
+# High-quality direct-bfile thresholds.
+export HQ_AF_DIFF_MAX="${HQ_AF_DIFF_MAX:-0.04}"          # absolute ALT-frequency difference
+export HQ_EUR_MAF_MIN="${HQ_EUR_MAF_MIN:-0.007}"        # AoU EUR MAF >= 0.7%
+export HQ_EUR_MISSING_MAX="${HQ_EUR_MISSING_MAX:-0.05}" # AoU EUR variant missingness <= 5%
 
 # Tools — plink2 is preinstalled on the AoU Verily Jupyter VM.
 export PLINK2="${PLINK2:-/opt/workbench-tools/binaries/bin/plink2}"
@@ -120,6 +136,12 @@ export DIRECT_BFILE_DSUB_MIN_RAM="${DIRECT_BFILE_DSUB_MIN_RAM:-32}"
 export DIRECT_BFILE_DSUB_DISK_SIZE="${DIRECT_BFILE_DSUB_DISK_SIZE:-300}"
 export DIRECT_BFILE_DSUB_DISK_TYPE="${DIRECT_BFILE_DSUB_DISK_TYPE:-pd-ssd}"
 
+# High-quality direct-bfile jobs scan/build a single large bfile.
+export HQ_DIRECT_DSUB_MIN_CORES="${HQ_DIRECT_DSUB_MIN_CORES:-8}"
+export HQ_DIRECT_DSUB_MIN_RAM="${HQ_DIRECT_DSUB_MIN_RAM:-32}"
+export HQ_DIRECT_DSUB_DISK_SIZE="${HQ_DIRECT_DSUB_DISK_SIZE:-300}"
+export HQ_DIRECT_DSUB_DISK_TYPE="${HQ_DIRECT_DSUB_DISK_TYPE:-pd-ssd}"
+
 # Worker-staging paths on the workspace bucket
 export DSUB_BIN_URI="${WORKSPACE_BUCKET_URI}/bin"
 export DSUB_PLINK2_GS="${DSUB_BIN_URI}/plink2"
@@ -151,6 +173,7 @@ mkdir -p \
     "${SCRIPT_DIR}/data/support" \
     "${LOCAL_DIRECT_SNPS_DIR}" \
     "${LOCAL_DIRECT_PREP_DIR}" \
+    "${LOCAL_HQ_DIRECT_DIR}" \
     "${LOCAL_SBAYESRC_ID_DIR}" \
     "${LOCAL_WGS_PFILE_DIR}" \
     "${SCRIPT_DIR}/logs/extract" \
@@ -159,6 +182,7 @@ mkdir -p \
     "${DX_WGS_PFILE_DIR}" \
     "${DX_DIRECT_PFILE_DIR}" \
     "${DX_DIRECT_BFILE_DIR}" \
+    "${DX_HQ_DIRECT_BFILE_DIR}" \
     "${DX_LOGS_DIR}"
 
 # ---------------------------------------------------------------------------
@@ -177,6 +201,7 @@ echo "  AOU_PGEN_DIR         = ${AOU_PGEN_DIR}"
 echo "  DX_OUTPUT_DIR        = ${DX_OUTPUT_DIR}"
 echo "  LOCAL_WGS_PFILE_DIR  = ${LOCAL_WGS_PFILE_DIR}"
 echo "  LOCAL_DIRECT_SNPS    = ${LOCAL_DIRECT_SNPS_FILE}"
+echo "  LOCAL_HQ_DIRECT_DIR  = ${LOCAL_HQ_DIRECT_DIR}"
 echo "  PLINK2               = ${PLINK2} ($("${PLINK2}" --version 2>&1 | head -1))"
 echo "  THREADS              = ${THREADS}"
 echo "  LOG_FILE             = ${LOG_FILE}"
@@ -186,6 +211,8 @@ echo "  DSUB_PET_SA          = ${DSUB_PET_SA}"
 echo "  DSUB_IMAGE           = ${DSUB_IMAGE}"
 echo "  DSUB worker resources= ${DSUB_MIN_CORES} vCPU, ${DSUB_MIN_RAM} GB RAM, ${DSUB_BOOT_DISK_SIZE}+${DSUB_DISK_SIZE} GB disk per task"
 echo "  DIRECT_BFILE worker = ${DIRECT_BFILE_DSUB_MIN_CORES} vCPU, ${DIRECT_BFILE_DSUB_MIN_RAM} GB RAM, ${DIRECT_BFILE_DSUB_DISK_SIZE} GB ${DIRECT_BFILE_DSUB_DISK_TYPE}"
+echo "  HQ_DIRECT thresholds = |AoU_EUR_AF - SBayesRC_AF| <= ${HQ_AF_DIFF_MAX}, EUR MAF >= ${HQ_EUR_MAF_MIN}, EUR missingness <= ${HQ_EUR_MISSING_MAX}"
+echo "  HQ_DIRECT worker     = ${HQ_DIRECT_DSUB_MIN_CORES} vCPU, ${HQ_DIRECT_DSUB_MIN_RAM} GB RAM, ${HQ_DIRECT_DSUB_DISK_SIZE} GB ${HQ_DIRECT_DSUB_DISK_TYPE}"
 if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
     echo "  SBAYESRC_TEST_CHROM  = ${SBAYESRC_TEST_CHROM}  (smoke-test mode)"
 fi
@@ -223,6 +250,19 @@ else
     echo "  Downloading direct SNP list ..."
     curl -fsSL -o "${LOCAL_DIRECT_SNPS_FILE}" "${DIRECT_SNPS_URL}"
     echo "  Downloaded ($(wc -l < "${LOCAL_DIRECT_SNPS_FILE}") lines)"
+fi
+
+# ---------------------------------------------------------------------------
+# Setup: SBayesRC liftover/frequency file (public reference data)
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Setup: SBayesRC liftover frequency file ==="
+if [[ -s "${SBAYESRC_LIFTOVER_FILE}" ]]; then
+    echo "  Already cached at ${SBAYESRC_LIFTOVER_FILE} ($(wc -l < "${SBAYESRC_LIFTOVER_FILE}") lines) — skipping download"
+else
+    echo "  Downloading sbayesrc_liftover_results.csv ..."
+    curl -fL --retry 3 --retry-delay 5 -o "${SBAYESRC_LIFTOVER_FILE}" "${SBAYESRC_LIFTOVER_URL}"
+    echo "  Downloaded ($(wc -l < "${SBAYESRC_LIFTOVER_FILE}") lines)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -270,6 +310,13 @@ else
     echo ""
     echo "=== Step 3c: Merge direct SNP bfile ==="
     bash "${SCRIPT_DIR}/make_direct_bfile.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 4: Build high-quality direct-SNP bfile
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 4: Build high-quality direct SNP bfile ==="
+    bash "${SCRIPT_DIR}/make_hq_direct_bfile.sh"
 fi
 
 echo ""

@@ -3,7 +3,9 @@
 A reproducible, idempotent pipeline that builds per-chromosome PLINK2 pfiles
 holding the ~7.35 M SBayesRC SNPs from the All of Us v8 ACAF WGS callset, with
 the variant `ID` column populated with SBayesRC rsids. It also builds the
-~501k direct-SNP bfile used as the REGENIE step-1 marker backbone.
+~501k direct-SNP bfile used as the REGENIE step-1 marker backbone, plus a
+higher-quality direct-SNP bfile filtered with AoU EUR frequency/missingness
+metrics.
 
 The pipeline **must be run from inside an AoU Verily Jupyter session
 terminal** (the standard interactive analysis environment on the All of Us
@@ -42,6 +44,9 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/wgs_pfiles/chr{1..22}.{pgen,pvar,psam}
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/wgs_pfiles/chr{1..22}.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_pfiles/chr{1..22}.{pgen,pvar,psam}
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile/chr1_22_merged.{bed,bim,fam}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.{bed,bim,fam}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.filter_summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.sample_missingness_summary.tsv
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
@@ -49,7 +54,7 @@ biallelic_total / extracted / out_samples / missing / remapped / unmapped`
 for that chromosome. A combined summary across all processed chromosomes is
 also written to `logs/sbayesrc_extract_summary.tsv` at the end of each run.
 
-Downstream UKBB-analog steps after the direct-SNP bfile (kinship, ADMIXTURE,
+Downstream UKBB-analog steps after the direct-SNP bfiles (kinship, ADMIXTURE,
 PCA, REGENIE phenotype setup) are not yet ported — see
 `reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full target pipeline
 (gitignored locally; cloned for reference).
@@ -113,6 +118,65 @@ the 22 direct pfiles into
 The merged bfile contains the direct SNPs present in the AoU extracted pfiles;
 absent SNPs are not encoded as all-missing variants. The merged bfile is
 intended for REGENIE step 1.
+
+### Step 4 — Higher-quality direct-SNP bfile
+
+`get_genotypes.sh` downloads `sbayesrc_liftover_results.csv` from the public
+SBayesRC liftover release if it is not already cached locally. This file
+contains `A1_hg38`, `A2_hg38`, and `A1Freq`, which Step 4 converts to the
+SBayesRC hg38 ALT-allele frequency after matching against the AoU direct bfile
+REF/ALT alleles.
+
+`make_hq_direct_bfile.sh` builds an AoU EUR keep-list from AoU's computed
+ancestry predictions (`ancestry_pred == eur`) and the direct-bfile `.fam`.
+It then submits a dsub metrics job that runs plink2 on the raw direct bfile
+with that EUR keep-list:
+
+```text
+plink2 --bfile chr1_22_merged --keep aou_eur.keep --freq --missing variant-only
+```
+
+The local filter builder (`filter_hq_direct_snps.py`) then applies these
+filters in order:
+
+```text
+1. original UKBB direct-SNP rsid list
+2. present in the AoU direct bfile
+3. SBayesRC liftover ALT frequency is available and alleles match
+4. abs(AoU EUR ALT frequency - SBayesRC ALT frequency) <= 0.04
+5. AoU EUR MAF >= 0.007
+6. AoU EUR variant missingness <= 0.05
+```
+
+The ordered count log is written to:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.filter_summary.tsv
+```
+
+The per-variant QC table and final rsid extract list are written alongside it:
+
+```text
+chr1_22_merged_hq.variant_qc.tsv
+chr1_22_merged_hq.extract.txt
+```
+
+Finally, a second dsub job extracts the passing variants from the raw direct
+bfile and writes:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.{bed,bim,fam}
+```
+
+The final high-quality bfile keeps the same samples as the raw direct bfile;
+only variants are filtered. The worker also computes sample missingness over
+the final variant set for all samples and for the AoU EUR keep-list:
+
+```text
+chr1_22_merged_hq.sample_missingness_all.smiss
+chr1_22_merged_hq.sample_missingness_eur.smiss
+chr1_22_merged_hq.sample_missingness_summary.tsv
+```
 
 ## Prerequisites
 
@@ -181,6 +245,10 @@ repo and run it as-is.
   workspace bucket mount — no API call needed for the skip check).
 - Step 3 skips direct pfiles and the merged direct bfile when they already
   exist with the expected variant counts.
+- Step 4 skips the high-quality direct bfile when its parameter file, summary,
+  bfile, and sample-missingness summary already exist with matching thresholds
+  and expected variant counts. The EUR frequency/missingness metrics are also
+  skipped when their output line counts match the raw direct bfile.
 
 A re-run of `get_genotypes.sh` after a successful run should skip every step
 and submit zero dsub tasks.
@@ -198,6 +266,10 @@ and submit zero dsub tasks.
 | `extract_direct_snps.sh` | Step 3b — extracts present direct SNPs from WGS pfiles. |
 | `make_direct_bfile.sh` | Step 3c — submits/verifies the direct-bfile dsub merge. |
 | `dsub_direct_bfile_worker.sh` | Per-Batch-worker script — merges direct pfiles into a sorted intermediate pgen, converts to `chr1_22_merged.{bed,bim,fam}`, and writes a summary. |
+| `make_hq_direct_bfile.sh` | Step 4 — creates the AoU EUR keep-list, submits EUR frequency/missingness metrics, applies high-quality direct-SNP filters, builds the final filtered bfile, and verifies outputs. |
+| `dsub_hq_direct_metrics_worker.sh` | Step 4 metrics worker — computes EUR allele frequencies and variant missingness on the raw direct bfile. |
+| `filter_hq_direct_snps.py` | Step 4 local filter builder — joins EUR metrics to SBayesRC liftover frequencies and writes the ordered filter summary, variant QC table, and final extract list. |
+| `dsub_hq_direct_bfile_worker.sh` | Step 4 bfile worker — extracts the passing variants, writes `chr1_22_merged_hq.{bed,bim,fam}`, and computes sample missingness over the final variant set. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
 | `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |
