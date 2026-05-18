@@ -5,7 +5,8 @@ holding the ~7.35 M SBayesRC SNPs from the All of Us v8 ACAF WGS callset, with
 the variant `ID` column populated with SBayesRC rsids. It also builds the
 ~501k direct-SNP bfile used as the REGENIE step-1 marker backbone, plus a
 higher-quality direct-SNP bfile filtered with AoU EUR frequency/missingness
-metrics, and runs ADMIXTURE K=6 ancestry projection.
+metrics, runs ADMIXTURE K=6 ancestry projection, and compares the resulting
+ancestry fractions to AoU-provided ancestry calls/fractions.
 
 The pipeline **must be run from inside an AoU Verily Jupyter session
 terminal** (the standard interactive analysis environment on the All of Us
@@ -48,6 +49,8 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.{bed,bi
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.filter_summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.sample_missingness_summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/aou_admixture_k6.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/europeans/classified_european_iids.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/aou_vs_ours/
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
@@ -55,8 +58,8 @@ biallelic_total / extracted / out_samples / missing / remapped / unmapped`
 for that chromosome. A combined summary across all processed chromosomes is
 also written to `logs/sbayesrc_extract_summary.tsv` at the end of each run.
 
-Downstream UKBB-analog steps after ADMIXTURE (kinship, PCA, REGENIE phenotype
-setup) are not yet ported — see
+Downstream UKBB-analog steps after ancestry comparison/classification
+(kinship, PCA, REGENIE phenotype setup) are not yet ported — see
 `reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full target pipeline
 (gitignored locally; cloned for reference).
 
@@ -238,6 +241,68 @@ The final TSV columns are:
 FID IID European East_Asian American African South_Asian Oceanian
 ```
 
+### Step 6 — AoU-vs-ours ancestry comparison and European classifier
+
+`compare_aou_ancestry.sh` compares this pipeline's ADMIXTURE K=6 fractions to
+AoU's v8 auxiliary ancestry outputs:
+
+```text
+aux/ancestry/echo_v4_r2.ancestry_preds.tsv
+aux/admixture_estimates/aou_admixture_estimates_rye_v8.Q
+```
+
+AoU's RYE fractions include `mid` for Middle Eastern ancestry. Our K=6
+projection uses the UKBB/public-statgen global model and has `Oceanian`
+instead of `mid`, so Step 6 treats MID as an AoU-specific component rather
+than forcing a one-to-one mapping.
+
+The European classifier mirrors the UKBB pipeline rule:
+
+```text
+European >= 0.8
+African <= 0.1
+American <= 0.1
+East_Asian <= 0.1
+Oceanian <= 0.1
+South_Asian: no cap
+```
+
+The PLINK keep-list for downstream EUR-only analyses is written to:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/europeans/classified_european_iids.txt
+```
+
+The AoU-vs-ours comparison directory is:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/aou_vs_ours/
+```
+
+Key summary outputs include:
+
+```text
+aou_vs_ours.summary.tsv
+component_pair_metrics.tsv
+component_correlation_matrix.tsv
+fraction_distribution_summary.tsv
+aou_pred_counts.tsv
+aou_pred_vs_ours_european_summary.tsv
+european_set_overlap_summary.tsv
+european_set_group_ancestry_summary.tsv
+discordant_set_component_summary.tsv
+european_set_group_counts_by_aou_pred.tsv
+aou_mid_threshold_summary.tsv
+aou_mid_threshold_component_summary.tsv
+aou_mid_bin_counts.tsv
+aou_mid_bin_component_summary.tsv
+```
+
+The comparison also writes plots under `aou_vs_ours/plots/`, including
+component scatter plots, ancestry-fraction distributions, a hard-call vs
+dominant-component heatmap, European set-overlap counts, discordant European
+call composition plots, and AoU MID-threshold composition plots.
+
 ## Prerequisites
 
 You are inside an AoU Verily Jupyter session terminal (the standard
@@ -315,6 +380,9 @@ repo and run it as-is.
 - Step 5 skips ADMIXTURE prep, split, projection batches, and final concat
   independently when their parameter files and expected row counts match.
   Projection only submits missing or stale batch `.Q` files.
+- Step 6 skips the AoU-vs-ours ancestry comparison when its parameter file,
+  summary tables, key plots, and European keep-list already exist with matching
+  input sizes and thresholds.
 
 A re-run of `get_genotypes.sh` after a successful run should skip every step
 and submit zero dsub tasks.
@@ -344,6 +412,8 @@ and submit zero dsub tasks.
 | `admixture_run_projection.sh` | Step 5c — submits projection tasks and the final concat job. |
 | `dsub_admixture_project_worker.sh` | Step 5c worker — runs ADMIXTURE `-P` for one batch and verifies Q row counts. |
 | `dsub_admixture_concat_worker.sh` | Step 5c worker — concatenates batch Q files and writes `aou_admixture_k6.tsv`. |
+| `compare_aou_ancestry.sh` | Step 6 — idempotent wrapper for the AoU-vs-ours ancestry comparison and European keep-list. |
+| `compare_aou_ancestry.py` | Step 6 helper — joins AoU hard ancestry calls, AoU RYE fractions, and our ADMIXTURE fractions; writes aggregate tables and plots. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
 | `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |

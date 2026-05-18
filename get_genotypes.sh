@@ -19,6 +19,8 @@
 #      EUR-only ALT-frequency concordance, EUR MAF, and EUR missingness.
 #   5. Run ADMIXTURE K=6 projection from the HQ direct bfile, with an
 #      ADMIXTURE-specific all-sample missingness filter and allele alignment.
+#   6. Compare our ADMIXTURE fractions to AoU-provided ancestry fractions and
+#      write the European keep-list used by downstream REGENIE steps.
 #
 # Idempotent: each step checks for existing outputs and skips if already done.
 #
@@ -75,6 +77,8 @@ export DX_STATGEN_DIR="${DX_OUTPUT_DIR}/statgen"
 export DX_ADMIXTURE_SCRAP_DIR="${DX_OUTPUT_DIR}/statgen/scrap"
 export DX_ADMIXTURE_BATCH_DIR="${DX_OUTPUT_DIR}/statgen/scrap/batches"
 export DX_ADMIXTURE_Q_DIR="${DX_OUTPUT_DIR}/statgen/scrap/q"
+export DX_AOU_VS_OURS_DIR="${DX_OUTPUT_DIR}/statgen/aou_vs_ours"
+export DX_EUROPEANS_DIR="${DX_OUTPUT_DIR}/europeans"
 export DX_LOGS_DIR="${DX_OUTPUT_DIR}/logs"
 # gs:// path for `gcloud storage cp` (large-pfile uploads — bypasses gcsfuse).
 export DX_WGS_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/wgs_pfiles"
@@ -94,6 +98,7 @@ export LOCAL_DIRECT_SNPS_FILE="${LOCAL_DIRECT_SNPS_DIR}/ukbb_500k_qc_pass_direct
 export LOCAL_DIRECT_PREP_DIR="${SCRIPT_DIR}/data/direct_snps"
 export LOCAL_HQ_DIRECT_DIR="${SCRIPT_DIR}/data/high_quality_direct"
 export LOCAL_ADMIXTURE_DIR="${SCRIPT_DIR}/data/admixture"
+export LOCAL_ANCESTRY_COMPARE_DIR="${SCRIPT_DIR}/data/ancestry_compare"
 export ALIGNMENT_FILE="${SCRIPT_DIR}/data/support/sbayesrc_hg38.csv"
 export SBAYESRC_LIFTOVER_FILE="${SCRIPT_DIR}/data/support/sbayesrc_liftover_results.csv"
 export DIRECT_SNPS_URL="https://raw.githubusercontent.com/jesseICR/ukbb-sbayesrc-gwas/main/data/support/direct_snps/ukbb_500k_qc_pass_direct_snps.txt"
@@ -104,6 +109,7 @@ export ADMIXTURE_DOWNLOAD_URL="https://dalexander.github.io/admixture/binaries/a
 # AoU computed ancestry predictions; used to make the EUR keep-list for
 # direct-SNP QC metrics. This file stays inside the AoU environment.
 export AOU_ANCESTRY_PRED_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/ancestry/echo_v4_r2.ancestry_preds.tsv"
+export AOU_ADMIXTURE_Q_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/admixture_estimates/aou_admixture_estimates_rye_v8.Q"
 
 # High-quality direct-bfile thresholds.
 export HQ_AF_DIFF_MAX="${HQ_AF_DIFF_MAX:-0.04}"          # absolute ALT-frequency difference
@@ -114,6 +120,14 @@ export HQ_EUR_MISSING_MAX="${HQ_EUR_MISSING_MAX:-0.05}" # AoU EUR variant missin
 export ADMIXTURE_K="${ADMIXTURE_K:-6}"
 export ADMIXTURE_BATCH_SIZE="${ADMIXTURE_BATCH_SIZE:-20000}"
 export ADMIXTURE_GENO_MAX="${ADMIXTURE_GENO_MAX:-0.05}" # all-sample variant missingness <= 5%
+
+# European classifier and AoU-vs-ours ancestry comparison settings.
+export OURS_EUR_MIN="${OURS_EUR_MIN:-0.8}"
+export OURS_AFR_MAX="${OURS_AFR_MAX:-0.1}"
+export OURS_AMR_MAX="${OURS_AMR_MAX:-0.1}"
+export OURS_EAS_MAX="${OURS_EAS_MAX:-0.1}"
+export OURS_OCE_MAX="${OURS_OCE_MAX:-0.1}"
+export AOU_MID_THRESHOLDS="${AOU_MID_THRESHOLDS:-0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2}"
 
 # Tools — plink2 is preinstalled on the AoU Verily Jupyter VM.
 export PLINK2="${PLINK2:-/opt/workbench-tools/binaries/bin/plink2}"
@@ -211,6 +225,7 @@ mkdir -p \
     "${LOCAL_DIRECT_PREP_DIR}" \
     "${LOCAL_HQ_DIRECT_DIR}" \
     "${LOCAL_ADMIXTURE_DIR}" \
+    "${LOCAL_ANCESTRY_COMPARE_DIR}" \
     "${LOCAL_SBAYESRC_ID_DIR}" \
     "${LOCAL_WGS_PFILE_DIR}" \
     "${SCRIPT_DIR}/logs/extract" \
@@ -224,6 +239,8 @@ mkdir -p \
     "${DX_ADMIXTURE_SCRAP_DIR}" \
     "${DX_ADMIXTURE_BATCH_DIR}" \
     "${DX_ADMIXTURE_Q_DIR}" \
+    "${DX_AOU_VS_OURS_DIR}" \
+    "${DX_EUROPEANS_DIR}" \
     "${DX_LOGS_DIR}"
 
 # ---------------------------------------------------------------------------
@@ -244,6 +261,7 @@ echo "  LOCAL_WGS_PFILE_DIR  = ${LOCAL_WGS_PFILE_DIR}"
 echo "  LOCAL_DIRECT_SNPS    = ${LOCAL_DIRECT_SNPS_FILE}"
 echo "  LOCAL_HQ_DIRECT_DIR  = ${LOCAL_HQ_DIRECT_DIR}"
 echo "  LOCAL_ADMIXTURE_DIR  = ${LOCAL_ADMIXTURE_DIR}"
+echo "  LOCAL_ANCESTRY_CMP   = ${LOCAL_ANCESTRY_COMPARE_DIR}"
 echo "  PLINK2               = ${PLINK2} ($("${PLINK2}" --version 2>&1 | head -1))"
 echo "  THREADS              = ${THREADS}"
 echo "  LOG_FILE             = ${LOG_FILE}"
@@ -258,6 +276,7 @@ echo "  HQ_DIRECT worker     = ${HQ_DIRECT_DSUB_MIN_CORES} vCPU, ${HQ_DIRECT_DSU
 echo "  ADMIXTURE settings   = K=${ADMIXTURE_K}, batch_size=${ADMIXTURE_BATCH_SIZE}, source=direct_bfile_hq, all-sample geno <= ${ADMIXTURE_GENO_MAX}"
 echo "  ADMIXTURE prep/split = ${ADMIXTURE_PREP_DSUB_MIN_CORES}/${ADMIXTURE_SPLIT_DSUB_MIN_CORES} vCPU, ${ADMIXTURE_PREP_DSUB_MIN_RAM}/${ADMIXTURE_SPLIT_DSUB_MIN_RAM} GB RAM, ${ADMIXTURE_PREP_DSUB_DISK_SIZE}/${ADMIXTURE_SPLIT_DSUB_DISK_SIZE} GB disk"
 echo "  ADMIXTURE project    = ${ADMIXTURE_PROJECT_DSUB_MIN_CORES} vCPU, ${ADMIXTURE_PROJECT_DSUB_MIN_RAM} GB RAM, ${ADMIXTURE_PROJECT_DSUB_DISK_SIZE} GB ${ADMIXTURE_PROJECT_DSUB_DISK_TYPE}"
+echo "  European classifier  = European >= ${OURS_EUR_MIN}, African/American/East_Asian/Oceanian <= ${OURS_AFR_MAX}/${OURS_AMR_MAX}/${OURS_EAS_MAX}/${OURS_OCE_MAX}"
 if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
     echo "  SBAYESRC_TEST_CHROM  = ${SBAYESRC_TEST_CHROM}  (smoke-test mode)"
 fi
@@ -377,6 +396,13 @@ else
     echo ""
     echo "=== Step 5c: Run ADMIXTURE projection ==="
     bash "${SCRIPT_DIR}/admixture_run_projection.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 6: AoU-vs-ours ancestry comparison + European classifier
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 6: Compare AoU ancestry fractions to ours ==="
+    bash "${SCRIPT_DIR}/compare_aou_ancestry.sh"
 fi
 
 echo ""
