@@ -9,7 +9,8 @@ metrics, runs ADMIXTURE K=6 ancestry projection, and compares the resulting
 ancestry fractions to AoU-provided ancestry calls/fractions. Finally, it runs
 KING kinship from the high-quality direct bfile, compares those estimates to
 AoU's provided relatedness table, classifies close relationships, and selects
-the unrelated European sample set used to fit PCA.
+the unrelated European sample set used to fit PCA. It then builds the
+PCA-ready SNP bfile from that sample set.
 
 The pipeline **must be run from inside an AoU Verily Jupyter session
 terminal** (the standard interactive analysis environment on the All of Us
@@ -61,6 +62,9 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/qc/
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/close_relations.csv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/fit_pca_iids.txt
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/select_pca_europeans.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_ready.{bed,bim,fam}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_snp_qc.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_snp_qc.filter_steps.tsv
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
@@ -68,8 +72,8 @@ biallelic_total / extracted / out_samples / missing / remapped / unmapped`
 for that chromosome. A combined summary across all processed chromosomes is
 also written to `logs/sbayesrc_extract_summary.tsv` at the end of each run.
 
-Downstream UKBB-analog PCA SNP QC, PCA fitting/projection, and REGENIE
-phenotype-setup steps are not yet ported — see
+Downstream UKBB-analog PCA fitting/projection and REGENIE phenotype-setup
+steps are not yet ported — see
 `reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full target pipeline
 (gitignored locally; cloned for reference).
 
@@ -524,6 +528,75 @@ As with the kinship validation counts, these are accounting numbers from that
 run, not hardcoded expectations. New AoU releases or changed thresholds should
 be summarized from `pca_eur/select_pca_europeans.summary.tsv`.
 
+### Step 9 — QC SNPs for PCA
+
+`pca_snp_qc.sh` builds the bfile used to fit European ancestry PCs. It starts
+from the high-quality direct bfile:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq
+```
+
+and keeps only the final PCA-fitting IIDs from Step 8:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/fit_pca_iids.txt
+```
+
+The PCA-specific filters are applied in this order:
+
+```text
+1. keep final PCA-fitting IIDs
+2. abs(AoU EUR ALT frequency - SBayesRC ALT frequency) <= 0.03
+3. MAF >= 0.01 in the PCA-fitting samples
+4. variant missingness <= 0.01
+5. sample missingness <= 0.01
+6. exclude long-range LD regions, hg38
+7. LD prune with --indep-pairwise 1000 80 0.1
+```
+
+The tighter ALT-frequency agreement filter reuses Step 4's
+`chr1_22_merged_hq.variant_qc.tsv`, which already contains
+`abs_alt_freq_diff` after aligning AoU and SBayesRC hg38 alleles. This avoids
+recomputing frequency concordance and keeps the Step 9 accounting directly
+tied to the Step 4 QC table.
+
+The long-range LD regions are the hg38 regions used by the UKBB analog,
+downloaded from the public `plinkQC` resource by the orchestrator and staged
+to the private Batch worker.
+
+Outputs:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_ready.{bed,bim,fam}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_snp_qc.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_snp_qc.filter_steps.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_afdiff_0.03.extract.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_ld_prune.prune.in
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_ld_prune.prune.out
+```
+
+`pca_snp_qc.filter_steps.tsv` reports, for every sequential filter, the input
+SNP/sample count, dropped SNP/sample count, and remaining SNP/sample count.
+`pca_snp_qc.summary.tsv` records the thresholds and final `pca_ready` counts.
+
+Observed Step 9 accounting from the current v8 run:
+
+| Filter | Dropped SNPs | Dropped samples | Remaining SNPs | Remaining samples |
+|---|---:|---:|---:|---:|
+| Source high-quality direct bfile | 0 | 0 | 498,890 | 414,830 |
+| Keep Step 8 PCA-fitting IIDs | 0 | 200,166 | 498,890 | 214,664 |
+| ALT-frequency difference <= 0.03 | 622 | 0 | 498,268 | 214,664 |
+| MAF >= 0.01 | 3,579 | 0 | 494,689 | 214,664 |
+| Variant missingness <= 0.01 | 3,313 | 0 | 491,376 | 214,664 |
+| Sample missingness <= 0.01 | 0 | 83 | 491,376 | 214,581 |
+| Exclude hg38 long-range LD regions | 8,026 | 0 | 483,350 | 214,581 |
+| LD prune `1000 80 0.1` | 348,370 | 0 | 134,980 | 214,581 |
+
+These numbers are run accounting, not hardcoded expectations. Recompute them
+from `pca_snp_qc.filter_steps.tsv` after changing thresholds or moving to a
+new AoU release.
+
 ## Prerequisites
 
 You are inside an AoU Verily Jupyter session terminal (the standard
@@ -619,6 +692,9 @@ repo and run it as-is.
 - Step 8 skips the PCA European selector when its parameter file, summary, and
   `fit_pca_iids.txt` exist with matching input sizes, threshold, seed
   relationships, and output count.
+- Step 9 skips PCA SNP QC when its parameter file, summary, filter-step table,
+  and `pca_ready.{bed,bim,fam}` exist with matching input sizes, thresholds,
+  high-LD-region checksum, and final counts.
 
 A re-run of `get_genotypes.sh` after a successful run should skip every step
 and submit zero dsub tasks.
@@ -660,6 +736,8 @@ and submit zero dsub tasks.
 | `classify_relations.py` | Step 7d helper — classifies sibling, parent_child, and identical pairs from KING kinship/IBS0 thresholds. |
 | `select_pca_europeans.sh` | Step 8 — idempotent wrapper selecting unrelated European IIDs for fitting PCA. |
 | `select_pca_europeans.py` | Step 8 helper — expands European sibling/identical seeds to their third-degree relatives, removes them, and runs PLINK2 `--king-cutoff-table` for the final unrelated set. |
+| `pca_snp_qc.sh` | Step 9 — stages PCA SNP QC inputs and submits/verifies the Batch worker that builds `pca_ready.{bed,bim,fam}`. |
+| `dsub_pca_snp_qc_worker.sh` | Step 9 worker — applies the PCA-fitting sample keep-list, tighter frequency concordance, MAF/geno/mind filters, long-range-LD exclusion, and LD pruning. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
 | `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |

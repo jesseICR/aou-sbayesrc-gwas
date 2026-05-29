@@ -24,6 +24,7 @@
 #   7. Run KING kinship from HQ direct SNPs, compare to AoU's provided
 #      relatedness table, and classify close relationships.
 #   8. Select unrelated European IIDs for fitting PCA.
+#   9. QC SNPs for PCA and build pca_ready.{bed,bim,fam}.
 #
 # Idempotent: each step checks for existing outputs and skips if already done.
 #
@@ -95,6 +96,7 @@ export DX_ADMIXTURE_SCRAP_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statge
 export DX_ADMIXTURE_BATCH_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap/batches"
 export DX_ADMIXTURE_Q_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap/q"
 export DX_KINSHIP_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/kinship"
+export DX_PCA_EUR_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/pca_eur"
 
 # Local paths
 export LOCAL_SBAYESRC_ID_DIR="${SCRIPT_DIR}/data/sbayesrc_ids"
@@ -106,6 +108,7 @@ export LOCAL_HQ_DIRECT_DIR="${SCRIPT_DIR}/data/high_quality_direct"
 export LOCAL_ADMIXTURE_DIR="${SCRIPT_DIR}/data/admixture"
 export LOCAL_ANCESTRY_COMPARE_DIR="${SCRIPT_DIR}/data/ancestry_compare"
 export LOCAL_KINSHIP_DIR="${SCRIPT_DIR}/data/kinship"
+export LOCAL_PCA_QC_DIR="${SCRIPT_DIR}/data/pca_qc"
 export LOCAL_SNP_QC_FILE="${SCRIPT_DIR}/data/support/ukb_snp_qc.txt"
 export ALIGNMENT_FILE="${SCRIPT_DIR}/data/support/sbayesrc_hg38.csv"
 export SBAYESRC_LIFTOVER_FILE="${SCRIPT_DIR}/data/support/sbayesrc_liftover_results.csv"
@@ -114,6 +117,7 @@ export SBAYESRC_LIFTOVER_URL="https://github.com/jesseICR/sbayesrc-liftover/rele
 export ADMIXTURE_TSV_URL="https://raw.githubusercontent.com/jesseICR/public-statgen/main/outputs/admixture-global-6/admixture_allele_freqs.tsv"
 export ADMIXTURE_DOWNLOAD_URL="https://dalexander.github.io/admixture/binaries/admixture_linux-1.3.0.tar.gz"
 export UKB_SNP_QC_URL="https://biobank.ndph.ox.ac.uk/ukb/ukb/auxdata/ukb_snp_qc.txt"
+export PCA_HIGH_LD_URL="https://raw.githubusercontent.com/meyer-lab-cshl/plinkQC/master/inst/extdata/high-LD-regions-hg38-GRCh38.bed"
 
 # AoU computed ancestry predictions; used to make the EUR keep-list for
 # direct-SNP QC metrics. This file stays inside the AoU environment.
@@ -150,6 +154,15 @@ export KINSHIP_PROCEED_AFTER_SNP_REVIEW="${KINSHIP_PROCEED_AFTER_SNP_REVIEW:-0}"
 # PCA European training sample selection.
 export PCA_KINSHIP_THRESHOLD="${PCA_KINSHIP_THRESHOLD:-0.0441941}" # 0.5^(9/2), third-degree lower bound
 export PCA_SEED_RELATIONSHIPS="${PCA_SEED_RELATIONSHIPS:-sibling,identical}"
+
+# PCA SNP QC settings.
+export PCA_AF_DIFF_MAX="${PCA_AF_DIFF_MAX:-0.03}"
+export PCA_MAF_MIN="${PCA_MAF_MIN:-0.01}"
+export PCA_GENO_MAX="${PCA_GENO_MAX:-0.01}"
+export PCA_MIND_MAX="${PCA_MIND_MAX:-0.01}"
+export PCA_LD_WINDOW="${PCA_LD_WINDOW:-1000}"
+export PCA_LD_STEP="${PCA_LD_STEP:-80}"
+export PCA_LD_R2="${PCA_LD_R2:-0.1}"
 
 # Tools — plink2 is preinstalled on the AoU Verily Jupyter VM.
 export PLINK2="${PLINK2:-/opt/workbench-tools/binaries/bin/plink2}"
@@ -224,6 +237,12 @@ export KING_DSUB_MIN_RAM="${KING_DSUB_MIN_RAM:-64}"
 export KING_DSUB_DISK_SIZE="${KING_DSUB_DISK_SIZE:-300}"
 export KING_DSUB_DISK_TYPE="${KING_DSUB_DISK_TYPE:-pd-ssd}"
 
+# PCA SNP QC scans/builds bfiles from the HQ direct bfile.
+export PCA_SNP_QC_DSUB_MIN_CORES="${PCA_SNP_QC_DSUB_MIN_CORES:-8}"
+export PCA_SNP_QC_DSUB_MIN_RAM="${PCA_SNP_QC_DSUB_MIN_RAM:-32}"
+export PCA_SNP_QC_DSUB_DISK_SIZE="${PCA_SNP_QC_DSUB_DISK_SIZE:-300}"
+export PCA_SNP_QC_DSUB_DISK_TYPE="${PCA_SNP_QC_DSUB_DISK_TYPE:-pd-ssd}"
+
 # Worker-staging paths on the workspace bucket
 export DSUB_BIN_URI="${WORKSPACE_BUCKET_URI}/bin"
 export DSUB_PLINK2_GS="${DSUB_BIN_URI}/plink2"
@@ -259,6 +278,7 @@ mkdir -p \
     "${LOCAL_ADMIXTURE_DIR}" \
     "${LOCAL_ANCESTRY_COMPARE_DIR}" \
     "${LOCAL_KINSHIP_DIR}" \
+    "${LOCAL_PCA_QC_DIR}" \
     "${LOCAL_SBAYESRC_ID_DIR}" \
     "${LOCAL_WGS_PFILE_DIR}" \
     "${SCRIPT_DIR}/logs/extract" \
@@ -317,6 +337,7 @@ echo "  Kinship settings     = source=direct_bfile_hq, UKB in_Relatedness SNPs, 
 echo "  Kinship review gate  = KINSHIP_PROCEED_AFTER_SNP_REVIEW=${KINSHIP_PROCEED_AFTER_SNP_REVIEW}"
 echo "  Kinship resources    = subset ${KINSHIP_SUBSET_DSUB_MIN_CORES} vCPU/${KINSHIP_SUBSET_DSUB_MIN_RAM} GB; KING ${KING_DSUB_MIN_CORES} vCPU/${KING_DSUB_MIN_RAM} GB"
 echo "  PCA EUR selection    = seed relationships ${PCA_SEED_RELATIONSHIPS}, kinship threshold ${PCA_KINSHIP_THRESHOLD}"
+echo "  PCA SNP QC           = source=direct_bfile_hq, AF diff <= ${PCA_AF_DIFF_MAX}, MAF >= ${PCA_MAF_MIN}, geno <= ${PCA_GENO_MAX}, mind <= ${PCA_MIND_MAX}, LD ${PCA_LD_WINDOW}/${PCA_LD_STEP}/${PCA_LD_R2}"
 if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
     echo "  SBAYESRC_TEST_CHROM  = ${SBAYESRC_TEST_CHROM}  (smoke-test mode)"
 fi
@@ -506,6 +527,13 @@ else
     echo ""
     echo "=== Step 8: Select PCA European IIDs ==="
     bash "${SCRIPT_DIR}/select_pca_europeans.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 9: PCA SNP QC
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 9: PCA SNP QC ==="
+    bash "${SCRIPT_DIR}/pca_snp_qc.sh"
 fi
 
 echo ""
