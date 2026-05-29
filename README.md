@@ -10,7 +10,8 @@ ancestry fractions to AoU-provided ancestry calls/fractions. Finally, it runs
 KING kinship from the high-quality direct bfile, compares those estimates to
 AoU's provided relatedness table, classifies close relationships, and selects
 the unrelated European sample set used to fit PCA. It then builds the
-PCA-ready SNP bfile from that sample set.
+PCA-ready SNP bfile from that sample set, fits 20 European ancestry PCs, and
+projects those PCs onto all samples in the high-quality direct bfile.
 
 The pipeline **must be run from inside an AoU Verily Jupyter session
 terminal** (the standard interactive analysis environment on the All of Us
@@ -65,6 +66,10 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/select_pca_europeans.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_ready.{bed,bim,fam}
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_snp_qc.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_snp_qc.filter_steps.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/aou_projected.sscore
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/aou_pcs.{eigenval,eigenvec,eigenvec.allele}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_eur_counts.acount
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/fit_project_pca.summary.tsv
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
@@ -72,8 +77,7 @@ biallelic_total / extracted / out_samples / missing / remapped / unmapped`
 for that chromosome. A combined summary across all processed chromosomes is
 also written to `logs/sbayesrc_extract_summary.tsv` at the end of each run.
 
-Downstream UKBB-analog PCA fitting/projection and REGENIE phenotype-setup
-steps are not yet ported — see
+Downstream UKBB-analog REGENIE phenotype-setup steps are not yet ported — see
 `reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full target pipeline
 (gitignored locally; cloned for reference).
 
@@ -597,6 +601,94 @@ These numbers are run accounting, not hardcoded expectations. Recompute them
 from `pca_snp_qc.filter_steps.tsv` after changing thresholds or moving to a
 new AoU release.
 
+### Step 10 — Fit PCA and project all samples
+
+`fit_project_pca.sh` fits European ancestry principal components and projects
+them onto the full high-quality direct bfile. The fit set is the Step 9
+PCA-ready bfile:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_ready
+```
+
+That bfile contains the unrelated European PCA-fitting samples from Step 8
+after the Step 9 SNP/sample QC and LD pruning. PCA is fit with PLINK2's
+approximate PCA algorithm:
+
+```text
+plink2 --bfile pca_ready --pca allele-wts 20 approx --seed 0
+```
+
+The projection target is the all-sample high-quality direct bfile:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq
+```
+
+The worker computes allele counts in the PCA fit set, verifies that every PCA
+SNP is present in the projection bfile, parses the `A1` and PC-weight columns
+from `aou_pcs.eigenvec.allele`, and projects all samples with PLINK2
+`--score` using `no-mean-imputation` and `variance-standardize`.
+
+PLINK2 writes `aou_pcs.eigenvec.allele` with one score row per allele. For
+biallelic SNPs, that means two allele-weight rows per SNP; the pipeline
+therefore validates the number of unique SNP IDs in that file, not the raw row
+count.
+
+Outputs:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/aou_pcs.eigenval
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/aou_pcs.eigenvec
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/aou_pcs.eigenvec.allele
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_eur_counts.acount
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/aou_projected.sscore
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/fit_project_pca.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/fit_project_pca.params.tsv
+```
+
+The summary reports fitted variants, PCA-fit samples, projected samples, PCs,
+seed, score-file columns, and PCA SNPs missing from the projection bfile.
+Missing projection SNPs should be zero because Step 9 starts from
+`direct_bfile_hq`.
+
+Observed Step 10 accounting from the current v8 run:
+
+| Metric | Value |
+|---|---:|
+| PCA SNPs used for fitting/projection | 134,980 |
+| PCA-fitting samples | 214,581 |
+| Allele-weight rows | 269,960 |
+| Unique allele-weight SNP IDs | 134,980 |
+| Projected samples | 414,830 |
+| Missing PCA SNPs in projection bfile | 0 |
+| PCs | 20 |
+
+Eigenvalues from that run:
+
+```text
+437.348
+89.0169
+70.7415
+30.5331
+24.0492
+14.2525
+10.5199
+8.24073
+8.02872
+7.47943
+7.19182
+6.86026
+6.7948
+6.75767
+6.74678
+6.71023
+6.69641
+6.68407
+6.6745
+6.66575
+```
+
 ## Prerequisites
 
 You are inside an AoU Verily Jupyter session terminal (the standard
@@ -695,6 +787,9 @@ repo and run it as-is.
 - Step 9 skips PCA SNP QC when its parameter file, summary, filter-step table,
   and `pca_ready.{bed,bim,fam}` exist with matching input sizes, thresholds,
   high-LD-region checksum, and final counts.
+- Step 10 skips PCA fitting/projection when its parameter file, summary,
+  eigenvalue/eigenvector/allele-weight files, allele counts, and projected
+  score file exist with matching input sizes, PC settings, and output counts.
 
 A re-run of `get_genotypes.sh` after a successful run should skip every step
 and submit zero dsub tasks.
@@ -738,6 +833,8 @@ and submit zero dsub tasks.
 | `select_pca_europeans.py` | Step 8 helper — expands European sibling/identical seeds to their third-degree relatives, removes them, and runs PLINK2 `--king-cutoff-table` for the final unrelated set. |
 | `pca_snp_qc.sh` | Step 9 — stages PCA SNP QC inputs and submits/verifies the Batch worker that builds `pca_ready.{bed,bim,fam}`. |
 | `dsub_pca_snp_qc_worker.sh` | Step 9 worker — applies the PCA-fitting sample keep-list, tighter frequency concordance, MAF/geno/mind filters, long-range-LD exclusion, and LD pruning. |
+| `fit_project_pca.sh` | Step 10 — stages PCA inputs and submits/verifies the Batch worker that fits European PCs and projects them to all samples. |
+| `dsub_fit_project_pca_worker.sh` | Step 10 worker — fits PLINK2 PCA with allele weights, computes fit-set allele counts, verifies projection SNP coverage, and writes all-sample PC scores. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
 | `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |

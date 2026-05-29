@@ -25,6 +25,7 @@
 #      relatedness table, and classify close relationships.
 #   8. Select unrelated European IIDs for fitting PCA.
 #   9. QC SNPs for PCA and build pca_ready.{bed,bim,fam}.
+#  10. Fit PCA on unrelated Europeans and project PCs onto all samples.
 #
 # Idempotent: each step checks for existing outputs and skips if already done.
 #
@@ -164,6 +165,10 @@ export PCA_LD_WINDOW="${PCA_LD_WINDOW:-1000}"
 export PCA_LD_STEP="${PCA_LD_STEP:-80}"
 export PCA_LD_R2="${PCA_LD_R2:-0.1}"
 
+# PCA fitting/projection settings.
+export PCA_NPCS="${PCA_NPCS:-20}"
+export PCA_SEED="${PCA_SEED:-0}"
+
 # Tools — plink2 is preinstalled on the AoU Verily Jupyter VM.
 export PLINK2="${PLINK2:-/opt/workbench-tools/binaries/bin/plink2}"
 
@@ -242,6 +247,12 @@ export PCA_SNP_QC_DSUB_MIN_CORES="${PCA_SNP_QC_DSUB_MIN_CORES:-8}"
 export PCA_SNP_QC_DSUB_MIN_RAM="${PCA_SNP_QC_DSUB_MIN_RAM:-32}"
 export PCA_SNP_QC_DSUB_DISK_SIZE="${PCA_SNP_QC_DSUB_DISK_SIZE:-300}"
 export PCA_SNP_QC_DSUB_DISK_TYPE="${PCA_SNP_QC_DSUB_DISK_TYPE:-pd-ssd}"
+
+# PCA fitting/projection localizes pca_ready and the all-sample HQ direct bfile.
+export PCA_PROJECT_DSUB_MIN_CORES="${PCA_PROJECT_DSUB_MIN_CORES:-16}"
+export PCA_PROJECT_DSUB_MIN_RAM="${PCA_PROJECT_DSUB_MIN_RAM:-64}"
+export PCA_PROJECT_DSUB_DISK_SIZE="${PCA_PROJECT_DSUB_DISK_SIZE:-300}"
+export PCA_PROJECT_DSUB_DISK_TYPE="${PCA_PROJECT_DSUB_DISK_TYPE:-pd-ssd}"
 
 # Worker-staging paths on the workspace bucket
 export DSUB_BIN_URI="${WORKSPACE_BUCKET_URI}/bin"
@@ -338,6 +349,7 @@ echo "  Kinship review gate  = KINSHIP_PROCEED_AFTER_SNP_REVIEW=${KINSHIP_PROCEE
 echo "  Kinship resources    = subset ${KINSHIP_SUBSET_DSUB_MIN_CORES} vCPU/${KINSHIP_SUBSET_DSUB_MIN_RAM} GB; KING ${KING_DSUB_MIN_CORES} vCPU/${KING_DSUB_MIN_RAM} GB"
 echo "  PCA EUR selection    = seed relationships ${PCA_SEED_RELATIONSHIPS}, kinship threshold ${PCA_KINSHIP_THRESHOLD}"
 echo "  PCA SNP QC           = source=direct_bfile_hq, AF diff <= ${PCA_AF_DIFF_MAX}, MAF >= ${PCA_MAF_MIN}, geno <= ${PCA_GENO_MAX}, mind <= ${PCA_MIND_MAX}, LD ${PCA_LD_WINDOW}/${PCA_LD_STEP}/${PCA_LD_R2}"
+echo "  PCA fit/project      = ${PCA_NPCS} PCs, seed ${PCA_SEED}, source=direct_bfile_hq, resources ${PCA_PROJECT_DSUB_MIN_CORES} vCPU/${PCA_PROJECT_DSUB_MIN_RAM} GB/${PCA_PROJECT_DSUB_DISK_SIZE} GB ${PCA_PROJECT_DSUB_DISK_TYPE}"
 if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
     echo "  SBAYESRC_TEST_CHROM  = ${SBAYESRC_TEST_CHROM}  (smoke-test mode)"
 fi
@@ -534,6 +546,13 @@ else
     echo ""
     echo "=== Step 9: PCA SNP QC ==="
     bash "${SCRIPT_DIR}/pca_snp_qc.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 10: PCA fitting and all-sample projection
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 10: Fit PCA and project all samples ==="
+    bash "${SCRIPT_DIR}/fit_project_pca.sh"
 fi
 
 echo ""
