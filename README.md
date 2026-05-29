@@ -8,7 +8,8 @@ higher-quality direct-SNP bfile filtered with AoU EUR frequency/missingness
 metrics, runs ADMIXTURE K=6 ancestry projection, and compares the resulting
 ancestry fractions to AoU-provided ancestry calls/fractions. Finally, it runs
 KING kinship from the high-quality direct bfile, compares those estimates to
-AoU's provided relatedness table, and classifies close relationships.
+AoU's provided relatedness table, classifies close relationships, and selects
+the unrelated European sample set used to fit PCA.
 
 The pipeline **must be run from inside an AoU Verily Jupyter session
 terminal** (the standard interactive analysis environment on the All of Us
@@ -58,6 +59,8 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/kinship_snp_missingness_threshold
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/aou_hq_direct_rel.kin0
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/qc/
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/close_relations.csv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/fit_pca_iids.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/select_pca_europeans.summary.tsv
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
@@ -65,9 +68,10 @@ biallelic_total / extracted / out_samples / missing / remapped / unmapped`
 for that chromosome. A combined summary across all processed chromosomes is
 also written to `logs/sbayesrc_extract_summary.tsv` at the end of each run.
 
-Downstream UKBB-analog PCA and REGENIE phenotype-setup steps are not yet
-ported — see `reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full
-target pipeline (gitignored locally; cloned for reference).
+Downstream UKBB-analog PCA SNP QC, PCA fitting/projection, and REGENIE
+phenotype-setup steps are not yet ported — see
+`reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full target pipeline
+(gitignored locally; cloned for reference).
 
 ## Pipeline steps
 
@@ -432,6 +436,94 @@ These numbers are a validation/accounting record for that run; they are not
 hardcoded into the pipeline. New AoU releases or changed thresholds should be
 summarized from the files in `sbayesrc_genotypes/kinship/`.
 
+### Step 8 — Select unrelated European IIDs for PCA fitting
+
+`select_pca_europeans.sh` selects the European subset used to fit ancestry
+PCA. It starts from this pipeline's European keep-list:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/europeans/classified_european_iids.txt
+```
+
+It then identifies European samples involved in `sibling` or `identical`
+relationships from:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/close_relations.csv
+```
+
+Those samples are the seed exclusion set. The script expands that seed set to
+include everyone directly related to those seeds at the UKBB third-degree
+threshold:
+
+```text
+KINSHIP >= 0.0441941
+```
+
+using:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/aou_hq_direct_rel.kin0
+```
+
+The candidate PCA set is:
+
+```text
+classified Europeans - expanded sibling/identical-relative exclusion set
+```
+
+Finally, the script runs PLINK2's maximal unrelated selector on the candidate
+set:
+
+```text
+plink2 --psam candidate_pca_europeans.psam \
+       --king-cutoff-table aou_hq_direct_rel.kin0 0.0441941
+```
+
+This final cutoff guarantees that no retained PCA-fitting pair has KING
+kinship at or above the third-degree threshold. The step writes:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/fit_pca_iids.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/select_pca_europeans.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_eur_log.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/seed_sibling_identical_iids.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/expanded_sibling_identical_relatives_iids.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/candidate_pca_europeans_iids.txt
+```
+
+The summary reports the number of classified Europeans, seed samples,
+expanded exclusions, candidate PCA Europeans before the final KING cutoff,
+samples removed by the final cutoff, and final `fit_pca_iids`.
+
+Validation run summary from the first completed AoU v8 run in this workspace
+with `PCA_KINSHIP_THRESHOLD=0.0441941` and
+`PCA_SEED_RELATIONSHIPS=sibling,identical`:
+
+```text
+Classified Europeans:                         234,889
+Seed sibling/identical relationship rows:      10,075
+Samples in seed relationship rows:             17,788
+European seed samples:                          7,771
+KING graph edges at kinship >=0.0441941:       60,895
+KING graph nodes:                              82,914
+
+Expanded exclusions total:                      8,941
+Expanded exclusions in Europeans:               8,886
+Expanded exclusions not in Europeans:              55
+Candidate PCA Europeans before KING cutoff:   226,003
+Removed by final KING cutoff:                  11,339
+Final PCA fitting IIDs:                       214,664
+
+Verification non-European retained:                 0
+Verification expanded exclusions retained:          0
+Verification related pairs retained:                0
+```
+
+As with the kinship validation counts, these are accounting numbers from that
+run, not hardcoded expectations. New AoU releases or changed thresholds should
+be summarized from `pca_eur/select_pca_europeans.summary.tsv`.
+
 ## Prerequisites
 
 You are inside an AoU Verily Jupyter session terminal (the standard
@@ -479,7 +571,9 @@ nohup bash get_genotypes.sh > logs/run.log 2>&1 &
 The first full run after Step 7 is added stops after writing
 `kinship_snp_subset_summary.tsv`, so the final KING SNP count can be reviewed
 before launching the expensive all-pairs KING job. Re-run with
-`KINSHIP_PROCEED_AFTER_SNP_REVIEW=1` to proceed.
+`KINSHIP_PROCEED_AFTER_SNP_REVIEW=1` to proceed. Once matching KING outputs
+already exist, later re-runs continue downstream without requiring that review
+override.
 
 The run logs to `logs/run_YYYYMMDD_HHMMSS.log` (timestamped) and tees through
 to the foreground if attached. Each Batch worker's stdout/stderr is uploaded
@@ -520,7 +614,11 @@ repo and run it as-is.
 - Step 7 skips the kinship SNP subset, KING run, AoU comparison, and close
   relationship classifier independently when their parameter files, thresholds,
   and expected counts match. The default review gate pauses after the SNP
-  subset unless `KINSHIP_PROCEED_AFTER_SNP_REVIEW=1`.
+  subset unless `KINSHIP_PROCEED_AFTER_SNP_REVIEW=1` or a matching KING output
+  already exists.
+- Step 8 skips the PCA European selector when its parameter file, summary, and
+  `fit_pca_iids.txt` exist with matching input sizes, threshold, seed
+  relationships, and output count.
 
 A re-run of `get_genotypes.sh` after a successful run should skip every step
 and submit zero dsub tasks.
@@ -560,6 +658,8 @@ and submit zero dsub tasks.
 | `kinship_qc.py` | Step 7c helper — writes kinship comparison summaries, pair-level overlap data, scatter plots, and Bland-Altman plots. |
 | `classify_relations.sh` | Step 7d — idempotent wrapper for close-relationship classification. |
 | `classify_relations.py` | Step 7d helper — classifies sibling, parent_child, and identical pairs from KING kinship/IBS0 thresholds. |
+| `select_pca_europeans.sh` | Step 8 — idempotent wrapper selecting unrelated European IIDs for fitting PCA. |
+| `select_pca_europeans.py` | Step 8 helper — expands European sibling/identical seeds to their third-degree relatives, removes them, and runs PLINK2 `--king-cutoff-table` for the final unrelated set. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
 | `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |

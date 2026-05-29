@@ -23,6 +23,7 @@
 #      write the European keep-list used by downstream REGENIE steps.
 #   7. Run KING kinship from HQ direct SNPs, compare to AoU's provided
 #      relatedness table, and classify close relationships.
+#   8. Select unrelated European IIDs for fitting PCA.
 #
 # Idempotent: each step checks for existing outputs and skips if already done.
 #
@@ -82,6 +83,7 @@ export DX_ADMIXTURE_Q_DIR="${DX_OUTPUT_DIR}/statgen/scrap/q"
 export DX_AOU_VS_OURS_DIR="${DX_OUTPUT_DIR}/statgen/aou_vs_ours"
 export DX_EUROPEANS_DIR="${DX_OUTPUT_DIR}/europeans"
 export DX_KINSHIP_DIR="${DX_OUTPUT_DIR}/kinship"
+export DX_PCA_EUR_DIR="${DX_OUTPUT_DIR}/pca_eur"
 export DX_LOGS_DIR="${DX_OUTPUT_DIR}/logs"
 # gs:// path for `gcloud storage cp` (large-pfile uploads — bypasses gcsfuse).
 export DX_WGS_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/wgs_pfiles"
@@ -144,6 +146,10 @@ export KINSHIP_CLOSE_LOWER="${KINSHIP_CLOSE_LOWER:-0.1767}"
 export KINSHIP_FIRST_DEGREE_UPPER="${KINSHIP_FIRST_DEGREE_UPPER:-0.3535}"
 export KINSHIP_IBS0_CUTOFF="${KINSHIP_IBS0_CUTOFF:-0.0012}"
 export KINSHIP_PROCEED_AFTER_SNP_REVIEW="${KINSHIP_PROCEED_AFTER_SNP_REVIEW:-0}"
+
+# PCA European training sample selection.
+export PCA_KINSHIP_THRESHOLD="${PCA_KINSHIP_THRESHOLD:-0.0441941}" # 0.5^(9/2), third-degree lower bound
+export PCA_SEED_RELATIONSHIPS="${PCA_SEED_RELATIONSHIPS:-sibling,identical}"
 
 # Tools — plink2 is preinstalled on the AoU Verily Jupyter VM.
 export PLINK2="${PLINK2:-/opt/workbench-tools/binaries/bin/plink2}"
@@ -269,6 +275,7 @@ mkdir -p \
     "${DX_AOU_VS_OURS_DIR}" \
     "${DX_EUROPEANS_DIR}" \
     "${DX_KINSHIP_DIR}" \
+    "${DX_PCA_EUR_DIR}" \
     "${DX_LOGS_DIR}"
 
 # ---------------------------------------------------------------------------
@@ -309,6 +316,7 @@ echo "  European classifier  = European >= ${OURS_EUR_MIN}, African/American/Eas
 echo "  Kinship settings     = source=direct_bfile_hq, UKB in_Relatedness SNPs, all-sample missingness < ${KINSHIP_MISSING_MAX}, KING filter >= ${KING_TABLE_FILTER}"
 echo "  Kinship review gate  = KINSHIP_PROCEED_AFTER_SNP_REVIEW=${KINSHIP_PROCEED_AFTER_SNP_REVIEW}"
 echo "  Kinship resources    = subset ${KINSHIP_SUBSET_DSUB_MIN_CORES} vCPU/${KINSHIP_SUBSET_DSUB_MIN_RAM} GB; KING ${KING_DSUB_MIN_CORES} vCPU/${KING_DSUB_MIN_RAM} GB"
+echo "  PCA EUR selection    = seed relationships ${PCA_SEED_RELATIONSHIPS}, kinship threshold ${PCA_KINSHIP_THRESHOLD}"
 if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
     echo "  SBAYESRC_TEST_CHROM  = ${SBAYESRC_TEST_CHROM}  (smoke-test mode)"
 fi
@@ -443,7 +451,27 @@ else
     echo "=== Step 7a: Build kinship SNP subset ==="
     bash "${SCRIPT_DIR}/subset_kinship_snps.sh"
 
-    if [[ "${KINSHIP_PROCEED_AFTER_SNP_REVIEW}" != "1" ]]; then
+    king_ready=0
+    king_kin0="${DX_KINSHIP_DIR}/aou_hq_direct_rel.kin0"
+    king_params="${DX_KINSHIP_DIR}/aou_hq_direct_rel.params.tsv"
+    king_summary="${DX_KINSHIP_DIR}/aou_hq_direct_rel.summary.tsv"
+    king_extract="${DX_KINSHIP_DIR}/ukbb_relatedness_snps_in_hq_direct_geno_lt_threshold.txt"
+    if [[ -s "${king_kin0}" && -s "${king_params}" && -s "${king_summary}" && -s "${king_extract}" ]]; then
+        observed_pairs=$(( $(wc -l < "${king_kin0}") - 1 ))
+        expected_pairs=$(awk -F'\t' '$1 == "king_pairs" {print $2; exit}' "${king_summary}")
+        current_snps=$(wc -l < "${king_extract}")
+        param_snps=$(awk -F'\t' '$1 == "kinship_snps" {print $2; exit}' "${king_params}")
+        param_missing=$(awk -F'\t' '$1 == "kinship_missing_max_exclusive" {print $2; exit}' "${king_params}")
+        param_filter=$(awk -F'\t' '$1 == "king_table_filter" {print $2; exit}' "${king_params}")
+        if [[ -n "${expected_pairs}" && "${observed_pairs}" == "${expected_pairs}" &&
+              "${param_snps}" == "${current_snps}" &&
+              "${param_missing}" == "${KINSHIP_MISSING_MAX}" &&
+              "${param_filter}" == "${KING_TABLE_FILTER}" ]]; then
+            king_ready=1
+        fi
+    fi
+
+    if [[ "${KINSHIP_PROCEED_AFTER_SNP_REVIEW}" != "1" && "${king_ready}" != "1" ]]; then
         echo ""
         echo "=== Step 7: Pausing before KING kinship ==="
         if [[ -s "${DX_KINSHIP_DIR}/kinship_snp_subset_summary.tsv" ]]; then
@@ -455,6 +483,9 @@ else
         echo ""
         echo "=== Pipeline paused for kinship SNP-count review ==="
         exit 0
+    fi
+    if [[ "${KINSHIP_PROCEED_AFTER_SNP_REVIEW}" != "1" && "${king_ready}" == "1" ]]; then
+        echo "  Existing KING output matches current reviewed SNP set — continuing downstream."
     fi
 
     echo ""
@@ -468,6 +499,13 @@ else
     echo ""
     echo "=== Step 7d: Classify close relationships ==="
     bash "${SCRIPT_DIR}/classify_relations.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 8: PCA European training sample selection
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 8: Select PCA European IIDs ==="
+    bash "${SCRIPT_DIR}/select_pca_europeans.sh"
 fi
 
 echo ""
