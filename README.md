@@ -6,7 +6,9 @@ the variant `ID` column populated with SBayesRC rsids. It also builds the
 ~501k direct-SNP bfile used as the REGENIE step-1 marker backbone, plus a
 higher-quality direct-SNP bfile filtered with AoU EUR frequency/missingness
 metrics, runs ADMIXTURE K=6 ancestry projection, and compares the resulting
-ancestry fractions to AoU-provided ancestry calls/fractions.
+ancestry fractions to AoU-provided ancestry calls/fractions. Finally, it runs
+KING kinship from the high-quality direct bfile, compares those estimates to
+AoU's provided relatedness table, and classifies close relationships.
 
 The pipeline **must be run from inside an AoU Verily Jupyter session
 terminal** (the standard interactive analysis environment on the All of Us
@@ -51,6 +53,11 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq.sample_
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/aou_admixture_k6.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/europeans/classified_european_iids.txt
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/aou_vs_ours/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/kinship_snp_subset_summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/kinship_snp_missingness_threshold_counts.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/aou_hq_direct_rel.kin0
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/qc/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/close_relations.csv
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
@@ -58,10 +65,9 @@ biallelic_total / extracted / out_samples / missing / remapped / unmapped`
 for that chromosome. A combined summary across all processed chromosomes is
 also written to `logs/sbayesrc_extract_summary.tsv` at the end of each run.
 
-Downstream UKBB-analog steps after ancestry comparison/classification
-(kinship, PCA, REGENIE phenotype setup) are not yet ported — see
-`reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full target pipeline
-(gitignored locally; cloned for reference).
+Downstream UKBB-analog PCA and REGENIE phenotype-setup steps are not yet
+ported — see `reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full
+target pipeline (gitignored locally; cloned for reference).
 
 ## Pipeline steps
 
@@ -303,6 +309,129 @@ component scatter plots, ancestry-fraction distributions, a hard-call vs
 dominant-component heatmap, European set-overlap counts, discordant European
 call composition plots, and AoU MID-threshold composition plots.
 
+### Step 7 — KING kinship and close relationship classification
+
+Kinship starts from the high-quality direct bfile:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq
+```
+
+`subset_kinship_snps.sh` downloads the public UK Biobank SNP QC file
+`ukb_snp_qc.txt` if it is not already cached locally, keeps SNPs where
+`in_Relatedness == 1`, intersects those rsids with the HQ direct bfile, and
+then submits a dsub worker to compute all-sample variant missingness on that
+intersection. The final KING SNP list keeps variants with missingness strictly
+less than `KINSHIP_MISSING_MAX` (default: `0.01`).
+
+This is a **variant missingness** filter, not a sample missingness filter. No
+`--mind`/sample filtering is applied before KING; the KING run uses all samples
+present in `direct_bfile_hq/chr1_22_merged_hq`. The only sample-level output at
+this stage is the Step 4 missingness report, which is diagnostic unless a later
+pipeline step explicitly consumes it.
+
+The subset stage writes:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/ukbb_relatedness_snps_in_hq_direct_geno_lt_threshold.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/kinship_snp_subset_all_sample_missingness.vmiss
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/kinship_snp_missingness_threshold_counts.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/kinship_snp_subset_summary.tsv
+```
+
+The summary reports the key set-operation counts:
+
+```text
+ukb_relatedness_snps
+n_intersection_hq_direct
+n_intersection_and_missing_lt_0.01
+```
+
+The threshold-count table reports how many SNPs would pass common missingness
+cutoffs (`0.05`, `0.04`, `0.03`, `0.02`, `0.01`) from the same `.vmiss` file.
+If the `.vmiss` file already exists and only `KINSHIP_MISSING_MAX` changes,
+`subset_kinship_snps.sh` re-filters locally instead of re-submitting the dsub
+job and re-localizing the large HQ direct bfile.
+
+By default, `get_genotypes.sh` pauses here and does **not** launch KING. This
+is intentional because KING on all pairs is the expensive step. Review the
+final SNP count, then either continue or tighten the missingness filter:
+
+```bash
+# Continue with the reviewed SNP set.
+KINSHIP_PROCEED_AFTER_SNP_REVIEW=1 bash get_genotypes.sh 2>&1
+
+# Override the default all-sample SNP missingness threshold.
+KINSHIP_MISSING_MAX=0.02 bash get_genotypes.sh 2>&1
+```
+
+`run_king_kinship.sh` runs:
+
+```text
+plink2 --make-king-table --king-table-filter 0.035
+```
+
+on the HQ direct bfile with the reviewed SNP extract list. It does not
+materialize a separate kinship-only bfile; the exact SNP set is captured by
+`ukbb_relatedness_snps_in_hq_direct_geno_lt_threshold.txt` and the parameter
+files. KING writes:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/aou_hq_direct_rel.kin0
+```
+
+`kinship_qc.sh` compares our KING kinship coefficients against AoU's provided
+KING-style relatedness table:
+
+```text
+v8/wgs/short_read/snpindel/aux/relatedness/samples_relatedness.tsv
+```
+
+AoU's table provides the pairwise kinship coefficient, so this comparison is
+kinship-only; IBS0 diagnostics are available only from our PLINK2/KING output.
+Summary tables and plots are written under:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/qc/
+```
+
+`classify_relations.sh` then mirrors the UKBB relationship thresholds on our
+KING table:
+
+```text
+identical:    kinship >= 0.3535 and IBS0 < 0.0012
+parent_child: 0.1767 <= kinship < 0.3535 and IBS0 < 0.0012
+sibling:      0.1767 <= kinship < 0.3535 and IBS0 >= 0.0012
+```
+
+The AoU version deliberately does not apply the UKBB birth-year/month sibling
+age-gap filter because no portable AoU phenotype dependency is part of this
+genotype pipeline.
+
+Validation run summary from the first completed AoU v8 run in this workspace
+with `KINSHIP_MISSING_MAX=0.01` and `KING_TABLE_FILTER=0.035`:
+
+```text
+UKBB in_Relatedness SNPs:                         93,511
+Intersection with HQ direct bfile:                85,223
+Final KING SNPs after all-sample missingness <1%: 84,550
+
+KING pairs reported at kinship >=0.035:           78,142
+AoU provided relatedness pairs:                   39,681
+Overlapping pair set:                             39,575
+Pearson r vs AoU kinship:                         0.9894
+Mean absolute kinship difference:                 0.00893
+
+Close relationships, kinship >=0.1767:            26,215
+  sibling:                                         7,826
+  parent_child:                                   16,140
+  identical/twin/duplicate:                        2,249
+```
+
+These numbers are a validation/accounting record for that run; they are not
+hardcoded into the pipeline. New AoU releases or changed thresholds should be
+summarized from the files in `sbayesrc_genotypes/kinship/`.
+
 ## Prerequisites
 
 You are inside an AoU Verily Jupyter session terminal (the standard
@@ -347,6 +476,11 @@ Full all-22 run (recommended in the background):
 nohup bash get_genotypes.sh > logs/run.log 2>&1 &
 ```
 
+The first full run after Step 7 is added stops after writing
+`kinship_snp_subset_summary.tsv`, so the final KING SNP count can be reviewed
+before launching the expensive all-pairs KING job. Re-run with
+`KINSHIP_PROCEED_AFTER_SNP_REVIEW=1` to proceed.
+
 The run logs to `logs/run_YYYYMMDD_HHMMSS.log` (timestamped) and tees through
 to the foreground if attached. Each Batch worker's stdout/stderr is uploaded
 to `${WORKSPACE_BUCKET}/sbayesrc_genotypes/logs/dsub/`.
@@ -383,6 +517,10 @@ repo and run it as-is.
 - Step 6 skips the AoU-vs-ours ancestry comparison when its parameter file,
   summary tables, key plots, and European keep-list already exist with matching
   input sizes and thresholds.
+- Step 7 skips the kinship SNP subset, KING run, AoU comparison, and close
+  relationship classifier independently when their parameter files, thresholds,
+  and expected counts match. The default review gate pauses after the SNP
+  subset unless `KINSHIP_PROCEED_AFTER_SNP_REVIEW=1`.
 
 A re-run of `get_genotypes.sh` after a successful run should skip every step
 and submit zero dsub tasks.
@@ -414,6 +552,14 @@ and submit zero dsub tasks.
 | `dsub_admixture_concat_worker.sh` | Step 5c worker — concatenates batch Q files and writes `aou_admixture_k6.tsv`. |
 | `compare_aou_ancestry.sh` | Step 6 — idempotent wrapper for the AoU-vs-ours ancestry comparison and European keep-list. |
 | `compare_aou_ancestry.py` | Step 6 helper — joins AoU hard ancestry calls, AoU RYE fractions, and our ADMIXTURE fractions; writes aggregate tables and plots. |
+| `subset_kinship_snps.sh` | Step 7a — intersects UKBB `in_Relatedness == 1` SNPs with the HQ direct bfile, applies all-sample missingness `< KINSHIP_MISSING_MAX`, and pauses the pipeline for review. |
+| `dsub_kinship_subset_worker.sh` | Step 7a worker — computes variant missingness and writes the final reviewed KING SNP extract list plus count summary. |
+| `run_king_kinship.sh` | Step 7b — submits/verifies the PLINK2 KING run from the reviewed HQ direct SNP subset. |
+| `dsub_king_kinship_worker.sh` | Step 7b worker — runs `plink2 --make-king-table --king-table-filter 0.035`. |
+| `kinship_qc.sh` | Step 7c — idempotent wrapper comparing our KING output to AoU's provided relatedness table. |
+| `kinship_qc.py` | Step 7c helper — writes kinship comparison summaries, pair-level overlap data, scatter plots, and Bland-Altman plots. |
+| `classify_relations.sh` | Step 7d — idempotent wrapper for close-relationship classification. |
+| `classify_relations.py` | Step 7d helper — classifies sibling, parent_child, and identical pairs from KING kinship/IBS0 thresholds. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
 | `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |

@@ -21,6 +21,8 @@
 #      ADMIXTURE-specific all-sample missingness filter and allele alignment.
 #   6. Compare our ADMIXTURE fractions to AoU-provided ancestry fractions and
 #      write the European keep-list used by downstream REGENIE steps.
+#   7. Run KING kinship from HQ direct SNPs, compare to AoU's provided
+#      relatedness table, and classify close relationships.
 #
 # Idempotent: each step checks for existing outputs and skips if already done.
 #
@@ -79,6 +81,7 @@ export DX_ADMIXTURE_BATCH_DIR="${DX_OUTPUT_DIR}/statgen/scrap/batches"
 export DX_ADMIXTURE_Q_DIR="${DX_OUTPUT_DIR}/statgen/scrap/q"
 export DX_AOU_VS_OURS_DIR="${DX_OUTPUT_DIR}/statgen/aou_vs_ours"
 export DX_EUROPEANS_DIR="${DX_OUTPUT_DIR}/europeans"
+export DX_KINSHIP_DIR="${DX_OUTPUT_DIR}/kinship"
 export DX_LOGS_DIR="${DX_OUTPUT_DIR}/logs"
 # gs:// path for `gcloud storage cp` (large-pfile uploads — bypasses gcsfuse).
 export DX_WGS_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/wgs_pfiles"
@@ -89,6 +92,7 @@ export DX_STATGEN_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen"
 export DX_ADMIXTURE_SCRAP_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap"
 export DX_ADMIXTURE_BATCH_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap/batches"
 export DX_ADMIXTURE_Q_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap/q"
+export DX_KINSHIP_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/kinship"
 
 # Local paths
 export LOCAL_SBAYESRC_ID_DIR="${SCRIPT_DIR}/data/sbayesrc_ids"
@@ -99,17 +103,21 @@ export LOCAL_DIRECT_PREP_DIR="${SCRIPT_DIR}/data/direct_snps"
 export LOCAL_HQ_DIRECT_DIR="${SCRIPT_DIR}/data/high_quality_direct"
 export LOCAL_ADMIXTURE_DIR="${SCRIPT_DIR}/data/admixture"
 export LOCAL_ANCESTRY_COMPARE_DIR="${SCRIPT_DIR}/data/ancestry_compare"
+export LOCAL_KINSHIP_DIR="${SCRIPT_DIR}/data/kinship"
+export LOCAL_SNP_QC_FILE="${SCRIPT_DIR}/data/support/ukb_snp_qc.txt"
 export ALIGNMENT_FILE="${SCRIPT_DIR}/data/support/sbayesrc_hg38.csv"
 export SBAYESRC_LIFTOVER_FILE="${SCRIPT_DIR}/data/support/sbayesrc_liftover_results.csv"
 export DIRECT_SNPS_URL="https://raw.githubusercontent.com/jesseICR/ukbb-sbayesrc-gwas/main/data/support/direct_snps/ukbb_500k_qc_pass_direct_snps.txt"
 export SBAYESRC_LIFTOVER_URL="https://github.com/jesseICR/sbayesrc-liftover/releases/download/v1.0/sbayesrc_liftover_results.csv"
 export ADMIXTURE_TSV_URL="https://raw.githubusercontent.com/jesseICR/public-statgen/main/outputs/admixture-global-6/admixture_allele_freqs.tsv"
 export ADMIXTURE_DOWNLOAD_URL="https://dalexander.github.io/admixture/binaries/admixture_linux-1.3.0.tar.gz"
+export UKB_SNP_QC_URL="https://biobank.ndph.ox.ac.uk/ukb/ukb/auxdata/ukb_snp_qc.txt"
 
 # AoU computed ancestry predictions; used to make the EUR keep-list for
 # direct-SNP QC metrics. This file stays inside the AoU environment.
 export AOU_ANCESTRY_PRED_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/ancestry/echo_v4_r2.ancestry_preds.tsv"
 export AOU_ADMIXTURE_Q_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/admixture_estimates/aou_admixture_estimates_rye_v8.Q"
+export AOU_RELATEDNESS_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/relatedness/samples_relatedness.tsv"
 
 # High-quality direct-bfile thresholds.
 export HQ_AF_DIFF_MAX="${HQ_AF_DIFF_MAX:-0.04}"          # absolute ALT-frequency difference
@@ -128,6 +136,14 @@ export OURS_AMR_MAX="${OURS_AMR_MAX:-0.1}"
 export OURS_EAS_MAX="${OURS_EAS_MAX:-0.1}"
 export OURS_OCE_MAX="${OURS_OCE_MAX:-0.1}"
 export AOU_MID_THRESHOLDS="${AOU_MID_THRESHOLDS:-0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2}"
+
+# KING kinship settings. The SNP missingness filter is all-sample, not EUR-only.
+export KINSHIP_MISSING_MAX="${KINSHIP_MISSING_MAX:-0.01}"
+export KING_TABLE_FILTER="${KING_TABLE_FILTER:-0.035}"
+export KINSHIP_CLOSE_LOWER="${KINSHIP_CLOSE_LOWER:-0.1767}"
+export KINSHIP_FIRST_DEGREE_UPPER="${KINSHIP_FIRST_DEGREE_UPPER:-0.3535}"
+export KINSHIP_IBS0_CUTOFF="${KINSHIP_IBS0_CUTOFF:-0.0012}"
+export KINSHIP_PROCEED_AFTER_SNP_REVIEW="${KINSHIP_PROCEED_AFTER_SNP_REVIEW:-0}"
 
 # Tools — plink2 is preinstalled on the AoU Verily Jupyter VM.
 export PLINK2="${PLINK2:-/opt/workbench-tools/binaries/bin/plink2}"
@@ -192,6 +208,16 @@ export ADMIXTURE_CONCAT_DSUB_MIN_RAM="${ADMIXTURE_CONCAT_DSUB_MIN_RAM:-8}"
 export ADMIXTURE_CONCAT_DSUB_DISK_SIZE="${ADMIXTURE_CONCAT_DSUB_DISK_SIZE:-50}"
 export ADMIXTURE_CONCAT_DSUB_DISK_TYPE="${ADMIXTURE_CONCAT_DSUB_DISK_TYPE:-pd-ssd}"
 
+# Kinship subset/KING jobs scan the HQ direct bfile.
+export KINSHIP_SUBSET_DSUB_MIN_CORES="${KINSHIP_SUBSET_DSUB_MIN_CORES:-8}"
+export KINSHIP_SUBSET_DSUB_MIN_RAM="${KINSHIP_SUBSET_DSUB_MIN_RAM:-32}"
+export KINSHIP_SUBSET_DSUB_DISK_SIZE="${KINSHIP_SUBSET_DSUB_DISK_SIZE:-300}"
+export KINSHIP_SUBSET_DSUB_DISK_TYPE="${KINSHIP_SUBSET_DSUB_DISK_TYPE:-pd-ssd}"
+export KING_DSUB_MIN_CORES="${KING_DSUB_MIN_CORES:-16}"
+export KING_DSUB_MIN_RAM="${KING_DSUB_MIN_RAM:-64}"
+export KING_DSUB_DISK_SIZE="${KING_DSUB_DISK_SIZE:-300}"
+export KING_DSUB_DISK_TYPE="${KING_DSUB_DISK_TYPE:-pd-ssd}"
+
 # Worker-staging paths on the workspace bucket
 export DSUB_BIN_URI="${WORKSPACE_BUCKET_URI}/bin"
 export DSUB_PLINK2_GS="${DSUB_BIN_URI}/plink2"
@@ -226,6 +252,7 @@ mkdir -p \
     "${LOCAL_HQ_DIRECT_DIR}" \
     "${LOCAL_ADMIXTURE_DIR}" \
     "${LOCAL_ANCESTRY_COMPARE_DIR}" \
+    "${LOCAL_KINSHIP_DIR}" \
     "${LOCAL_SBAYESRC_ID_DIR}" \
     "${LOCAL_WGS_PFILE_DIR}" \
     "${SCRIPT_DIR}/logs/extract" \
@@ -241,6 +268,7 @@ mkdir -p \
     "${DX_ADMIXTURE_Q_DIR}" \
     "${DX_AOU_VS_OURS_DIR}" \
     "${DX_EUROPEANS_DIR}" \
+    "${DX_KINSHIP_DIR}" \
     "${DX_LOGS_DIR}"
 
 # ---------------------------------------------------------------------------
@@ -262,6 +290,7 @@ echo "  LOCAL_DIRECT_SNPS    = ${LOCAL_DIRECT_SNPS_FILE}"
 echo "  LOCAL_HQ_DIRECT_DIR  = ${LOCAL_HQ_DIRECT_DIR}"
 echo "  LOCAL_ADMIXTURE_DIR  = ${LOCAL_ADMIXTURE_DIR}"
 echo "  LOCAL_ANCESTRY_CMP   = ${LOCAL_ANCESTRY_COMPARE_DIR}"
+echo "  LOCAL_KINSHIP_DIR    = ${LOCAL_KINSHIP_DIR}"
 echo "  PLINK2               = ${PLINK2} ($("${PLINK2}" --version 2>&1 | head -1))"
 echo "  THREADS              = ${THREADS}"
 echo "  LOG_FILE             = ${LOG_FILE}"
@@ -277,6 +306,9 @@ echo "  ADMIXTURE settings   = K=${ADMIXTURE_K}, batch_size=${ADMIXTURE_BATCH_SI
 echo "  ADMIXTURE prep/split = ${ADMIXTURE_PREP_DSUB_MIN_CORES}/${ADMIXTURE_SPLIT_DSUB_MIN_CORES} vCPU, ${ADMIXTURE_PREP_DSUB_MIN_RAM}/${ADMIXTURE_SPLIT_DSUB_MIN_RAM} GB RAM, ${ADMIXTURE_PREP_DSUB_DISK_SIZE}/${ADMIXTURE_SPLIT_DSUB_DISK_SIZE} GB disk"
 echo "  ADMIXTURE project    = ${ADMIXTURE_PROJECT_DSUB_MIN_CORES} vCPU, ${ADMIXTURE_PROJECT_DSUB_MIN_RAM} GB RAM, ${ADMIXTURE_PROJECT_DSUB_DISK_SIZE} GB ${ADMIXTURE_PROJECT_DSUB_DISK_TYPE}"
 echo "  European classifier  = European >= ${OURS_EUR_MIN}, African/American/East_Asian/Oceanian <= ${OURS_AFR_MAX}/${OURS_AMR_MAX}/${OURS_EAS_MAX}/${OURS_OCE_MAX}"
+echo "  Kinship settings     = source=direct_bfile_hq, UKB in_Relatedness SNPs, all-sample missingness < ${KINSHIP_MISSING_MAX}, KING filter >= ${KING_TABLE_FILTER}"
+echo "  Kinship review gate  = KINSHIP_PROCEED_AFTER_SNP_REVIEW=${KINSHIP_PROCEED_AFTER_SNP_REVIEW}"
+echo "  Kinship resources    = subset ${KINSHIP_SUBSET_DSUB_MIN_CORES} vCPU/${KINSHIP_SUBSET_DSUB_MIN_RAM} GB; KING ${KING_DSUB_MIN_CORES} vCPU/${KING_DSUB_MIN_RAM} GB"
 if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
     echo "  SBAYESRC_TEST_CHROM  = ${SBAYESRC_TEST_CHROM}  (smoke-test mode)"
 fi
@@ -403,6 +435,39 @@ else
     echo ""
     echo "=== Step 6: Compare AoU ancestry fractions to ours ==="
     bash "${SCRIPT_DIR}/compare_aou_ancestry.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 7: KING kinship + close relationship classification
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 7a: Build kinship SNP subset ==="
+    bash "${SCRIPT_DIR}/subset_kinship_snps.sh"
+
+    if [[ "${KINSHIP_PROCEED_AFTER_SNP_REVIEW}" != "1" ]]; then
+        echo ""
+        echo "=== Step 7: Pausing before KING kinship ==="
+        if [[ -s "${DX_KINSHIP_DIR}/kinship_snp_subset_summary.tsv" ]]; then
+            awk -F'\t' 'NR > 1 {printf "  %s = %s\n", $1, $2}' "${DX_KINSHIP_DIR}/kinship_snp_subset_summary.tsv"
+        fi
+        echo "  Review n_intersection_and_missing_lt_${KINSHIP_MISSING_MAX} before launching the large KING run."
+        echo "  To continue with these settings, rerun with KINSHIP_PROCEED_AFTER_SNP_REVIEW=1."
+        echo "  To override the SNP missingness threshold, rerun with e.g. KINSHIP_MISSING_MAX=0.02."
+        echo ""
+        echo "=== Pipeline paused for kinship SNP-count review ==="
+        exit 0
+    fi
+
+    echo ""
+    echo "=== Step 7b: Run KING kinship ==="
+    bash "${SCRIPT_DIR}/run_king_kinship.sh"
+
+    echo ""
+    echo "=== Step 7c: QC KING kinship against AoU relatedness ==="
+    bash "${SCRIPT_DIR}/kinship_qc.sh"
+
+    echo ""
+    echo "=== Step 7d: Classify close relationships ==="
+    bash "${SCRIPT_DIR}/classify_relations.sh"
 fi
 
 echo ""
