@@ -850,7 +850,9 @@ Observed Step 13 accounting from the current v8 run:
 | Step 1 prediction files | 1 |
 | Step 2 chromosomes | 22 |
 | Step 2 block size | 200 |
-| Step 2 total tested variants | 2,769,057 |
+| Step 2 source variants | 7,349,435 |
+| Step 2 tests ignored by REGENIE due to MAC < 5 | 205 |
+| Step 2 total tested variants | 7,349,230 |
 | RINT | enabled |
 | Phenotype | `height` |
 | Covariates | `age_c`, `sex_c`, `age_c_sex_c_inter`, `PC1_AVG` ... `PC10_AVG` |

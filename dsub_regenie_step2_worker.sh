@@ -135,7 +135,9 @@ fi
 log "running REGENIE Step 2 with localized prediction list ${pred_rewritten}"
 "${cmd[@]}"
 
-result_file=$(find "${OUTDIR}" -maxdepth 1 -type f -name "${CHROM}_height*.regenie*" | head -1)
+result_file=$(find "${OUTDIR}" -maxdepth 1 -type f \
+    \( -name "${CHROM}_height.regenie.gz" -o -name "${CHROM}_height.regenie" \) |
+    head -1)
 if [[ -z "${result_file}" || ! -s "${result_file}" ]]; then
     log "ERROR: missing REGENIE Step 2 result file in ${OUTDIR}"
     ls -lh "${OUTDIR}" | sed 's/^/  /'
