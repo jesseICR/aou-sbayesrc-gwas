@@ -26,6 +26,10 @@
 #   8. Select unrelated European IIDs for fitting PCA.
 #   9. QC SNPs for PCA and build pca_ready.{bed,bim,fam}.
 #  10. Fit PCA on unrelated Europeans and project PCs onto all samples.
+#  11. Build sex covariate + sex-at-birth/WGS-ploidy concordance QC.
+#  12. Build height GWAS phenotype/covariate inputs for all classified
+#      European samples with valid program-collected height.
+#  13. Optionally run a height GWAS with REGENIE (set RUN_HEIGHT_GWAS=1).
 #
 # Idempotent: each step checks for existing outputs and skips if already done.
 #
@@ -86,6 +90,10 @@ export DX_AOU_VS_OURS_DIR="${DX_OUTPUT_DIR}/statgen/aou_vs_ours"
 export DX_EUROPEANS_DIR="${DX_OUTPUT_DIR}/europeans"
 export DX_KINSHIP_DIR="${DX_OUTPUT_DIR}/kinship"
 export DX_PCA_EUR_DIR="${DX_OUTPUT_DIR}/pca_eur"
+export DX_GENETIC_SEX_DIR="${DX_OUTPUT_DIR}/genetic_sex"
+export DX_REGENIE_INPUT_DIR="${DX_OUTPUT_DIR}/regenie_input"
+export DX_HEIGHT_REGENIE_INPUT_DIR="${DX_REGENIE_INPUT_DIR}/height_example"
+export DX_REGENIE_OUTPUT_DIR="${DX_OUTPUT_DIR}/regenie_output"
 export DX_LOGS_DIR="${DX_OUTPUT_DIR}/logs"
 # gs:// path for `gcloud storage cp` (large-pfile uploads — bypasses gcsfuse).
 export DX_WGS_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/wgs_pfiles"
@@ -98,6 +106,10 @@ export DX_ADMIXTURE_BATCH_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statge
 export DX_ADMIXTURE_Q_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap/q"
 export DX_KINSHIP_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/kinship"
 export DX_PCA_EUR_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/pca_eur"
+export DX_GENETIC_SEX_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/genetic_sex"
+export DX_REGENIE_INPUT_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/regenie_input"
+export DX_HEIGHT_REGENIE_INPUT_URI="${DX_REGENIE_INPUT_URI}/height_example"
+export DX_REGENIE_OUTPUT_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/regenie_output"
 
 # Local paths
 export LOCAL_SBAYESRC_ID_DIR="${SCRIPT_DIR}/data/sbayesrc_ids"
@@ -110,6 +122,7 @@ export LOCAL_ADMIXTURE_DIR="${SCRIPT_DIR}/data/admixture"
 export LOCAL_ANCESTRY_COMPARE_DIR="${SCRIPT_DIR}/data/ancestry_compare"
 export LOCAL_KINSHIP_DIR="${SCRIPT_DIR}/data/kinship"
 export LOCAL_PCA_QC_DIR="${SCRIPT_DIR}/data/pca_qc"
+export LOCAL_REGENIE_DIR="${SCRIPT_DIR}/data/regenie"
 export LOCAL_SNP_QC_FILE="${SCRIPT_DIR}/data/support/ukb_snp_qc.txt"
 export ALIGNMENT_FILE="${SCRIPT_DIR}/data/support/sbayesrc_hg38.csv"
 export SBAYESRC_LIFTOVER_FILE="${SCRIPT_DIR}/data/support/sbayesrc_liftover_results.csv"
@@ -125,6 +138,7 @@ export PCA_HIGH_LD_URL="https://raw.githubusercontent.com/meyer-lab-cshl/plinkQC
 export AOU_ANCESTRY_PRED_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/ancestry/echo_v4_r2.ancestry_preds.tsv"
 export AOU_ADMIXTURE_Q_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/admixture_estimates/aou_admixture_estimates_rye_v8.Q"
 export AOU_RELATEDNESS_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/relatedness/samples_relatedness.tsv"
+export AOU_GENOMIC_METRICS_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/qc/genomics_metrics_Dec142023_1859_02_tz0000.tsv"
 
 # High-quality direct-bfile thresholds.
 export HQ_AF_DIFF_MAX="${HQ_AF_DIFF_MAX:-0.04}"          # absolute ALT-frequency difference
@@ -169,8 +183,34 @@ export PCA_LD_R2="${PCA_LD_R2:-0.1}"
 export PCA_NPCS="${PCA_NPCS:-20}"
 export PCA_SEED="${PCA_SEED:-0}"
 
+# Sex covariate/QC settings. sex_covar.txt keeps binary sex-at-birth samples
+# with WGS sex ploidy concordance by default.
+export GENETIC_SEX_REQUIRE_PLOIDY_CONCORDANCE="${GENETIC_SEX_REQUIRE_PLOIDY_CONCORDANCE:-1}"
+export SBAYESRC_BQ_TMP_DATASET="${SBAYESRC_BQ_TMP_DATASET:-}"
+
+# Height GWAS example settings. Defaults use program-collected AoU height:
+# measurement 3036277 (Body height), source 903133 (Height), type 44818701
+# (From physical examination), unit 8582 (centimeter).
+export HEIGHT_MEASUREMENT_CONCEPT_ID="${HEIGHT_MEASUREMENT_CONCEPT_ID:-3036277}"
+export HEIGHT_MEASUREMENT_SOURCE_CONCEPT_ID="${HEIGHT_MEASUREMENT_SOURCE_CONCEPT_ID:-903133}"
+export HEIGHT_MEASUREMENT_TYPE_CONCEPT_ID="${HEIGHT_MEASUREMENT_TYPE_CONCEPT_ID:-44818701}"
+export HEIGHT_UNIT_CONCEPT_ID="${HEIGHT_UNIT_CONCEPT_ID:-8582}"
+export HEIGHT_MIN_CM="${HEIGHT_MIN_CM:-140}"
+export HEIGHT_N_PCS="${HEIGHT_N_PCS:-10}"
+
+# REGENIE height GWAS settings. The full GWAS is intentionally gated because it
+# launches one Step 1 job plus per-chromosome Step 2 jobs.
+export RUN_HEIGHT_GWAS="${RUN_HEIGHT_GWAS:-0}"
+export HEIGHT_GWAS_INPUT_NAME="${HEIGHT_GWAS_INPUT_NAME:-height_example}"
+export HEIGHT_GWAS_OUTPUT_NAME="${HEIGHT_GWAS_OUTPUT_NAME:-height_example}"
+export REGENIE_APPLY_RINT="${REGENIE_APPLY_RINT:-1}"
+export REGENIE_STEP1_BLOCK_SIZE="${REGENIE_STEP1_BLOCK_SIZE:-1000}"
+export REGENIE_STEP2_BLOCK_SIZE="${REGENIE_STEP2_BLOCK_SIZE:-200}"
+export REGENIE_CHROMS="${REGENIE_CHROMS:-1-22}"
+
 # Tools — plink2 is preinstalled on the AoU Verily Jupyter VM.
 export PLINK2="${PLINK2:-/opt/workbench-tools/binaries/bin/plink2}"
+export REGENIE="${REGENIE:-$(command -v regenie || true)}"
 
 # Threading — plink2 is multithreaded; default to all cores.
 export THREADS="${THREADS:-$(nproc)}"
@@ -254,9 +294,21 @@ export PCA_PROJECT_DSUB_MIN_RAM="${PCA_PROJECT_DSUB_MIN_RAM:-64}"
 export PCA_PROJECT_DSUB_DISK_SIZE="${PCA_PROJECT_DSUB_DISK_SIZE:-300}"
 export PCA_PROJECT_DSUB_DISK_TYPE="${PCA_PROJECT_DSUB_DISK_TYPE:-pd-ssd}"
 
+# REGENIE Step 1 localizes the HQ direct bfile. Step 2 localizes one WGS pfile
+# per chromosome plus the Step 1 LOCO predictions.
+export REGENIE_STEP1_DSUB_MIN_CORES="${REGENIE_STEP1_DSUB_MIN_CORES:-16}"
+export REGENIE_STEP1_DSUB_MIN_RAM="${REGENIE_STEP1_DSUB_MIN_RAM:-64}"
+export REGENIE_STEP1_DSUB_DISK_SIZE="${REGENIE_STEP1_DSUB_DISK_SIZE:-300}"
+export REGENIE_STEP1_DSUB_DISK_TYPE="${REGENIE_STEP1_DSUB_DISK_TYPE:-pd-ssd}"
+export REGENIE_STEP2_DSUB_MIN_CORES="${REGENIE_STEP2_DSUB_MIN_CORES:-8}"
+export REGENIE_STEP2_DSUB_MIN_RAM="${REGENIE_STEP2_DSUB_MIN_RAM:-32}"
+export REGENIE_STEP2_DSUB_DISK_SIZE="${REGENIE_STEP2_DSUB_DISK_SIZE:-300}"
+export REGENIE_STEP2_DSUB_DISK_TYPE="${REGENIE_STEP2_DSUB_DISK_TYPE:-pd-ssd}"
+
 # Worker-staging paths on the workspace bucket
 export DSUB_BIN_URI="${WORKSPACE_BUCKET_URI}/bin"
 export DSUB_PLINK2_GS="${DSUB_BIN_URI}/plink2"
+export DSUB_REGENIE_BUNDLE_URI="${DSUB_BIN_URI}/regenie_bundle"
 export DSUB_SBAYESRC_ID_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/sbayesrc_ids"
 export DSUB_LOG_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/logs/dsub"
 
@@ -280,6 +332,16 @@ if [[ ! -x "${PLINK2}" ]]; then
     echo "ERROR: plink2 not found at ${PLINK2}."
     exit 1
 fi
+if [[ -z "${WORKSPACE_CDR:-}" ]]; then
+    echo "ERROR: WORKSPACE_CDR is not set — are you running inside an AoU Verily Jupyter session?" >&2
+    exit 1
+fi
+
+regenie_version_text() {
+    local help_text
+    help_text="$("$1" --help 2>&1 || true)"
+    printf '%s\n' "${help_text}" | sed -n '2{s/^ *//;p;q;}'
+}
 
 mkdir -p \
     "${SCRIPT_DIR}/data/support" \
@@ -290,6 +352,7 @@ mkdir -p \
     "${LOCAL_ANCESTRY_COMPARE_DIR}" \
     "${LOCAL_KINSHIP_DIR}" \
     "${LOCAL_PCA_QC_DIR}" \
+    "${LOCAL_REGENIE_DIR}" \
     "${LOCAL_SBAYESRC_ID_DIR}" \
     "${LOCAL_WGS_PFILE_DIR}" \
     "${SCRIPT_DIR}/logs/extract" \
@@ -307,6 +370,10 @@ mkdir -p \
     "${DX_EUROPEANS_DIR}" \
     "${DX_KINSHIP_DIR}" \
     "${DX_PCA_EUR_DIR}" \
+    "${DX_GENETIC_SEX_DIR}" \
+    "${DX_REGENIE_INPUT_DIR}" \
+    "${DX_HEIGHT_REGENIE_INPUT_DIR}" \
+    "${DX_REGENIE_OUTPUT_DIR}" \
     "${DX_LOGS_DIR}"
 
 # ---------------------------------------------------------------------------
@@ -323,13 +390,20 @@ echo "  WORKSPACE_BUCKET_URI = ${WORKSPACE_BUCKET_URI}  (from mount table)"
 echo "  WORKSPACE_BUCKET_MNT = ${WORKSPACE_BUCKET_MOUNT}"
 echo "  AOU_PGEN_DIR         = ${AOU_PGEN_DIR}"
 echo "  DX_OUTPUT_DIR        = ${DX_OUTPUT_DIR}"
+echo "  WORKSPACE_CDR        = ${WORKSPACE_CDR}"
 echo "  LOCAL_WGS_PFILE_DIR  = ${LOCAL_WGS_PFILE_DIR}"
 echo "  LOCAL_DIRECT_SNPS    = ${LOCAL_DIRECT_SNPS_FILE}"
 echo "  LOCAL_HQ_DIRECT_DIR  = ${LOCAL_HQ_DIRECT_DIR}"
 echo "  LOCAL_ADMIXTURE_DIR  = ${LOCAL_ADMIXTURE_DIR}"
 echo "  LOCAL_ANCESTRY_CMP   = ${LOCAL_ANCESTRY_COMPARE_DIR}"
 echo "  LOCAL_KINSHIP_DIR    = ${LOCAL_KINSHIP_DIR}"
+echo "  LOCAL_REGENIE_DIR    = ${LOCAL_REGENIE_DIR}"
 echo "  PLINK2               = ${PLINK2} ($("${PLINK2}" --version 2>&1 | head -1))"
+if [[ -n "${REGENIE}" && -x "${REGENIE}" ]]; then
+    echo "  REGENIE              = ${REGENIE} ($(regenie_version_text "${REGENIE}"))"
+else
+    echo "  REGENIE              = not found (required only when RUN_HEIGHT_GWAS=1)"
+fi
 echo "  THREADS              = ${THREADS}"
 echo "  LOG_FILE             = ${LOG_FILE}"
 echo "  DSUB_PROVIDER        = ${DSUB_PROVIDER}"
@@ -350,6 +424,9 @@ echo "  Kinship resources    = subset ${KINSHIP_SUBSET_DSUB_MIN_CORES} vCPU/${KI
 echo "  PCA EUR selection    = seed relationships ${PCA_SEED_RELATIONSHIPS}, kinship threshold ${PCA_KINSHIP_THRESHOLD}"
 echo "  PCA SNP QC           = source=direct_bfile_hq, AF diff <= ${PCA_AF_DIFF_MAX}, MAF >= ${PCA_MAF_MIN}, geno <= ${PCA_GENO_MAX}, mind <= ${PCA_MIND_MAX}, LD ${PCA_LD_WINDOW}/${PCA_LD_STEP}/${PCA_LD_R2}"
 echo "  PCA fit/project      = ${PCA_NPCS} PCs, seed ${PCA_SEED}, source=direct_bfile_hq, resources ${PCA_PROJECT_DSUB_MIN_CORES} vCPU/${PCA_PROJECT_DSUB_MIN_RAM} GB/${PCA_PROJECT_DSUB_DISK_SIZE} GB ${PCA_PROJECT_DSUB_DISK_TYPE}"
+echo "  Genetic sex QC       = sex-at-birth covariate, require WGS ploidy concordance=${GENETIC_SEX_REQUIRE_PLOIDY_CONCORDANCE}"
+echo "  Height setup         = concept/source/type/unit ${HEIGHT_MEASUREMENT_CONCEPT_ID}/${HEIGHT_MEASUREMENT_SOURCE_CONCEPT_ID}/${HEIGHT_MEASUREMENT_TYPE_CONCEPT_ID}/${HEIGHT_UNIT_CONCEPT_ID}, min ${HEIGHT_MIN_CM} cm, PCs ${HEIGHT_N_PCS}"
+echo "  Height REGENIE       = RUN_HEIGHT_GWAS=${RUN_HEIGHT_GWAS}, input=${HEIGHT_GWAS_INPUT_NAME}, output=${HEIGHT_GWAS_OUTPUT_NAME}, chroms=${REGENIE_CHROMS}, RINT=${REGENIE_APPLY_RINT}, blocks ${REGENIE_STEP1_BLOCK_SIZE}/${REGENIE_STEP2_BLOCK_SIZE}"
 if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
     echo "  SBAYESRC_TEST_CHROM  = ${SBAYESRC_TEST_CHROM}  (smoke-test mode)"
 fi
@@ -553,6 +630,33 @@ else
     echo ""
     echo "=== Step 10: Fit PCA and project all samples ==="
     bash "${SCRIPT_DIR}/fit_project_pca.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 11: Sex covariate + sex/ploidy QC
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 11: Build sex covariate and sex/ploidy QC ==="
+    bash "${SCRIPT_DIR}/get_genetic_sex.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 12: Height GWAS input setup
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 12: Set up height GWAS example ==="
+    bash "${SCRIPT_DIR}/setup_height_gwas.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 13: Optional height GWAS with REGENIE
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 13: Run height GWAS example ==="
+    if [[ "${RUN_HEIGHT_GWAS}" == "1" ]]; then
+        bash "${SCRIPT_DIR}/run_continuous_regenie_gwas.sh" \
+            "${HEIGHT_GWAS_INPUT_NAME}" "${HEIGHT_GWAS_OUTPUT_NAME}"
+    else
+        echo "  Skipping full REGENIE GWAS because RUN_HEIGHT_GWAS=${RUN_HEIGHT_GWAS}."
+        echo "  To launch it, rerun with RUN_HEIGHT_GWAS=1."
+    fi
 fi
 
 echo ""

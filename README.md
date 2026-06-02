@@ -11,7 +11,9 @@ KING kinship from the high-quality direct bfile, compares those estimates to
 AoU's provided relatedness table, classifies close relationships, and selects
 the unrelated European sample set used to fit PCA. It then builds the
 PCA-ready SNP bfile from that sample set, fits 20 European ancestry PCs, and
-projects those PCs onto all samples in the high-quality direct bfile.
+projects those PCs onto all samples in the high-quality direct bfile. The
+final optional example builds a height phenotype/covariate set and runs a
+continuous-trait REGENIE GWAS.
 
 The pipeline **must be run from inside an AoU Verily Jupyter session
 terminal** (the standard interactive analysis environment on the All of Us
@@ -70,16 +72,19 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/aou_projected.sscore
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/aou_pcs.{eigenval,eigenvec,eigenvec.allele}
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_eur_counts.acount
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/fit_project_pca.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/sex_covar.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/genetic_sex_summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/{phen.txt,covar.txt,training_iids.txt}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step1/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step2/chr{1..22}/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.summary.tsv
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
 biallelic_total / extracted / out_samples / missing / remapped / unmapped`
 for that chromosome. A combined summary across all processed chromosomes is
 also written to `logs/sbayesrc_extract_summary.tsv` at the end of each run.
-
-Downstream UKBB-analog REGENIE phenotype-setup steps are not yet ported — see
-`reference/ukbb-sbayesrc-gwas/get_genotypes.sh` for the full target pipeline
-(gitignored locally; cloned for reference).
 
 ## Pipeline steps
 
@@ -689,6 +694,167 @@ Eigenvalues from that run:
 6.66575
 ```
 
+### Step 11 — Sex covariate and sex/ploidy QC
+
+`get_genetic_sex.sh` builds the binary sex covariate used by the height GWAS
+example. It queries sex at birth from the AoU CDR `person` table, joins WGS
+sex-ploidy metrics from AoU genomic QC, and keeps only samples with confident
+binary sex:
+
+```text
+sex at birth is Female or Male
+AND WGS sex ploidy is XX or XY
+AND sex at birth and WGS ploidy are concordant
+```
+
+The output covariate uses FIDs from `direct_bfile_hq/chr1_22_merged_hq.fam`
+and `sex_01` coding `0=female, 1=male`. The height setup step centers this as
+`sex_c = sex_01 - 0.5`, so female is `-0.5` and male is `0.5`.
+
+Outputs:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/sex_covar.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/genetic_sex_summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/sex_ploidy_crosstab.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/genetic_sex_log.txt
+```
+
+Observed Step 11 accounting from the current v8 run:
+
+| Metric | Value |
+|---|---:|
+| Sample universe | 414,830 |
+| Binary sex at birth | 410,445 |
+| Missing/non-binary sex at birth | 4,385 |
+| Missing WGS sex ploidy | 1 |
+| Non-canonical WGS sex ploidy | 1,451 |
+| Concordant confident binary samples | 408,993 |
+| Confident female | 249,842 |
+| Confident male | 159,151 |
+| Binary sex/ploidy discordances | 0 |
+| Confident sample percent | 98.592918% |
+
+### Step 12 — Height GWAS input setup
+
+`setup_height_gwas.sh` builds the phenotype, covariate, and keep files for a
+height GWAS in all samples classified as European by this pipeline. It uses
+AoU program-collected height measurements:
+
+```text
+measurement_concept_id = 3036277
+measurement_source_concept_id = 903133
+measurement_type_concept_id = 44818701
+unit_concept_id = 8582
+minimum height = 140 cm
+```
+
+The BigQuery result is exported to the workspace bucket, processed inside the
+AoU environment, and not downloaded off-platform. For each participant, the
+helper takes the median valid height and the mean age at height measurement.
+It then intersects with:
+
+```text
+1. our European ancestry keep-list
+2. Step 11 confident sex covariates
+3. the high-quality direct-bfile .fam sample IDs
+4. Step 10 projected PC scores
+```
+
+Covariates are:
+
+```text
+age_c                  = age_at_height - mean(age_at_height)
+sex_c                  = sex_01 - 0.5
+age_c_sex_c_inter      = age_c * sex_c
+PC1_AVG ... PC10_AVG   = first 10 projected European PCs
+```
+
+Outputs:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/training_iids.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/phen.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/covar.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/base_covar.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas_log.txt
+```
+
+Observed Step 12 accounting from the current v8 run:
+
+| Metric | Value |
+|---|---:|
+| Our classified Europeans | 234,889 |
+| Confident sex covariate rows | 408,993 |
+| Height query rows after source/min-height filters | 439,858 |
+| Projected PC rows | 414,830 |
+| Europeans missing a height row | 33,105 |
+| Height candidates missing confident sex | 2,819 |
+| Height+sex candidates missing fam row | 0 |
+| Height+sex+fam candidates missing PCs | 0 |
+| Final GWAS samples | 198,965 |
+| GWAS female | 118,731 |
+| GWAS male | 80,234 |
+| Mean height | 169.1084603 cm |
+| Median height | 168.3 cm |
+| Mean age at height measurement | 55.6565835 years |
+| PCs included | 10 |
+
+### Step 13 — Height GWAS with REGENIE
+
+`run_continuous_regenie_gwas.sh` runs the optional continuous-trait REGENIE
+height example. It is gated by `RUN_HEIGHT_GWAS=1` because it launches one
+Step 1 Batch job plus a 22-task Step 2 Batch array. The default run applies
+rank-inverse normal transformation (`--apply-rint`) and uses the Step 12
+covariates.
+
+Step 1 uses the high-quality direct-SNP bfile:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq
+```
+
+Step 2 tests the extracted SBayesRC WGS pfiles:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/wgs_pfiles/chr{1..22}
+```
+
+The orchestrator stages a small REGENIE runtime bundle to the workspace bucket
+from the Workbench-provided REGENIE binary. The bundle includes the MKL shared
+libraries needed on the default Ubuntu Batch worker. For AoU WGS pfiles, the
+Step 2 worker also writes a local REGENIE-compatible `.psam` with `FID=0`
+because AoU pfiles use a `#IID`-only psam header. It rewrites the localized
+Step 1 prediction list so Step 2 reads the localized LOCO prediction file.
+Neither change modifies the stored pfiles.
+
+Outputs:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step1/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step2/chr{1..22}/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.params.tsv
+```
+
+Observed Step 13 accounting from the current v8 run:
+
+| Metric | Value |
+|---|---:|
+| REGENIE version | `REGENIE v4.1.2.gz` |
+| Step 1 bfile | `direct_bfile_hq/chr1_22_merged_hq` |
+| Step 1 samples | 198,965 |
+| Step 1 variants | 498,890 |
+| Step 1 block size | 1,000 |
+| Step 1 prediction files | 1 |
+| Step 2 chromosomes | 22 |
+| Step 2 block size | 200 |
+| Step 2 total tested variants | 2,769,057 |
+| RINT | enabled |
+| Phenotype | `height` |
+| Covariates | `age_c`, `sex_c`, `age_c_sex_c_inter`, `PC1_AVG` ... `PC10_AVG` |
+
 ## Prerequisites
 
 You are inside an AoU Verily Jupyter session terminal (the standard
@@ -706,6 +872,8 @@ The session provides everything the pipeline needs:
 - **`plink2`** preinstalled at `/opt/workbench-tools/binaries/bin/plink2`.
   The orchestrator stages this binary to the workspace bucket once, and each
   Batch worker `--input`s it back.
+- **`regenie`** preinstalled at `/opt/workbench-tools/binaries/bin/regenie`
+  for the optional height GWAS example.
 - **`dsub`** preinstalled at `/opt/conda/envs/jupyter/bin/dsub`.
 - **Internet access from the Jupyter pod** for public reference downloads.
   Batch workers use private networking, so the orchestrator downloads public
@@ -733,6 +901,12 @@ Full all-22 run (recommended in the background):
 nohup bash get_genotypes.sh > logs/run.log 2>&1 &
 ```
 
+Run the optional height GWAS example as well:
+```bash
+RUN_HEIGHT_GWAS=1 KINSHIP_PROCEED_AFTER_SNP_REVIEW=1 \
+  nohup bash get_genotypes.sh > logs/run_height_gwas.log 2>&1 &
+```
+
 The first full run after Step 7 is added stops after writing
 `kinship_snp_subset_summary.tsv`, so the final KING SNP count can be reviewed
 before launching the expensive all-pairs KING job. Re-run with
@@ -743,6 +917,14 @@ override.
 The run logs to `logs/run_YYYYMMDD_HHMMSS.log` (timestamped) and tees through
 to the foreground if attached. Each Batch worker's stdout/stderr is uploaded
 to `${WORKSPACE_BUCKET}/sbayesrc_genotypes/logs/dsub/`.
+
+Steps that query the AoU CDR use a temporary BigQuery dataset in the user's
+workspace project. The pipeline uses `SBAYESRC_BQ_TMP_DATASET` if set;
+otherwise it chooses an existing dataset in this order: `sbayesrc_tmp`,
+`high_quality_cohort`, then the first dataset returned by `bq ls`. The AoU
+pet service account may not be allowed to create new BigQuery datasets, so set
+`SBAYESRC_BQ_TMP_DATASET` to an existing writable dataset if auto-selection is
+not appropriate for your workspace.
 
 ## Portability
 
@@ -790,6 +972,17 @@ repo and run it as-is.
 - Step 10 skips PCA fitting/projection when its parameter file, summary,
   eigenvalue/eigenvector/allele-weight files, allele counts, and projected
   score file exist with matching input sizes, PC settings, and output counts.
+- Step 11 skips the sex covariate/QC build when its parameter file, summary,
+  crosstab, log, and `sex_covar.txt` exist with matching input sizes and
+  concordance settings.
+- Step 12 skips height GWAS input setup when its parameter file, summary,
+  phenotype, covariate, keep, and log files exist with matching concept IDs,
+  minimum-height threshold, PC count, and input sizes.
+- Step 13 is skipped unless `RUN_HEIGHT_GWAS=1`. When enabled, it skips
+  REGENIE Step 1 if the prediction list, params, and summary match the desired
+  run parameters. It then submits only Step 2 chromosomes missing matching
+  per-chromosome summary/params files, and writes a final GWAS summary only
+  after all selected chromosomes validate.
 
 A re-run of `get_genotypes.sh` after a successful run should skip every step
 and submit zero dsub tasks.
@@ -835,6 +1028,13 @@ and submit zero dsub tasks.
 | `dsub_pca_snp_qc_worker.sh` | Step 9 worker — applies the PCA-fitting sample keep-list, tighter frequency concordance, MAF/geno/mind filters, long-range-LD exclusion, and LD pruning. |
 | `fit_project_pca.sh` | Step 10 — stages PCA inputs and submits/verifies the Batch worker that fits European PCs and projects them to all samples. |
 | `dsub_fit_project_pca_worker.sh` | Step 10 worker — fits PLINK2 PCA with allele weights, computes fit-set allele counts, verifies projection SNP coverage, and writes all-sample PC scores. |
+| `get_genetic_sex.sh` | Step 11 — queries AoU sex at birth, joins WGS sex ploidy, and writes the confident binary sex covariate plus QC summaries. |
+| `get_genetic_sex.py` | Step 11 helper — builds `sex_covar.txt`, the sex/ploidy crosstab, summary, and verification log. |
+| `setup_height_gwas.sh` | Step 12 — queries program-collected AoU height, exports the result inside the workspace bucket, and builds REGENIE phenotype/covariate/keep files. |
+| `setup_height_gwas.py` | Step 12 helper — intersects Europeans, height, confident sex, genotype IDs, and projected PCs; centers covariates; writes summaries and verification checks. |
+| `run_continuous_regenie_gwas.sh` | Step 13 — optional continuous-trait REGENIE runner using `direct_bfile_hq` for Step 1 and `wgs_pfiles` for Step 2. |
+| `dsub_regenie_step1_worker.sh` | Step 13 worker — runs REGENIE Step 1, writes LOCO predictions, and verifies sample/variant counts. |
+| `dsub_regenie_step2_worker.sh` | Step 13 worker — runs one REGENIE Step 2 chromosome, adapting AoU `#IID` psam headers and localized Step 1 prediction paths for REGENIE. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
 | `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |
