@@ -119,6 +119,7 @@ def main():
     parser.add_argument("--height-query", required=True)
     parser.add_argument("--europeans", required=True)
     parser.add_argument("--sex-covar", required=True)
+    parser.add_argument("--exclude-iids", required=True)
     parser.add_argument("--fam", required=True)
     parser.add_argument("--sscore", required=True)
     parser.add_argument("--out-dir", required=True)
@@ -131,11 +132,13 @@ def main():
     log_lines = []
     log(log_lines, "=== AoU height GWAS setup ===")
     log(log_lines, f"height_query: {args.height_query}")
+    log(log_lines, f"exclude_iids: {args.exclude_iids}")
     log(log_lines, f"height_min_cm: {args.height_min_cm}")
     log(log_lines, f"n_pcs: {args.n_pcs}")
 
     europeans = read_keep_iids(args.europeans)
     sex_map = load_sex_covar(args.sex_covar)
+    excluded_iids = read_keep_iids(args.exclude_iids)
     fid_by_iid = load_fam_fids(args.fam)
     height_rows = load_height_rows(args.height_query)
     pc_data, pc_headers = load_projected_pcs(args.sscore, args.n_pcs)
@@ -144,11 +147,14 @@ def main():
     log(log_lines, "=== Input counts ===")
     log(log_lines, f"classified Europeans: {len(europeans)}")
     log(log_lines, f"sex covariate rows: {len(sex_map)}")
+    log(log_lines, f"sample-QC exclusion IIDs: {len(excluded_iids)}")
     log(log_lines, f"fam rows: {len(fid_by_iid)}")
     log(log_lines, f"height query rows: {len(height_rows)}")
     log(log_lines, f"projected PC rows: {len(pc_data)}")
 
-    candidates = set(europeans)
+    excluded_europeans = europeans & excluded_iids
+    candidates = set(europeans) - excluded_iids
+    after_sample_qc = set(candidates)
     missing_height = candidates - set(height_rows)
     candidates &= set(height_rows)
     missing_sex = candidates - set(sex_map)
@@ -178,6 +184,8 @@ def main():
 
     log(log_lines, "")
     log(log_lines, "=== Filtering counts ===")
+    log(log_lines, f"Europeans removed by sample-QC exclusion: {len(excluded_europeans)}")
+    log(log_lines, f"Europeans after sample-QC exclusion: {len(after_sample_qc)}")
     log(log_lines, f"Europeans missing height query row: {len(missing_height)}")
     log(log_lines, f"Europeans with height row but missing sex covariate: {len(missing_sex)}")
     log(log_lines, f"Europeans with height+sex but missing fam row: {len(missing_fam)}")
@@ -221,6 +229,9 @@ def main():
         f.write("metric\tvalue\n")
         f.write(f"classified_europeans\t{len(europeans)}\n")
         f.write(f"sex_covar_rows\t{len(sex_map)}\n")
+        f.write(f"sample_qc_exclusion_iids\t{len(excluded_iids)}\n")
+        f.write(f"classified_europeans_removed_by_sample_qc\t{len(excluded_europeans)}\n")
+        f.write(f"classified_europeans_after_sample_qc\t{len(after_sample_qc)}\n")
         f.write(f"fam_rows\t{len(fid_by_iid)}\n")
         f.write(f"height_query_rows\t{len(height_rows)}\n")
         f.write(f"projected_pc_rows\t{len(pc_data)}\n")
@@ -253,6 +264,7 @@ def main():
 
     check("same IIDs in all output files", training_iids == phen_iids == base_iids == covar_iids)
     check("all GWAS IIDs are classified European", set(training_iids) <= europeans)
+    check("no GWAS IID is in sample-QC exclusion list", not (set(training_iids) & excluded_iids))
     check("all GWAS IIDs have sex covariate", set(training_iids) <= set(sex_map))
     check("all GWAS IIDs have genotype FID", set(training_iids) <= set(fid_by_iid))
     check("all output FID/IID pairs match genotype fam",

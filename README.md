@@ -11,9 +11,11 @@ KING kinship from the high-quality direct bfile, compares those estimates to
 AoU's provided relatedness table, classifies close relationships, and selects
 the unrelated European sample set used to fit PCA. It then builds the
 PCA-ready SNP bfile from that sample set, fits 20 European ancestry PCs, and
-projects those PCs onto all samples in the high-quality direct bfile. The
-final optional example builds a height phenotype/covariate set and runs a
-continuous-trait REGENIE GWAS.
+projects those PCs onto all samples in the high-quality direct bfile. Before
+GWAS setup, it builds a conservative sample-QC exclusion list for
+identical-genotype components of size three or larger. The final optional
+example builds a height phenotype/covariate set and runs a continuous-trait
+REGENIE GWAS.
 
 The pipeline **must be run from inside an AoU Verily Jupyter session
 terminal** (the standard interactive analysis environment on the All of Us
@@ -74,6 +76,9 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_eur_counts.acount
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/fit_project_pca.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/sex_covar.txt
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/genetic_sex_summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_components.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/exclude_identical_component_size_ge3_iids.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_component_sample_qc.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/{phen.txt,covar.txt,training_iids.txt}
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step1/
@@ -735,7 +740,53 @@ Observed Step 11 accounting from the current v8 run:
 | Binary sex/ploidy discordances | 0 |
 | Confident sample percent | 98.592918% |
 
-### Step 12 — Height GWAS input setup
+### Step 12 — Sample-QC exclusions for anomalous identical components
+
+`build_identical_component_sample_qc.sh` builds a conservative GWAS exclusion
+list from the close-relationship calls generated in Step 7. It treats
+`relationship == identical` pairs as graph edges and computes connected
+components. Ordinary monozygotic twin relationships are expected to appear as
+simple size-2 components; components of size three or larger are not plausible
+ordinary twin pairs and are excluded from downstream GWAS sample sets.
+
+The default rule is:
+
+```text
+exclude all samples in identical-genotype connected components with size >= 3
+```
+
+The threshold can be changed with:
+
+```bash
+IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE=3
+```
+
+Outputs:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_components.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_component_summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/exclude_identical_component_size_ge3_iids.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_component_sample_qc.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_component_sample_qc.log
+```
+
+Observed Step 12 accounting from the current v8 run:
+
+| Metric | Value |
+|---|---:|
+| Identical KING pairs | 2,249 |
+| Unique samples in identical graph | 3,860 |
+| Identical components | 1,896 |
+| Size-2 components | 1,854 |
+| Size-3 components | 36 |
+| Size-4 components | 4 |
+| Size-5 components | 1 |
+| Size-23 components | 1 |
+| Components size >=3 | 42 |
+| Samples excluded | 152 |
+
+### Step 13 — Height GWAS input setup
 
 `setup_height_gwas.sh` builds the phenotype, covariate, and keep files for a
 height GWAS in all samples classified as European by this pipeline. It uses
@@ -756,9 +807,10 @@ It then intersects with:
 
 ```text
 1. our European ancestry keep-list
-2. Step 11 confident sex covariates
-3. the high-quality direct-bfile .fam sample IDs
-4. Step 10 projected PC scores
+2. Step 12 sample-QC exclusion list
+3. Step 11 confident sex covariates
+4. the high-quality direct-bfile .fam sample IDs
+5. Step 10 projected PC scores
 ```
 
 Covariates are:
@@ -781,32 +833,35 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas.
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas_log.txt
 ```
 
-Observed Step 12 accounting from the current v8 run:
+Observed Step 13 accounting from the current v8 run:
 
 | Metric | Value |
 |---|---:|
 | Our classified Europeans | 234,889 |
+| Samples in sample-QC exclusion list | 152 |
+| Europeans removed by sample QC | 37 |
+| Europeans after sample QC | 234,852 |
 | Confident sex covariate rows | 408,993 |
 | Height query rows after source/min-height filters | 439,858 |
 | Projected PC rows | 414,830 |
-| Europeans missing a height row | 33,105 |
+| Europeans missing a height row | 33,090 |
 | Height candidates missing confident sex | 2,819 |
 | Height+sex candidates missing fam row | 0 |
 | Height+sex+fam candidates missing PCs | 0 |
-| Final GWAS samples | 198,965 |
-| GWAS female | 118,731 |
-| GWAS male | 80,234 |
-| Mean height | 169.1084603 cm |
+| Final GWAS samples | 198,943 |
+| GWAS female | 118,723 |
+| GWAS male | 80,220 |
+| Mean height | 169.1081199 cm |
 | Median height | 168.3 cm |
-| Mean age at height measurement | 55.6565835 years |
+| Mean age at height measurement | 55.65723437 years |
 | PCs included | 10 |
 
-### Step 13 — Height GWAS with REGENIE
+### Step 14 — Height GWAS with REGENIE
 
 `run_continuous_regenie_gwas.sh` runs the optional continuous-trait REGENIE
 height example. It is gated by `RUN_HEIGHT_GWAS=1` because it launches one
 Step 1 Batch job plus a 22-task Step 2 Batch array. The default run applies
-rank-inverse normal transformation (`--apply-rint`) and uses the Step 12
+rank-inverse normal transformation (`--apply-rint`) and uses the Step 13
 covariates.
 
 Step 1 uses the high-quality direct-SNP bfile:
@@ -838,7 +893,8 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwa
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.params.tsv
 ```
 
-Observed Step 13 accounting from the current v8 run:
+Observed Step 14 accounting from the current v8 run before adding Step 12
+sample-QC exclusions:
 
 | Metric | Value |
 |---|---:|
@@ -977,10 +1033,14 @@ repo and run it as-is.
 - Step 11 skips the sex covariate/QC build when its parameter file, summary,
   crosstab, log, and `sex_covar.txt` exist with matching input sizes and
   concordance settings.
-- Step 12 skips height GWAS input setup when its parameter file, summary,
+- Step 12 skips identical-component sample QC when its parameter file, summary,
+  component tables, exclusion list, and log exist with matching input sizes
+  and exclusion threshold.
+- Step 13 skips height GWAS input setup when its parameter file, summary,
   phenotype, covariate, keep, and log files exist with matching concept IDs,
-  minimum-height threshold, PC count, and input sizes.
-- Step 13 is skipped unless `RUN_HEIGHT_GWAS=1`. When enabled, it skips
+  minimum-height threshold, PC count, input sizes, and sample-QC exclusion
+  list.
+- Step 14 is skipped unless `RUN_HEIGHT_GWAS=1`. When enabled, it skips
   REGENIE Step 1 if the prediction list, params, and summary match the desired
   run parameters. It then submits only Step 2 chromosomes missing matching
   per-chromosome summary/params files, and writes a final GWAS summary only
@@ -1032,11 +1092,13 @@ and submit zero dsub tasks.
 | `dsub_fit_project_pca_worker.sh` | Step 10 worker — fits PLINK2 PCA with allele weights, computes fit-set allele counts, verifies projection SNP coverage, and writes all-sample PC scores. |
 | `get_genetic_sex.sh` | Step 11 — queries AoU sex at birth, joins WGS sex ploidy, and writes the confident binary sex covariate plus QC summaries. |
 | `get_genetic_sex.py` | Step 11 helper — builds `sex_covar.txt`, the sex/ploidy crosstab, summary, and verification log. |
-| `setup_height_gwas.sh` | Step 12 — queries program-collected AoU height, exports the result inside the workspace bucket, and builds REGENIE phenotype/covariate/keep files. |
-| `setup_height_gwas.py` | Step 12 helper — intersects Europeans, height, confident sex, genotype IDs, and projected PCs; centers covariates; writes summaries and verification checks. |
-| `run_continuous_regenie_gwas.sh` | Step 13 — optional continuous-trait REGENIE runner using `direct_bfile_hq` for Step 1 and `wgs_pfiles` for Step 2. |
-| `dsub_regenie_step1_worker.sh` | Step 13 worker — runs REGENIE Step 1, writes LOCO predictions, and verifies sample/variant counts. |
-| `dsub_regenie_step2_worker.sh` | Step 13 worker — runs one REGENIE Step 2 chromosome, adapting AoU `#IID` psam headers and localized Step 1 prediction paths for REGENIE. |
+| `build_identical_component_sample_qc.sh` | Step 12 — builds the sample-QC exclusion list for identical-genotype components of size `IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE` or larger. |
+| `build_identical_component_sample_qc.py` | Step 12 helper — computes identical-pair connected components, writes component tables, and writes the exclusion FID/IID file. |
+| `setup_height_gwas.sh` | Step 13 — queries program-collected AoU height, exports the result inside the workspace bucket, and builds REGENIE phenotype/covariate/keep files after sample-QC exclusions. |
+| `setup_height_gwas.py` | Step 13 helper — intersects Europeans, sample-QC exclusions, height, confident sex, genotype IDs, and projected PCs; centers covariates; writes summaries and verification checks. |
+| `run_continuous_regenie_gwas.sh` | Step 14 — optional continuous-trait REGENIE runner using `direct_bfile_hq` for Step 1 and `wgs_pfiles` for Step 2. |
+| `dsub_regenie_step1_worker.sh` | Step 14 worker — runs REGENIE Step 1, writes LOCO predictions, and verifies sample/variant counts. |
+| `dsub_regenie_step2_worker.sh` | Step 14 worker — runs one REGENIE Step 2 chromosome, adapting AoU `#IID` psam headers and localized Step 1 prediction paths for REGENIE. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
 | `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |

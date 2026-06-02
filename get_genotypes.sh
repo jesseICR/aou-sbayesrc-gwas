@@ -27,9 +27,10 @@
 #   9. QC SNPs for PCA and build pca_ready.{bed,bim,fam}.
 #  10. Fit PCA on unrelated Europeans and project PCs onto all samples.
 #  11. Build sex covariate + sex-at-birth/WGS-ploidy concordance QC.
-#  12. Build height GWAS phenotype/covariate inputs for all classified
+#  12. Build sample-QC exclusions for anomalous identical-genotype components.
+#  13. Build height GWAS phenotype/covariate inputs for all classified
 #      European samples with valid program-collected height.
-#  13. Optionally run a height GWAS with REGENIE (set RUN_HEIGHT_GWAS=1).
+#  14. Optionally run a height GWAS with REGENIE (set RUN_HEIGHT_GWAS=1).
 #
 # Idempotent: each step checks for existing outputs and skips if already done.
 #
@@ -91,6 +92,7 @@ export DX_EUROPEANS_DIR="${DX_OUTPUT_DIR}/europeans"
 export DX_KINSHIP_DIR="${DX_OUTPUT_DIR}/kinship"
 export DX_PCA_EUR_DIR="${DX_OUTPUT_DIR}/pca_eur"
 export DX_GENETIC_SEX_DIR="${DX_OUTPUT_DIR}/genetic_sex"
+export DX_SAMPLE_QC_DIR="${DX_OUTPUT_DIR}/sample_qc"
 export DX_REGENIE_INPUT_DIR="${DX_OUTPUT_DIR}/regenie_input"
 export DX_HEIGHT_REGENIE_INPUT_DIR="${DX_REGENIE_INPUT_DIR}/height_example"
 export DX_REGENIE_OUTPUT_DIR="${DX_OUTPUT_DIR}/regenie_output"
@@ -107,6 +109,7 @@ export DX_ADMIXTURE_Q_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/sc
 export DX_KINSHIP_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/kinship"
 export DX_PCA_EUR_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/pca_eur"
 export DX_GENETIC_SEX_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/genetic_sex"
+export DX_SAMPLE_QC_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/sample_qc"
 export DX_REGENIE_INPUT_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/regenie_input"
 export DX_HEIGHT_REGENIE_INPUT_URI="${DX_REGENIE_INPUT_URI}/height_example"
 export DX_REGENIE_OUTPUT_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/regenie_output"
@@ -187,6 +190,11 @@ export PCA_SEED="${PCA_SEED:-0}"
 # with WGS sex ploidy concordance by default.
 export GENETIC_SEX_REQUIRE_PLOIDY_CONCORDANCE="${GENETIC_SEX_REQUIRE_PLOIDY_CONCORDANCE:-1}"
 export SBAYESRC_BQ_TMP_DATASET="${SBAYESRC_BQ_TMP_DATASET:-}"
+
+# Sample QC exclusions. Components of 3+ samples with genetically identical
+# profiles are not plausible ordinary twin pairs, so they are excluded from
+# downstream GWAS sample sets.
+export IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE="${IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE:-3}"
 
 # Height GWAS example settings. Defaults use program-collected AoU height:
 # measurement 3036277 (Body height), source 903133 (Height), type 44818701
@@ -371,6 +379,7 @@ mkdir -p \
     "${DX_KINSHIP_DIR}" \
     "${DX_PCA_EUR_DIR}" \
     "${DX_GENETIC_SEX_DIR}" \
+    "${DX_SAMPLE_QC_DIR}" \
     "${DX_REGENIE_INPUT_DIR}" \
     "${DX_HEIGHT_REGENIE_INPUT_DIR}" \
     "${DX_REGENIE_OUTPUT_DIR}" \
@@ -425,6 +434,7 @@ echo "  PCA EUR selection    = seed relationships ${PCA_SEED_RELATIONSHIPS}, kin
 echo "  PCA SNP QC           = source=direct_bfile_hq, AF diff <= ${PCA_AF_DIFF_MAX}, MAF >= ${PCA_MAF_MIN}, geno <= ${PCA_GENO_MAX}, mind <= ${PCA_MIND_MAX}, LD ${PCA_LD_WINDOW}/${PCA_LD_STEP}/${PCA_LD_R2}"
 echo "  PCA fit/project      = ${PCA_NPCS} PCs, seed ${PCA_SEED}, source=direct_bfile_hq, resources ${PCA_PROJECT_DSUB_MIN_CORES} vCPU/${PCA_PROJECT_DSUB_MIN_RAM} GB/${PCA_PROJECT_DSUB_DISK_SIZE} GB ${PCA_PROJECT_DSUB_DISK_TYPE}"
 echo "  Genetic sex QC       = sex-at-birth covariate, require WGS ploidy concordance=${GENETIC_SEX_REQUIRE_PLOIDY_CONCORDANCE}"
+echo "  Sample QC exclusions = exclude identical-genotype components with size >= ${IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE}"
 echo "  Height setup         = concept/source/type/unit ${HEIGHT_MEASUREMENT_CONCEPT_ID}/${HEIGHT_MEASUREMENT_SOURCE_CONCEPT_ID}/${HEIGHT_MEASUREMENT_TYPE_CONCEPT_ID}/${HEIGHT_UNIT_CONCEPT_ID}, min ${HEIGHT_MIN_CM} cm, PCs ${HEIGHT_N_PCS}"
 echo "  Height REGENIE       = RUN_HEIGHT_GWAS=${RUN_HEIGHT_GWAS}, input=${HEIGHT_GWAS_INPUT_NAME}, output=${HEIGHT_GWAS_OUTPUT_NAME}, chroms=${REGENIE_CHROMS}, RINT=${REGENIE_APPLY_RINT}, blocks ${REGENIE_STEP1_BLOCK_SIZE}/${REGENIE_STEP2_BLOCK_SIZE}"
 if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
@@ -639,17 +649,24 @@ else
     bash "${SCRIPT_DIR}/get_genetic_sex.sh"
 
     # -----------------------------------------------------------------------
-    # Step 12: Height GWAS input setup
+    # Step 12: Sample-QC exclusions from anomalous identical-genotype components
     # -----------------------------------------------------------------------
     echo ""
-    echo "=== Step 12: Set up height GWAS example ==="
+    echo "=== Step 12: Build sample-QC exclusions ==="
+    bash "${SCRIPT_DIR}/build_identical_component_sample_qc.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 13: Height GWAS input setup
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 13: Set up height GWAS example ==="
     bash "${SCRIPT_DIR}/setup_height_gwas.sh"
 
     # -----------------------------------------------------------------------
-    # Step 13: Optional height GWAS with REGENIE
+    # Step 14: Optional height GWAS with REGENIE
     # -----------------------------------------------------------------------
     echo ""
-    echo "=== Step 13: Run height GWAS example ==="
+    echo "=== Step 14: Run height GWAS example ==="
     if [[ "${RUN_HEIGHT_GWAS}" == "1" ]]; then
         bash "${SCRIPT_DIR}/run_continuous_regenie_gwas.sh" \
             "${HEIGHT_GWAS_INPUT_NAME}" "${HEIGHT_GWAS_OUTPUT_NAME}"

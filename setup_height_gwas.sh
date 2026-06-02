@@ -13,6 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${DX_EUROPEANS_DIR:?DX_EUROPEANS_DIR not set}"
 : "${DX_PCA_EUR_DIR:?DX_PCA_EUR_DIR not set}"
 : "${DX_GENETIC_SEX_DIR:?DX_GENETIC_SEX_DIR not set}"
+: "${DX_SAMPLE_QC_DIR:?DX_SAMPLE_QC_DIR not set}"
 : "${DX_HQ_DIRECT_BFILE_DIR:?DX_HQ_DIRECT_BFILE_DIR not set}"
 : "${LOCAL_REGENIE_DIR:?LOCAL_REGENIE_DIR not set}"
 
@@ -22,6 +23,7 @@ HEIGHT_MEASUREMENT_TYPE_CONCEPT_ID="${HEIGHT_MEASUREMENT_TYPE_CONCEPT_ID:-448187
 HEIGHT_UNIT_CONCEPT_ID="${HEIGHT_UNIT_CONCEPT_ID:-8582}"
 HEIGHT_MIN_CM="${HEIGHT_MIN_CM:-140}"
 HEIGHT_N_PCS="${HEIGHT_N_PCS:-10}"
+IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE="${IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE:-3}"
 
 local_scrap="${LOCAL_REGENIE_DIR}/height_example_scrap"
 local_out="${local_scrap}/outputs"
@@ -55,8 +57,12 @@ sscore="${DX_PCA_EUR_DIR}/aou_projected.sscore"
 sex_covar_input="${DX_GENETIC_SEX_DIR}/sex_covar.txt"
 sex_params="${DX_GENETIC_SEX_DIR}/genetic_sex.params.tsv"
 sex_summary="${DX_GENETIC_SEX_DIR}/genetic_sex_summary.tsv"
+sample_qc_exclude="${DX_SAMPLE_QC_DIR}/exclude_identical_component_size_ge${IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE}_iids.txt"
+sample_qc_params="${DX_SAMPLE_QC_DIR}/identical_component_sample_qc.params.tsv"
+sample_qc_summary="${DX_SAMPLE_QC_DIR}/identical_component_sample_qc.summary.tsv"
 fam="${DX_HQ_DIRECT_BFILE_DIR}/chr1_22_merged_hq.fam"
-for f in "${europeans}" "${sscore}" "${sex_covar_input}" "${sex_params}" "${sex_summary}" "${fam}"; do
+for f in "${europeans}" "${sscore}" "${sex_covar_input}" "${sex_params}" "${sex_summary}" \
+         "${sample_qc_exclude}" "${sample_qc_params}" "${sample_qc_summary}" "${fam}"; do
     if [[ ! -s "${f}" ]]; then
         echo "ERROR: missing required input ${f}" >&2
         exit 1
@@ -78,6 +84,13 @@ desired_params="${LOCAL_REGENIE_DIR}/height_example.desired_params.tsv"
     printf 'sex_covar_size\t%s\n' "$(stat -c%s "${sex_covar_input}")"
     printf 'sex_params_size\t%s\n' "$(stat -c%s "${sex_params}")"
     printf 'sex_summary_size\t%s\n' "$(stat -c%s "${sex_summary}")"
+    printf 'sample_qc_exclude_size\t%s\n' "$(stat -c%s "${sample_qc_exclude}")"
+    printf 'sample_qc_exclude_sha256\t%s\n' "$(sha256sum "${sample_qc_exclude}" | awk '{print $1}')"
+    printf 'sample_qc_params_size\t%s\n' "$(stat -c%s "${sample_qc_params}")"
+    printf 'sample_qc_params_sha256\t%s\n' "$(sha256sum "${sample_qc_params}" | awk '{print $1}')"
+    printf 'sample_qc_summary_size\t%s\n' "$(stat -c%s "${sample_qc_summary}")"
+    printf 'sample_qc_summary_sha256\t%s\n' "$(sha256sum "${sample_qc_summary}" | awk '{print $1}')"
+    printf 'identical_component_exclude_min_size\t%s\n' "${IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE}"
     printf 'fam_size\t%s\n' "$(stat -c%s "${fam}")"
     printf 'setup_height_gwas_py_sha256\t%s\n' "$(sha256sum "${SCRIPT_DIR}/setup_height_gwas.py" | awk '{print $1}')"
 } > "${desired_params}"
@@ -185,6 +198,7 @@ python3 "${SCRIPT_DIR}/setup_height_gwas.py" \
     --height-query "${height_query}" \
     --europeans "${europeans}" \
     --sex-covar "${sex_covar_input}" \
+    --exclude-iids "${sample_qc_exclude}" \
     --fam "${fam}" \
     --sscore "${sscore}" \
     --out-dir "${local_out}" \
