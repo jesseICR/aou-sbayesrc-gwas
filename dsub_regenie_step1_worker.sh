@@ -93,7 +93,7 @@ fi
 cp "${PARAMS}" "${OUTDIR}/regenie_step1.params.tsv"
 {
     printf 'metric\tvalue\n'
-    printf 'step1_bfile\t%s\n' "direct_bfile_hq/chr1_22_merged_hq"
+    printf 'step1_bfile\t%s\n' "gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1"
     printf 'step1_bfile_variants\t%s\n' "${bfile_variants}"
     printf 'step1_bfile_samples\t%s\n' "${bfile_samples}"
     printf 'keep_samples\t%s\n' "${keep_samples}"

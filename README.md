@@ -3,19 +3,19 @@
 A reproducible, idempotent pipeline that builds per-chromosome PLINK2 pfiles
 holding the ~7.35 M SBayesRC SNPs from the All of Us v8 ACAF WGS callset, with
 the variant `ID` column populated with SBayesRC rsids. It also builds the
-~501k direct-SNP bfile used as the REGENIE step-1 marker backbone, plus a
-higher-quality direct-SNP bfile filtered with AoU EUR frequency/missingness
-metrics, runs ADMIXTURE K=6 ancestry projection, and compares the resulting
-ancestry fractions to AoU-provided ancestry calls/fractions. Finally, it runs
-KING kinship from the high-quality direct bfile, compares those estimates to
-AoU's provided relatedness table, classifies close relationships, and selects
-the unrelated European sample set used to fit PCA. It then builds the
-PCA-ready SNP bfile from that sample set, fits 20 European ancestry PCs, and
-projects those PCs onto all samples in the high-quality direct bfile. Before
-GWAS setup, it builds a conservative sample-QC exclusion list for
-identical-genotype components of size three or larger. The final optional
-example builds a height phenotype/covariate set and runs a continuous-trait
-REGENIE GWAS.
+~501k direct-SNP bfile, plus a higher-quality direct-SNP bfile filtered with
+AoU EUR frequency/missingness metrics. It runs ADMIXTURE K=6 ancestry
+projection, compares the resulting ancestry fractions to AoU-provided ancestry
+calls/fractions, runs KING kinship from the high-quality direct bfile, compares
+those estimates to AoU's provided relatedness table, classifies close
+relationships, and selects the unrelated European sample set used to fit PCA.
+It then builds the PCA-ready SNP bfile from that sample set, fits 20 European
+ancestry PCs, and projects those PCs onto all samples in the high-quality
+direct bfile. Before GWAS setup, it builds a conservative sample-QC exclusion
+list for identical-genotype components of size three or larger and then builds
+final REGENIE Step 1/Step 2 genotype inputs with GWAS-specific variant filters.
+The final optional example builds a height phenotype/covariate set and runs a
+continuous-trait REGENIE GWAS.
 
 The pipeline **must be run from inside an AoU Verily Jupyter session
 terminal** (the standard interactive analysis environment on the All of Us
@@ -79,6 +79,12 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/genetic_sex_summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_components.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/exclude_identical_component_size_ge3_iids.txt
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_component_sample_qc.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/gwas_genotype_qc.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1.{bed,bim,fam}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step1_direct/gwas_step1_direct.filter_steps.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs_pfiles/chr{1..22}.{pgen,pvar,psam}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/gwas_step2_wgs.filter_steps.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/fit_pca_af/gwas_step2_fit_pca_alt_freqs_passing.tsv.gz
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/{phen.txt,covar.txt,training_iids.txt}
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step1/
@@ -786,7 +792,109 @@ Observed Step 12 accounting from the current v8 run:
 | Components size >=3 | 42 |
 | Samples excluded | 152 |
 
-### Step 13 — Height GWAS input setup
+### Step 13 — Final GWAS genotype inputs
+
+`make_gwas_genotype_inputs.sh` builds the final genotype files consumed by the
+height REGENIE example. This step is separate from the earlier
+`direct_bfile_hq` build because the final GWAS inputs use stricter,
+purpose-specific QC:
+
+```text
+GWAS Step 1 source:
+  direct_bfile_hq/chr1_22_merged_hq
+
+GWAS Step 1 filters:
+  variant missingness <= 0.01 in our classified European samples
+  abs(fit_pca ALT frequency - SBayesRC/snp.info ALT frequency) <= 0.03
+  MAF >= 0.007 in fit_pca_iids
+
+GWAS Step 2 source:
+  wgs_pfiles/chr{1..22}
+
+GWAS Step 2 filters:
+  variant missingness <= 0.03 in our classified European samples
+  abs(fit_pca ALT frequency - SBayesRC/snp.info ALT frequency) <= 0.04
+  MAF >= 0.007 in fit_pca_iids
+```
+
+The sample panels are intentionally different:
+
+```text
+classified European samples:
+  europeans/classified_european_iids.txt
+  used only for the genotype-missingness filter
+
+fit_pca_iids:
+  pca_eur/fit_pca_iids.txt
+  used for ALT-frequency concordance and MAF
+```
+
+The SBayesRC/snp.info ALT frequency comes from
+`data/support/sbayesrc_liftover_results.csv`. The filter helper matches
+`A1_hg38`/`A2_hg38` to each AoU REF/ALT pair, converts `A1Freq` to the AoU ALT
+allele, and drops a variant if the liftover row is missing or the alleles do
+not match unambiguously.
+
+The step first computes metrics with PLINK2:
+
+```text
+plink2 --bfile direct_bfile_hq/chr1_22_merged_hq \
+  --keep pca_eur/fit_pca_iids.txt --freq counts
+plink2 --bfile direct_bfile_hq/chr1_22_merged_hq \
+  --keep europeans/classified_european_iids.txt --missing variant-only
+
+plink2 --pfile wgs_pfiles/chrN \
+  --keep pca_eur/fit_pca_iids.txt --freq counts
+plink2 --pfile wgs_pfiles/chrN \
+  --keep europeans/classified_european_iids.txt --missing variant-only
+```
+
+`build_gwas_genotype_filters.py` then applies the ordered filters, writes the
+extract lists, writes per-variant QC tables, and writes a combined allele
+frequency file for the passing 7M WGS variants. The MAF threshold replaces a
+separate MAC threshold; the summary still reports the minimum fit-pca minor
+allele count among passing variants as a sanity check.
+
+Outputs:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/gwas_genotype_qc.params.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/gwas_genotype_qc.summary.tsv
+
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1.{bed,bim,fam}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1.variant_qc.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1.fit_pca_alt_freqs.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step1_direct/gwas_step1_direct.filter_steps.tsv
+
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs_pfiles/chr{1..22}.{pgen,pvar,psam}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs_pfiles/chr{1..22}.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/qc/chr{1..22}.variant_qc.tsv.gz
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/extracts/chr{1..22}.extract.txt
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/fit_pca_af/chr{1..22}.fit_pca_alt_freqs_passing.tsv.gz
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/fit_pca_af/gwas_step2_fit_pca_alt_freqs_passing.tsv.gz
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/gwas_step2_wgs.filter_steps.tsv
+```
+
+Observed Step 13 accounting from the current v8 run:
+
+| Metric | Step 1 direct | Step 2 WGS |
+|---|---:|---:|
+| Source variants | 498,890 | 7,349,435 |
+| Dropped: liftover missing / allele mismatch | 0 | 0 |
+| Dropped: ALT-frequency difference above threshold | 567 | 24,009 |
+| Dropped: fit-pca MAF < 0.007 | 1 | 246 |
+| Dropped: classified-European missingness above threshold | 3,338 | 73,787 |
+| Final variants | 494,984 | 7,251,393 |
+| Final samples | 414,830 | 414,830 |
+| Minimum fit-pca MAC among retained variants | 3,027 | 2,991 |
+| Minimum fit-pca MAF among retained variants | 0.00705088 | 0.00700198 |
+| Maximum classified-European missingness among retained variants | 0.00999621 | 0.0299971 |
+| Maximum retained absolute ALT-frequency difference | 0.02998992 | 0.03999598 |
+
+The drop counts are ordered/conditional: a variant removed by an earlier rule is
+not counted again by later rules.
+
+### Step 14 — Height GWAS input setup
 
 `setup_height_gwas.sh` builds the phenotype, covariate, and keep files for a
 height GWAS in all samples classified as European by this pipeline. It uses
@@ -833,7 +941,7 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas.
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas_log.txt
 ```
 
-Observed Step 13 accounting from the current v8 run:
+Observed Step 14 accounting from the current v8 run:
 
 | Metric | Value |
 |---|---:|
@@ -856,24 +964,24 @@ Observed Step 13 accounting from the current v8 run:
 | Mean age at height measurement | 55.65723437 years |
 | PCs included | 10 |
 
-### Step 14 — Height GWAS with REGENIE
+### Step 15 — Height GWAS with REGENIE
 
 `run_continuous_regenie_gwas.sh` runs the optional continuous-trait REGENIE
 height example. It is gated by `RUN_HEIGHT_GWAS=1` because it launches one
 Step 1 Batch job plus a 22-task Step 2 Batch array. The default run applies
-rank-inverse normal transformation (`--apply-rint`) and uses the Step 13
+rank-inverse normal transformation (`--apply-rint`) and uses the Step 14
 covariates.
 
-Step 1 uses the high-quality direct-SNP bfile:
+Step 1 uses the final GWAS direct-SNP bfile from Step 13:
 
 ```text
-${WORKSPACE_BUCKET}/sbayesrc_genotypes/direct_bfile_hq/chr1_22_merged_hq
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1
 ```
 
-Step 2 tests the extracted SBayesRC WGS pfiles:
+Step 2 tests the final Step 13 WGS pfiles:
 
 ```text
-${WORKSPACE_BUCKET}/sbayesrc_genotypes/wgs_pfiles/chr{1..22}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs_pfiles/chr{1..22}
 ```
 
 The orchestrator stages a small REGENIE runtime bundle to the workspace bucket
@@ -893,25 +1001,9 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwa
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.params.tsv
 ```
 
-Observed Step 14 accounting from the current v8 run before adding Step 12
-sample-QC exclusions:
-
-| Metric | Value |
-|---|---:|
-| REGENIE version | `REGENIE v4.1.2.gz` |
-| Step 1 bfile | `direct_bfile_hq/chr1_22_merged_hq` |
-| Step 1 samples | 198,965 |
-| Step 1 variants | 498,890 |
-| Step 1 block size | 1,000 |
-| Step 1 prediction files | 1 |
-| Step 2 chromosomes | 22 |
-| Step 2 block size | 200 |
-| Step 2 source variants | 7,349,435 |
-| Step 2 tests ignored by REGENIE due to MAC < 5 | 205 |
-| Step 2 total tested variants | 7,349,230 |
-| RINT | enabled |
-| Phenotype | `height` |
-| Covariates | `age_c`, `sex_c`, `age_c_sex_c_inter`, `PC1_AVG` ... `PC10_AVG` |
+The previous full height GWAS output predates Step 13 final genotype
+filtering. Re-run with `RUN_HEIGHT_GWAS=1` after Step 13 completes to generate
+current REGENIE counts for the stricter final genotype inputs.
 
 ## Prerequisites
 
@@ -1036,11 +1128,16 @@ repo and run it as-is.
 - Step 12 skips identical-component sample QC when its parameter file, summary,
   component tables, exclusion list, and log exist with matching input sizes
   and exclusion threshold.
-- Step 13 skips height GWAS input setup when its parameter file, summary,
+- Step 13 skips final GWAS genotype construction when its parameter file,
+  summary, extract lists, Step 1 bfile, and Step 2 per-chromosome pfiles exist
+  with matching input sizes, thresholds, and expected variant counts. It also
+  skips metric-scan dsub jobs independently when their output line counts match
+  the source genotype files and sample keep-list sizes.
+- Step 14 skips height GWAS input setup when its parameter file, summary,
   phenotype, covariate, keep, and log files exist with matching concept IDs,
   minimum-height threshold, PC count, input sizes, and sample-QC exclusion
   list.
-- Step 14 is skipped unless `RUN_HEIGHT_GWAS=1`. When enabled, it skips
+- Step 15 is skipped unless `RUN_HEIGHT_GWAS=1`. When enabled, it skips
   REGENIE Step 1 if the prediction list, params, and summary match the desired
   run parameters. It then submits only Step 2 chromosomes missing matching
   per-chromosome summary/params files, and writes a final GWAS summary only
@@ -1094,11 +1191,17 @@ and submit zero dsub tasks.
 | `get_genetic_sex.py` | Step 11 helper — builds `sex_covar.txt`, the sex/ploidy crosstab, summary, and verification log. |
 | `build_identical_component_sample_qc.sh` | Step 12 — builds the sample-QC exclusion list for identical-genotype components of size `IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE` or larger. |
 | `build_identical_component_sample_qc.py` | Step 12 helper — computes identical-pair connected components, writes component tables, and writes the exclusion FID/IID file. |
-| `setup_height_gwas.sh` | Step 13 — queries program-collected AoU height, exports the result inside the workspace bucket, and builds REGENIE phenotype/covariate/keep files after sample-QC exclusions. |
-| `setup_height_gwas.py` | Step 13 helper — intersects Europeans, sample-QC exclusions, height, confident sex, genotype IDs, and projected PCs; centers covariates; writes summaries and verification checks. |
-| `run_continuous_regenie_gwas.sh` | Step 14 — optional continuous-trait REGENIE runner using `direct_bfile_hq` for Step 1 and `wgs_pfiles` for Step 2. |
-| `dsub_regenie_step1_worker.sh` | Step 14 worker — runs REGENIE Step 1, writes LOCO predictions, and verifies sample/variant counts. |
-| `dsub_regenie_step2_worker.sh` | Step 14 worker — runs one REGENIE Step 2 chromosome, adapting AoU `#IID` psam headers and localized Step 1 prediction paths for REGENIE. |
+| `make_gwas_genotype_inputs.sh` | Step 13 — computes GWAS-specific allele frequency/missingness metrics, builds final Step 1/Step 2 extract lists, and submits the final genotype-build workers. |
+| `build_gwas_genotype_filters.py` | Step 13 helper — joins fit-pca allele counts, classified-EUR missingness, and SBayesRC/snp.info frequencies; writes filter summaries, variant QC tables, extract lists, and passing Step 2 fit-pca ALT frequencies. |
+| `dsub_gwas_direct_metrics_worker.sh` | Step 13 worker — computes fit-pca allele counts and classified-EUR missingness for `direct_bfile_hq`. |
+| `dsub_gwas_wgs_metrics_worker.sh` | Step 13 worker — computes fit-pca allele counts and classified-EUR missingness for one WGS pfile chromosome. |
+| `dsub_gwas_step1_direct_worker.sh` | Step 13 worker — extracts the final REGENIE Step 1 bfile from `direct_bfile_hq`. |
+| `dsub_gwas_step2_wgs_worker.sh` | Step 13 worker — extracts one final REGENIE Step 2 WGS pfile chromosome. |
+| `setup_height_gwas.sh` | Step 14 — queries program-collected AoU height, exports the result inside the workspace bucket, and builds REGENIE phenotype/covariate/keep files after sample-QC exclusions. |
+| `setup_height_gwas.py` | Step 14 helper — intersects Europeans, sample-QC exclusions, height, confident sex, genotype IDs, and projected PCs; centers covariates; writes summaries and verification checks. |
+| `run_continuous_regenie_gwas.sh` | Step 15 — optional continuous-trait REGENIE runner using the final Step 13 genotype inputs. |
+| `dsub_regenie_step1_worker.sh` | Step 15 worker — runs REGENIE Step 1, writes LOCO predictions, and verifies sample/variant counts. |
+| `dsub_regenie_step2_worker.sh` | Step 15 worker — runs one REGENIE Step 2 chromosome, adapting AoU `#IID` psam headers and localized Step 1 prediction paths for REGENIE. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
 | `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |

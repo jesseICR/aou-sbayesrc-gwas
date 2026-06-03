@@ -155,7 +155,7 @@ cp "${PARAMS}" "${OUTDIR}/${CHROM}_height.params.tsv"
 {
     printf 'metric\tvalue\n'
     printf 'chrom\t%s\n' "${CHROM}"
-    printf 'source_pfile\t%s\n' "wgs_pfiles/${CHROM}"
+    printf 'source_pfile\t%s\n' "gwas_genotypes/step2_wgs_pfiles/${CHROM}"
     printf 'source_variants\t%s\n' "${variants}"
     printf 'keep_samples\t%s\n' "${keep_samples}"
     printf 'pheno_col\t%s\n' "${PHENO_COL}"

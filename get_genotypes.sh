@@ -28,9 +28,10 @@
 #  10. Fit PCA on unrelated Europeans and project PCs onto all samples.
 #  11. Build sex covariate + sex-at-birth/WGS-ploidy concordance QC.
 #  12. Build sample-QC exclusions for anomalous identical-genotype components.
-#  13. Build height GWAS phenotype/covariate inputs for all classified
+#  13. Build final GWAS Step 1/Step 2 genotype inputs.
+#  14. Build height GWAS phenotype/covariate inputs for all classified
 #      European samples with valid program-collected height.
-#  14. Optionally run a height GWAS with REGENIE (set RUN_HEIGHT_GWAS=1).
+#  15. Optionally run a height GWAS with REGENIE (set RUN_HEIGHT_GWAS=1).
 #
 # Idempotent: each step checks for existing outputs and skips if already done.
 #
@@ -93,6 +94,9 @@ export DX_KINSHIP_DIR="${DX_OUTPUT_DIR}/kinship"
 export DX_PCA_EUR_DIR="${DX_OUTPUT_DIR}/pca_eur"
 export DX_GENETIC_SEX_DIR="${DX_OUTPUT_DIR}/genetic_sex"
 export DX_SAMPLE_QC_DIR="${DX_OUTPUT_DIR}/sample_qc"
+export DX_GWAS_GENOTYPES_DIR="${DX_OUTPUT_DIR}/gwas_genotypes"
+export DX_GWAS_STEP1_BFILE_DIR="${DX_GWAS_GENOTYPES_DIR}/step1_direct"
+export DX_GWAS_STEP2_PFILE_DIR="${DX_GWAS_GENOTYPES_DIR}/step2_wgs_pfiles"
 export DX_REGENIE_INPUT_DIR="${DX_OUTPUT_DIR}/regenie_input"
 export DX_HEIGHT_REGENIE_INPUT_DIR="${DX_REGENIE_INPUT_DIR}/height_example"
 export DX_REGENIE_OUTPUT_DIR="${DX_OUTPUT_DIR}/regenie_output"
@@ -110,6 +114,10 @@ export DX_KINSHIP_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/kinship"
 export DX_PCA_EUR_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/pca_eur"
 export DX_GENETIC_SEX_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/genetic_sex"
 export DX_SAMPLE_QC_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/sample_qc"
+export DX_EUROPEANS_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/europeans"
+export DX_GWAS_GENOTYPES_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/gwas_genotypes"
+export DX_GWAS_STEP1_BFILE_URI="${DX_GWAS_GENOTYPES_URI}/step1_direct"
+export DX_GWAS_STEP2_PFILE_URI="${DX_GWAS_GENOTYPES_URI}/step2_wgs_pfiles"
 export DX_REGENIE_INPUT_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/regenie_input"
 export DX_HEIGHT_REGENIE_INPUT_URI="${DX_REGENIE_INPUT_URI}/height_example"
 export DX_REGENIE_OUTPUT_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/regenie_output"
@@ -125,6 +133,7 @@ export LOCAL_ADMIXTURE_DIR="${SCRIPT_DIR}/data/admixture"
 export LOCAL_ANCESTRY_COMPARE_DIR="${SCRIPT_DIR}/data/ancestry_compare"
 export LOCAL_KINSHIP_DIR="${SCRIPT_DIR}/data/kinship"
 export LOCAL_PCA_QC_DIR="${SCRIPT_DIR}/data/pca_qc"
+export LOCAL_GWAS_GENOTYPES_DIR="${SCRIPT_DIR}/data/gwas_genotypes"
 export LOCAL_REGENIE_DIR="${SCRIPT_DIR}/data/regenie"
 export LOCAL_SNP_QC_FILE="${SCRIPT_DIR}/data/support/ukb_snp_qc.txt"
 export ALIGNMENT_FILE="${SCRIPT_DIR}/data/support/sbayesrc_hg38.csv"
@@ -195,6 +204,16 @@ export SBAYESRC_BQ_TMP_DATASET="${SBAYESRC_BQ_TMP_DATASET:-}"
 # profiles are not plausible ordinary twin pairs, so they are excluded from
 # downstream GWAS sample sets.
 export IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE="${IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE:-3}"
+
+# Final GWAS genotype input filters.
+# Step 1 direct bfile: geno in our classified Europeans, AF/MAF in fit_pca_iids.
+export GWAS_STEP1_GENO_MAX="${GWAS_STEP1_GENO_MAX:-0.01}"
+export GWAS_STEP1_AF_DIFF_MAX="${GWAS_STEP1_AF_DIFF_MAX:-0.03}"
+export GWAS_STEP1_MAF_MIN="${GWAS_STEP1_MAF_MIN:-0.007}"
+# Step 2 WGS pfiles: geno in our classified Europeans, AF/MAF in fit_pca_iids.
+export GWAS_STEP2_GENO_MAX="${GWAS_STEP2_GENO_MAX:-0.03}"
+export GWAS_STEP2_AF_DIFF_MAX="${GWAS_STEP2_AF_DIFF_MAX:-0.04}"
+export GWAS_STEP2_MAF_MIN="${GWAS_STEP2_MAF_MIN:-0.007}"
 
 # Height GWAS example settings. Defaults use program-collected AoU height:
 # measurement 3036277 (Body height), source 903133 (Height), type 44818701
@@ -302,8 +321,8 @@ export PCA_PROJECT_DSUB_MIN_RAM="${PCA_PROJECT_DSUB_MIN_RAM:-64}"
 export PCA_PROJECT_DSUB_DISK_SIZE="${PCA_PROJECT_DSUB_DISK_SIZE:-300}"
 export PCA_PROJECT_DSUB_DISK_TYPE="${PCA_PROJECT_DSUB_DISK_TYPE:-pd-ssd}"
 
-# REGENIE Step 1 localizes the HQ direct bfile. Step 2 localizes one WGS pfile
-# per chromosome plus the Step 1 LOCO predictions.
+# REGENIE Step 1 localizes the final GWAS direct bfile. Step 2 localizes one
+# final GWAS WGS pfile per chromosome plus the Step 1 LOCO predictions.
 export REGENIE_STEP1_DSUB_MIN_CORES="${REGENIE_STEP1_DSUB_MIN_CORES:-16}"
 export REGENIE_STEP1_DSUB_MIN_RAM="${REGENIE_STEP1_DSUB_MIN_RAM:-64}"
 export REGENIE_STEP1_DSUB_DISK_SIZE="${REGENIE_STEP1_DSUB_DISK_SIZE:-300}"
@@ -312,6 +331,20 @@ export REGENIE_STEP2_DSUB_MIN_CORES="${REGENIE_STEP2_DSUB_MIN_CORES:-8}"
 export REGENIE_STEP2_DSUB_MIN_RAM="${REGENIE_STEP2_DSUB_MIN_RAM:-32}"
 export REGENIE_STEP2_DSUB_DISK_SIZE="${REGENIE_STEP2_DSUB_DISK_SIZE:-300}"
 export REGENIE_STEP2_DSUB_DISK_TYPE="${REGENIE_STEP2_DSUB_DISK_TYPE:-pd-ssd}"
+
+# Final GWAS genotype input jobs.
+export GWAS_METRICS_DSUB_MIN_CORES="${GWAS_METRICS_DSUB_MIN_CORES:-4}"
+export GWAS_METRICS_DSUB_MIN_RAM="${GWAS_METRICS_DSUB_MIN_RAM:-24}"
+export GWAS_METRICS_DSUB_DISK_SIZE="${GWAS_METRICS_DSUB_DISK_SIZE:-150}"
+export GWAS_METRICS_DSUB_DISK_TYPE="${GWAS_METRICS_DSUB_DISK_TYPE:-pd-ssd}"
+export GWAS_DIRECT_DSUB_MIN_CORES="${GWAS_DIRECT_DSUB_MIN_CORES:-8}"
+export GWAS_DIRECT_DSUB_MIN_RAM="${GWAS_DIRECT_DSUB_MIN_RAM:-32}"
+export GWAS_DIRECT_DSUB_DISK_SIZE="${GWAS_DIRECT_DSUB_DISK_SIZE:-200}"
+export GWAS_DIRECT_DSUB_DISK_TYPE="${GWAS_DIRECT_DSUB_DISK_TYPE:-pd-ssd}"
+export GWAS_WGS_DSUB_MIN_CORES="${GWAS_WGS_DSUB_MIN_CORES:-4}"
+export GWAS_WGS_DSUB_MIN_RAM="${GWAS_WGS_DSUB_MIN_RAM:-24}"
+export GWAS_WGS_DSUB_DISK_SIZE="${GWAS_WGS_DSUB_DISK_SIZE:-180}"
+export GWAS_WGS_DSUB_DISK_TYPE="${GWAS_WGS_DSUB_DISK_TYPE:-pd-ssd}"
 
 # Worker-staging paths on the workspace bucket
 export DSUB_BIN_URI="${WORKSPACE_BUCKET_URI}/bin"
@@ -360,6 +393,7 @@ mkdir -p \
     "${LOCAL_ANCESTRY_COMPARE_DIR}" \
     "${LOCAL_KINSHIP_DIR}" \
     "${LOCAL_PCA_QC_DIR}" \
+    "${LOCAL_GWAS_GENOTYPES_DIR}" \
     "${LOCAL_REGENIE_DIR}" \
     "${LOCAL_SBAYESRC_ID_DIR}" \
     "${LOCAL_WGS_PFILE_DIR}" \
@@ -380,6 +414,9 @@ mkdir -p \
     "${DX_PCA_EUR_DIR}" \
     "${DX_GENETIC_SEX_DIR}" \
     "${DX_SAMPLE_QC_DIR}" \
+    "${DX_GWAS_GENOTYPES_DIR}" \
+    "${DX_GWAS_STEP1_BFILE_DIR}" \
+    "${DX_GWAS_STEP2_PFILE_DIR}" \
     "${DX_REGENIE_INPUT_DIR}" \
     "${DX_HEIGHT_REGENIE_INPUT_DIR}" \
     "${DX_REGENIE_OUTPUT_DIR}" \
@@ -435,6 +472,7 @@ echo "  PCA SNP QC           = source=direct_bfile_hq, AF diff <= ${PCA_AF_DIFF_
 echo "  PCA fit/project      = ${PCA_NPCS} PCs, seed ${PCA_SEED}, source=direct_bfile_hq, resources ${PCA_PROJECT_DSUB_MIN_CORES} vCPU/${PCA_PROJECT_DSUB_MIN_RAM} GB/${PCA_PROJECT_DSUB_DISK_SIZE} GB ${PCA_PROJECT_DSUB_DISK_TYPE}"
 echo "  Genetic sex QC       = sex-at-birth covariate, require WGS ploidy concordance=${GENETIC_SEX_REQUIRE_PLOIDY_CONCORDANCE}"
 echo "  Sample QC exclusions = exclude identical-genotype components with size >= ${IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE}"
+echo "  GWAS genotype QC     = Step1 geno<=${GWAS_STEP1_GENO_MAX} in classified EUR, AF diff<=${GWAS_STEP1_AF_DIFF_MAX} and MAF>=${GWAS_STEP1_MAF_MIN} in fit_pca_iids; Step2 geno<=${GWAS_STEP2_GENO_MAX} in classified EUR, AF diff<=${GWAS_STEP2_AF_DIFF_MAX} and MAF>=${GWAS_STEP2_MAF_MIN} in fit_pca_iids"
 echo "  Height setup         = concept/source/type/unit ${HEIGHT_MEASUREMENT_CONCEPT_ID}/${HEIGHT_MEASUREMENT_SOURCE_CONCEPT_ID}/${HEIGHT_MEASUREMENT_TYPE_CONCEPT_ID}/${HEIGHT_UNIT_CONCEPT_ID}, min ${HEIGHT_MIN_CM} cm, PCs ${HEIGHT_N_PCS}"
 echo "  Height REGENIE       = RUN_HEIGHT_GWAS=${RUN_HEIGHT_GWAS}, input=${HEIGHT_GWAS_INPUT_NAME}, output=${HEIGHT_GWAS_OUTPUT_NAME}, chroms=${REGENIE_CHROMS}, RINT=${REGENIE_APPLY_RINT}, blocks ${REGENIE_STEP1_BLOCK_SIZE}/${REGENIE_STEP2_BLOCK_SIZE}"
 if [[ -n "${SBAYESRC_TEST_CHROM:-}" ]]; then
@@ -656,17 +694,24 @@ else
     bash "${SCRIPT_DIR}/build_identical_component_sample_qc.sh"
 
     # -----------------------------------------------------------------------
-    # Step 13: Height GWAS input setup
+    # Step 13: Final GWAS genotype inputs
     # -----------------------------------------------------------------------
     echo ""
-    echo "=== Step 13: Set up height GWAS example ==="
+    echo "=== Step 13: Build final GWAS genotype inputs ==="
+    bash "${SCRIPT_DIR}/make_gwas_genotype_inputs.sh"
+
+    # -----------------------------------------------------------------------
+    # Step 14: Height GWAS input setup
+    # -----------------------------------------------------------------------
+    echo ""
+    echo "=== Step 14: Set up height GWAS example ==="
     bash "${SCRIPT_DIR}/setup_height_gwas.sh"
 
     # -----------------------------------------------------------------------
-    # Step 14: Optional height GWAS with REGENIE
+    # Step 15: Optional height GWAS with REGENIE
     # -----------------------------------------------------------------------
     echo ""
-    echo "=== Step 14: Run height GWAS example ==="
+    echo "=== Step 15: Run height GWAS example ==="
     if [[ "${RUN_HEIGHT_GWAS}" == "1" ]]; then
         bash "${SCRIPT_DIR}/run_continuous_regenie_gwas.sh" \
             "${HEIGHT_GWAS_INPUT_NAME}" "${HEIGHT_GWAS_OUTPUT_NAME}"

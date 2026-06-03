@@ -9,8 +9,8 @@ usage() {
     cat <<'EOF'
 Usage: bash run_continuous_regenie_gwas.sh <input_name> <output_name> [OPTIONS]
 
-Runs REGENIE Step 1 on direct_bfile_hq/chr1_22_merged_hq and Step 2 on
-wgs_pfiles/chr{1..22}.pgen/.pvar/.psam.
+Runs REGENIE Step 1 on gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1
+and Step 2 on gwas_genotypes/step2_wgs_pfiles/chr{1..22}.pgen/.pvar/.psam.
 
 Options:
   --apply-rint            Apply rank-inverse normal transform (default)
@@ -76,10 +76,10 @@ done
 
 : "${GOOGLE_PROJECT:?GOOGLE_PROJECT not set}"
 : "${REGENIE:?REGENIE not set}"
-: "${DX_HQ_DIRECT_BFILE_DIR:?DX_HQ_DIRECT_BFILE_DIR not set}"
-: "${DX_HQ_DIRECT_BFILE_URI:?DX_HQ_DIRECT_BFILE_URI not set}"
-: "${DX_WGS_PFILE_DIR:?DX_WGS_PFILE_DIR not set}"
-: "${DX_WGS_PFILE_URI:?DX_WGS_PFILE_URI not set}"
+: "${DX_GWAS_STEP1_BFILE_DIR:?DX_GWAS_STEP1_BFILE_DIR not set}"
+: "${DX_GWAS_STEP1_BFILE_URI:?DX_GWAS_STEP1_BFILE_URI not set}"
+: "${DX_GWAS_STEP2_PFILE_DIR:?DX_GWAS_STEP2_PFILE_DIR not set}"
+: "${DX_GWAS_STEP2_PFILE_URI:?DX_GWAS_STEP2_PFILE_URI not set}"
 : "${DX_REGENIE_INPUT_DIR:?DX_REGENIE_INPUT_DIR not set}"
 : "${DX_REGENIE_INPUT_URI:?DX_REGENIE_INPUT_URI not set}"
 : "${DX_REGENIE_OUTPUT_DIR:?DX_REGENIE_OUTPUT_DIR not set}"
@@ -98,6 +98,10 @@ if [[ ! -x "${REGENIE}" ]]; then
     echo "ERROR: REGENIE is not executable: ${REGENIE}" >&2
     exit 1
 fi
+
+is_uint() {
+    [[ "${1:-}" =~ ^[0-9]+$ ]]
+}
 
 regenie_version_text() {
     local help_text
@@ -203,11 +207,11 @@ for f in "${phen}" "${covar}" "${keep}" "${input_params}" "${input_summary}"; do
     fi
 done
 
-hq_prefix="${DX_HQ_DIRECT_BFILE_DIR}/chr1_22_merged_hq"
-hq_uri_prefix="${DX_HQ_DIRECT_BFILE_URI}/chr1_22_merged_hq"
+step1_prefix="${DX_GWAS_STEP1_BFILE_DIR}/chr1_22_merged_gwas_step1"
+step1_uri_prefix="${DX_GWAS_STEP1_BFILE_URI}/chr1_22_merged_gwas_step1"
 for ext in bed bim fam; do
-    if [[ ! -s "${hq_prefix}.${ext}" ]]; then
-        echo "ERROR: missing HQ direct bfile input ${hq_prefix}.${ext}" >&2
+    if [[ ! -s "${step1_prefix}.${ext}" ]]; then
+        echo "ERROR: missing final GWAS Step 1 bfile input ${step1_prefix}.${ext}" >&2
         exit 1
     fi
 done
@@ -225,8 +229,8 @@ else
 fi
 
 keep_samples=$(wc -l < "${keep}")
-hq_variants=$(wc -l < "${hq_prefix}.bim")
-hq_samples=$(wc -l < "${hq_prefix}.fam")
+step1_variants=$(wc -l < "${step1_prefix}.bim")
+step1_samples=$(wc -l < "${step1_prefix}.fam")
 regenie_version=$(regenie_version_text "${REGENIE}")
 regenie_sha=$(sha256sum "${REGENIE}" | awk '{print $1}')
 
@@ -236,9 +240,9 @@ desired_params="${LOCAL_REGENIE_DIR}/${OUTPUT_NAME}.regenie_gwas.desired_params.
     printf 'parameter\tvalue\n'
     printf 'input_name\t%s\n' "${INPUT_NAME}"
     printf 'output_name\t%s\n' "${OUTPUT_NAME}"
-    printf 'step1_bfile\t%s\n' "direct_bfile_hq/chr1_22_merged_hq"
-    printf 'step1_bfile_variants\t%s\n' "${hq_variants}"
-    printf 'step1_bfile_samples\t%s\n' "${hq_samples}"
+    printf 'step1_bfile\t%s\n' "gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1"
+    printf 'step1_bfile_variants\t%s\n' "${step1_variants}"
+    printf 'step1_bfile_samples\t%s\n' "${step1_samples}"
     printf 'keep_samples\t%s\n' "${keep_samples}"
     printf 'pheno_col\t%s\n' "${pheno_col}"
     printf 'covar_cols\t%s\n' "${covar_cols}"
@@ -253,20 +257,20 @@ desired_params="${LOCAL_REGENIE_DIR}/${OUTPUT_NAME}.regenie_gwas.desired_params.
     printf 'keep_size\t%s\n' "$(stat -c%s "${keep}")"
     printf 'input_params_size\t%s\n' "$(stat -c%s "${input_params}")"
     for c in "${CHROMS[@]}"; do
-        summary="${DX_WGS_PFILE_DIR}/chr${c}.summary.tsv"
+        summary="${DX_GWAS_STEP2_PFILE_DIR}/chr${c}.summary.tsv"
         if [[ ! -s "${summary}" ]]; then
-            echo "ERROR: missing WGS pfile summary ${summary}" >&2
+            echo "ERROR: missing final GWAS Step 2 pfile summary ${summary}" >&2
             exit 1
         fi
-        variants=$(awk -F'\t' 'NR == 2 {print $6; exit}' "${summary}")
-        if [[ -z "${variants}" || "${variants}" -le 0 ]]; then
+        variants=$(awk -F'\t' '$1 == "final_variants" {print $2; exit}' "${summary}")
+        if ! is_uint "${variants}" || [[ "${variants}" -le 0 ]]; then
             echo "ERROR: could not read extracted variant count from ${summary}" >&2
             exit 1
         fi
         printf 'chr%s_variants\t%s\n' "${c}" "${variants}"
-        printf 'chr%s_pgen_size\t%s\n' "${c}" "$(stat -c%s "${DX_WGS_PFILE_DIR}/chr${c}.pgen")"
-        printf 'chr%s_pvar_size\t%s\n' "${c}" "$(stat -c%s "${DX_WGS_PFILE_DIR}/chr${c}.pvar")"
-        printf 'chr%s_psam_size\t%s\n' "${c}" "$(stat -c%s "${DX_WGS_PFILE_DIR}/chr${c}.psam")"
+        printf 'chr%s_pgen_size\t%s\n' "${c}" "$(stat -c%s "${DX_GWAS_STEP2_PFILE_DIR}/chr${c}.pgen")"
+        printf 'chr%s_pvar_size\t%s\n' "${c}" "$(stat -c%s "${DX_GWAS_STEP2_PFILE_DIR}/chr${c}.pvar")"
+        printf 'chr%s_psam_size\t%s\n' "${c}" "$(stat -c%s "${DX_GWAS_STEP2_PFILE_DIR}/chr${c}.psam")"
     done
 } > "${desired_params}"
 
@@ -275,7 +279,7 @@ echo "  input        = ${input_dir}"
 echo "  output       = ${output_dir}"
 echo "  chroms       = ${chroms_joined}"
 echo "  keep samples = ${keep_samples}"
-echo "  Step 1 bfile = ${hq_variants} variants, ${hq_samples} samples"
+echo "  Step 1 bfile = ${step1_variants} variants, ${step1_samples} samples"
 echo "  RINT         = ${APPLY_RINT}"
 echo "  covars       = ${covar_cols}"
 
@@ -317,12 +321,12 @@ if [[ "${run_step1}" -eq 1 ]]; then
         --env APPLY_RINT="${APPLY_RINT}" \
         --env STEP1_BLOCK_SIZE="${STEP1_BLOCK_SIZE}" \
         --env EXPECTED_KEEP_SAMPLES="${keep_samples}" \
-        --env EXPECTED_BFILE_VARIANTS="${hq_variants}" \
-        --env EXPECTED_BFILE_SAMPLES="${hq_samples}" \
+        --env EXPECTED_BFILE_VARIANTS="${step1_variants}" \
+        --env EXPECTED_BFILE_SAMPLES="${step1_samples}" \
         --input REGENIE_BUNDLE="${bundle_uri}" \
-        --input BED="${hq_uri_prefix}.bed" \
-        --input BIM="${hq_uri_prefix}.bim" \
-        --input FAM="${hq_uri_prefix}.fam" \
+        --input BED="${step1_uri_prefix}.bed" \
+        --input BIM="${step1_uri_prefix}.bim" \
+        --input FAM="${step1_uri_prefix}.fam" \
         --input PHEN="${input_uri}/phen.txt" \
         --input COVAR="${input_uri}/covar.txt" \
         --input KEEP="${input_uri}/training_iids.txt" \
@@ -368,9 +372,9 @@ tasks_tsv="${SCRIPT_DIR}/logs/dsub_regenie_step2_${OUTPUT_NAME}_$(date +%Y%m%d_%
             variants=$(awk -F'\t' -v key="chr${c}_variants" '$1 == key {print $2; exit}' "${desired_params}")
             printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
                 "${chrom}" "${variants}" \
-                "${DX_WGS_PFILE_URI}/${chrom}.pgen" \
-                "${DX_WGS_PFILE_URI}/${chrom}.pvar" \
-                "${DX_WGS_PFILE_URI}/${chrom}.psam" \
+                "${DX_GWAS_STEP2_PFILE_URI}/${chrom}.pgen" \
+                "${DX_GWAS_STEP2_PFILE_URI}/${chrom}.pvar" \
+                "${DX_GWAS_STEP2_PFILE_URI}/${chrom}.psam" \
                 "${step2_uri}/${chrom}/" \
                 "${pheno_col}" "${covar_cols}"
         fi
@@ -456,6 +460,10 @@ for c in "${CHROMS[@]}"; do
         exit 1
     fi
     tested=$(awk -F'\t' '$1 == "tested_variants" {print $2; exit}' "${chrom_summary}")
+    if ! is_uint "${tested}"; then
+        echo "ERROR: could not read tested variant count from ${chrom_summary}" >&2
+        exit 1
+    fi
     total_tested=$((total_tested + tested))
 done
 
@@ -466,7 +474,7 @@ cp "${desired_params}" "${output_dir}/regenie_gwas.params.tsv"
     printf 'output_name\t%s\n' "${OUTPUT_NAME}"
     printf 'chromosomes\t%s\n' "${chroms_joined}"
     printf 'step1_samples\t%s\n' "${keep_samples}"
-    printf 'step1_variants\t%s\n' "${hq_variants}"
+    printf 'step1_variants\t%s\n' "${step1_variants}"
     printf 'step2_chromosomes\t%s\n' "${#CHROMS[@]}"
     printf 'step2_total_tested_variants\t%s\n' "${total_tested}"
     printf 'apply_rint\t%s\n' "${APPLY_RINT}"
