@@ -1053,6 +1053,13 @@ REGENIE:
   rank-inverse normal transform enabled by default
 ```
 
+The shared REGENIE runner names Step 1 and Step 2 output files with the GWAS
+output name as the prefix. For example, EA outputs are
+`step1/ea_gwas_step1_pred.list` and
+`step2/chr1/chr1_ea_gwas.regenie.gz`; income outputs are
+`step1/income_gwas_step1_pred.list` and
+`step2/chr1/chr1_income_gwas.regenie.gz`.
+
 The educational-attainment phenotype is AoU The Basics question `1585940`,
 "Education Level: Highest Grade." `PMI: Skip` and `PMI: Prefer Not To Answer`
 are treated as missing.

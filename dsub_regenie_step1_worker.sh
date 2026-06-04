@@ -16,6 +16,7 @@ set -euo pipefail
 : "${COVAR_COLS:?COVAR_COLS not set}"
 : "${APPLY_RINT:?APPLY_RINT not set}"
 : "${STEP1_BLOCK_SIZE:?STEP1_BLOCK_SIZE not set}"
+: "${RESULT_PREFIX:?RESULT_PREFIX not set}"
 : "${EXPECTED_KEEP_SAMPLES:?EXPECTED_KEEP_SAMPLES not set}"
 : "${EXPECTED_BFILE_VARIANTS:?EXPECTED_BFILE_VARIANTS not set}"
 : "${EXPECTED_BFILE_SAMPLES:?EXPECTED_BFILE_SAMPLES not set}"
@@ -40,6 +41,7 @@ log "PHENO_COL=${PHENO_COL}"
 log "COVAR_COLS=${COVAR_COLS}"
 log "APPLY_RINT=${APPLY_RINT}"
 log "STEP1_BLOCK_SIZE=${STEP1_BLOCK_SIZE}"
+log "RESULT_PREFIX=${RESULT_PREFIX}"
 df -h /mnt/data | sed 's/^/  /'
 
 keep_samples=$(wc -l < "${KEEP}")
@@ -67,9 +69,9 @@ cmd=(
     --bsize "${STEP1_BLOCK_SIZE}"
     --threads "$(nproc)"
     --lowmem
-    --lowmem-prefix "${SCRATCH}/height_step1_l0"
+    --lowmem-prefix "${SCRATCH}/${RESULT_PREFIX}_step1_l0"
     --use-relative-path
-    --out "${OUTDIR}/height_step1"
+    --out "${OUTDIR}/${RESULT_PREFIX}_step1"
 )
 if [[ "${APPLY_RINT}" == "1" ]]; then
     cmd+=(--apply-rint)
@@ -78,7 +80,7 @@ fi
 log "running REGENIE Step 1"
 "${cmd[@]}"
 
-pred_list="${OUTDIR}/height_step1_pred.list"
+pred_list="${OUTDIR}/${RESULT_PREFIX}_step1_pred.list"
 if [[ ! -s "${pred_list}" ]]; then
     log "ERROR: missing REGENIE prediction list ${pred_list}"
     ls -lh "${OUTDIR}" | sed 's/^/  /'

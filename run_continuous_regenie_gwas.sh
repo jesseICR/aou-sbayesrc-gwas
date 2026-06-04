@@ -103,6 +103,16 @@ is_uint() {
     [[ "${1:-}" =~ ^[0-9]+$ ]]
 }
 
+sanitize_prefix() {
+    local value="$1" sanitized
+    sanitized="$(printf '%s' "${value}" | tr -c 'A-Za-z0-9_.-' '_' | sed 's/^_*//; s/_*$//')"
+    if [[ -z "${sanitized}" ]]; then
+        echo "ERROR: output name ${value} cannot be converted to a valid file prefix" >&2
+        return 1
+    fi
+    printf '%s\n' "${sanitized}"
+}
+
 regenie_version_text() {
     local help_text
     help_text="$("$1" --help 2>&1 || true)"
@@ -193,6 +203,8 @@ step1_dir="${output_dir}/step1"
 step1_uri="${output_uri}/step1"
 step2_dir="${output_dir}/step2"
 step2_uri="${output_uri}/step2"
+result_prefix="$(sanitize_prefix "${OUTPUT_NAME}")"
+step1_output_prefix="${result_prefix}_step1"
 mkdir -p "${output_dir}" "${step1_dir}" "${step2_dir}" "${LOCAL_REGENIE_DIR}"
 
 phen="${input_dir}/phen.txt"
@@ -266,6 +278,7 @@ desired_params="${LOCAL_REGENIE_DIR}/${OUTPUT_NAME}.regenie_gwas.desired_params.
     printf 'parameter\tvalue\n'
     printf 'input_name\t%s\n' "${INPUT_NAME}"
     printf 'output_name\t%s\n' "${OUTPUT_NAME}"
+    printf 'result_prefix\t%s\n' "${result_prefix}"
     printf 'step1_bfile\t%s\n' "gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1"
     printf 'step1_bfile_variants\t%s\n' "${step1_variants}"
     printf 'step1_bfile_samples\t%s\n' "${step1_samples}"
@@ -303,6 +316,7 @@ desired_params="${LOCAL_REGENIE_DIR}/${OUTPUT_NAME}.regenie_gwas.desired_params.
 echo "=== REGENIE continuous GWAS ==="
 echo "  input        = ${input_dir}"
 echo "  output       = ${output_dir}"
+echo "  file prefix  = ${result_prefix}"
 echo "  chroms       = ${chroms_joined}"
 echo "  keep samples = ${keep_samples}"
 echo "  Step 1 bfile = ${step1_variants} variants, ${step1_samples} samples"
@@ -315,7 +329,7 @@ gcloud storage cp "${desired_params}" "${output_uri}/regenie_gwas.desired_params
 
 step1_summary="${step1_dir}/regenie_step1.summary.tsv"
 step1_params="${step1_dir}/regenie_step1.params.tsv"
-step1_pred="${step1_dir}/height_step1_pred.list"
+step1_pred="${step1_dir}/${step1_output_prefix}_pred.list"
 run_step1=1
 if [[ -s "${step1_summary}" && -s "${step1_params}" && -s "${step1_pred}" ]]; then
     if diff -q "${desired_params}" "${step1_params}" >/dev/null 2>&1; then
@@ -346,6 +360,7 @@ if [[ "${run_step1}" -eq 1 ]]; then
         --env COVAR_COLS="${covar_cols}" \
         --env APPLY_RINT="${APPLY_RINT}" \
         --env STEP1_BLOCK_SIZE="${STEP1_BLOCK_SIZE}" \
+        --env RESULT_PREFIX="${result_prefix}" \
         --env EXPECTED_KEEP_SAMPLES="${keep_samples}" \
         --env EXPECTED_BFILE_VARIANTS="${step1_variants}" \
         --env EXPECTED_BFILE_SAMPLES="${step1_samples}" \
@@ -387,10 +402,11 @@ tasks_tsv="${SCRIPT_DIR}/logs/dsub_regenie_step2_${OUTPUT_NAME}_$(date +%Y%m%d_%
         '--output-recursive OUTDIR' '--env PHENO_COL' '--env COVAR_COLS'
     for c in "${CHROMS[@]}"; do
         chrom="chr${c}"
-        chrom_summary="${step2_dir}/${chrom}/${chrom}_height.summary.tsv"
+        chrom_result_prefix="${chrom}_${result_prefix}"
+        chrom_summary="${step2_dir}/${chrom}/${chrom_result_prefix}.summary.tsv"
         submit=1
-        if [[ -s "${chrom_summary}" && -s "${step2_dir}/${chrom}/${chrom}_height.params.tsv" ]]; then
-            if diff -q "${desired_params}" "${step2_dir}/${chrom}/${chrom}_height.params.tsv" >/dev/null 2>&1; then
+        if [[ -s "${chrom_summary}" && -s "${step2_dir}/${chrom}/${chrom_result_prefix}.params.tsv" ]]; then
+            if diff -q "${desired_params}" "${step2_dir}/${chrom}/${chrom_result_prefix}.params.tsv" >/dev/null 2>&1; then
                 submit=0
             fi
         fi
@@ -429,6 +445,7 @@ if [[ "${to_submit}" -gt 0 ]]; then
         --tasks "${tasks_tsv}" \
         --env APPLY_RINT="${APPLY_RINT}" \
         --env STEP2_BLOCK_SIZE="${STEP2_BLOCK_SIZE}" \
+        --env RESULT_PREFIX="${result_prefix}" \
         --env EXPECTED_KEEP_SAMPLES="${keep_samples}" \
         --input REGENIE_BUNDLE="${bundle_uri}" \
         --input PHEN="${input_uri}/phen.txt" \
@@ -475,8 +492,9 @@ echo "  Verifying REGENIE Step 2 outputs ..."
 total_tested=0
 for c in "${CHROMS[@]}"; do
     chrom="chr${c}"
-    chrom_summary="${step2_dir}/${chrom}/${chrom}_height.summary.tsv"
-    chrom_params="${step2_dir}/${chrom}/${chrom}_height.params.tsv"
+    chrom_result_prefix="${chrom}_${result_prefix}"
+    chrom_summary="${step2_dir}/${chrom}/${chrom_result_prefix}.summary.tsv"
+    chrom_params="${step2_dir}/${chrom}/${chrom_result_prefix}.params.tsv"
     if [[ ! -s "${chrom_summary}" || ! -s "${chrom_params}" ]]; then
         echo "ERROR: missing Step 2 summary/params for ${chrom}" >&2
         exit 1
