@@ -198,8 +198,34 @@ mkdir -p "${output_dir}" "${step1_dir}" "${step2_dir}" "${LOCAL_REGENIE_DIR}"
 phen="${input_dir}/phen.txt"
 covar="${input_dir}/covar.txt"
 keep="${input_dir}/training_iids.txt"
-input_params="${input_dir}/height_gwas.params.tsv"
-input_summary="${input_dir}/height_gwas.summary.tsv"
+
+find_input_metadata_file() {
+    local suffix="$1" candidate matches
+    for candidate in \
+        "${input_dir}/${INPUT_NAME}.${suffix}" \
+        "${input_dir}/${OUTPUT_NAME}.${suffix}" \
+        "${input_dir}/height_gwas.${suffix}" \
+        "${input_dir}/ea_gwas.${suffix}" \
+        "${input_dir}/income_gwas.${suffix}"; do
+        if [[ -s "${candidate}" ]]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+    mapfile -t matches < <(find "${input_dir}" -maxdepth 1 -type f -name "*.${suffix}" -print | sort)
+    if [[ "${#matches[@]}" -eq 1 && -s "${matches[0]}" ]]; then
+        printf '%s\n' "${matches[0]}"
+        return 0
+    fi
+    echo "ERROR: could not identify unique input metadata file *.${suffix} in ${input_dir}" >&2
+    if [[ "${#matches[@]}" -gt 1 ]]; then
+        printf '  candidate: %s\n' "${matches[@]}" >&2
+    fi
+    return 1
+}
+
+input_params="$(find_input_metadata_file params.tsv)"
+input_summary="$(find_input_metadata_file summary.tsv)"
 for f in "${phen}" "${covar}" "${keep}" "${input_params}" "${input_summary}"; do
     if [[ ! -s "${f}" ]]; then
         echo "ERROR: missing REGENIE input file ${f}" >&2

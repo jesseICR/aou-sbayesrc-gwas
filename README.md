@@ -90,6 +90,16 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas.
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step1/
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step2/chr{1..22}/
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.summary.tsv
+
+# gwas_dev branch optional command:
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/ea_gwas/{phen.txt,covar.txt,training_iids.txt}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/ea_gwas/ea_gwas.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/ea_gwas/ea_answer_counts.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/ea_gwas/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/income_gwas/{phen.txt,covar.txt,training_iids.txt}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/income_gwas/income_gwas.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/income_gwas/income_answer_counts.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/income_gwas/
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
@@ -1003,6 +1013,101 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwa
 The previous full height GWAS output predates Step 13 final genotype
 filtering. Re-run with `RUN_HEIGHT_GWAS=1` after Step 13 completes to generate
 current REGENIE counts for the stricter final genotype inputs.
+
+### gwas_dev — Additional exploratory GWAS commands
+
+The `gwas_dev` branch adds standalone commands for additional exploratory
+continuous-trait REGENIE GWAS runs. These commands are deliberately separate
+from `get_genotypes.sh`. They assume the main pipeline has completed through
+Step 13, but they do not require the optional height GWAS to have run.
+
+Cheap setup-only checks:
+
+```bash
+bash run_ea_gwas.sh --setup-only
+bash run_income_gwas.sh --setup-only
+```
+
+Full GWAS submissions:
+
+```bash
+bash run_ea_gwas.sh
+bash run_income_gwas.sh
+```
+
+Both commands use:
+
+```text
+Samples:
+  our classified European IIDs
+  AND confident genetic sex in genetic_sex/sex_covar.txt
+  AND not in the Step 12 identical-component size >=3 exclusion list
+  AND has a codeable trait response
+
+Genotypes:
+  Step 1: gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1
+  Step 2: gwas_genotypes/step2_wgs_pfiles/chr{1..22}
+
+REGENIE:
+  quantitative trait
+  rank-inverse normal transform enabled by default
+```
+
+The educational-attainment phenotype is AoU The Basics question `1585940`,
+"Education Level: Highest Grade." `PMI: Skip` and `PMI: Prefer Not To Answer`
+are treated as missing.
+
+| AoU answer concept | AoU answer | EA years |
+|---:|---|---:|
+| `1585941` | Highest Grade: Never Attended | 1.0 |
+| `1585942` | Highest Grade: One Through Four | 2.5 |
+| `1585943` | Highest Grade: Five Through Eight | 6.5 |
+| `1585944` | Highest Grade: Nine Through Eleven | 10.0 |
+| `1585945` | Highest Grade: Twelve Or GED | 13.0 |
+| `1585946` | Highest Grade: College One to Three | 15.0 |
+| `1585947` | Highest Grade: College Graduate | 17.0 |
+| `1585948` | Highest Grade: Advanced Degree | 20.0 |
+
+EA covariates:
+
+```text
+yob_c                  = fractional_year_of_birth - mean(fractional_year_of_birth)
+sex_c                  = sex_01 - 0.5
+yob_c_sex_c_inter      = yob_c * sex_c
+PC1_AVG ... PC10_AVG
+```
+
+Fractional year of birth is computed from `person.birth_datetime`; for example
+July 1, 1950 is approximately `1950.5`.
+
+The household-income phenotype is AoU The Basics question `1585375`, "Income:
+Annual Income." `PMI: Skip` and `PMI: Prefer Not To Answer` are treated as
+missing. Values are annual household income in thousands of dollars.
+
+| AoU answer concept | AoU answer | income_k |
+|---:|---|---:|
+| `1585376` | Annual Income: less 10k | 5.0 |
+| `1585377` | Annual Income: 10k 25k | 17.5 |
+| `1585378` | Annual Income: 25k 35k | 30.0 |
+| `1585379` | Annual Income: 35k 50k | 42.5 |
+| `1585380` | Annual Income: 50k 75k | 62.5 |
+| `1585381` | Annual Income: 75k 100k | 87.5 |
+| `1585382` | Annual Income: 100k 150k | 125.0 |
+| `1585383` | Annual Income: 150k 200k | 175.0 |
+| `1585384` | Annual Income: more 200k | 250.0 |
+
+Income covariates:
+
+```text
+age_c                  = age_at_income_survey - mean(age_at_income_survey)
+age_c_sq               = age_c^2
+sex_c                  = sex_01 - 0.5
+age_c_sex_c_inter      = age_c * sex_c
+PC1_AVG ... PC10_AVG
+```
+
+The setup scripts write the current workspace-specific sample counts and answer
+counts to `{ea,income}_gwas.summary.tsv` and `{ea,income}_answer_counts.tsv`.
 
 ## Prerequisites
 
