@@ -381,14 +381,13 @@ If the `.vmiss` file already exists and only `KINSHIP_MISSING_MAX` changes,
 `subset_kinship_snps.sh` re-filters locally instead of re-submitting the dsub
 job and re-localizing the large HQ direct bfile.
 
-By default, `get_genotypes.sh` pauses here and does **not** launch KING. This
-is intentional because KING on all pairs is the expensive step. Review the
-final SNP count, then either continue or tighten the missingness filter:
+`get_genotypes.sh` proceeds directly from the SNP subset to the KING run. KING
+is the largest single compute step in the pipeline, but it is idempotent: once
+matching KING outputs exist, later runs skip it. To tighten the all-sample SNP
+missingness threshold before KING, override `KINSHIP_MISSING_MAX` before
+launching the pipeline:
 
 ```bash
-# Continue with the reviewed SNP set.
-KINSHIP_PROCEED_AFTER_SNP_REVIEW=1 bash get_genotypes.sh 2>&1
-
 # Override the default all-sample SNP missingness threshold.
 KINSHIP_MISSING_MAX=0.02 bash get_genotypes.sh 2>&1
 ```
@@ -399,7 +398,7 @@ KINSHIP_MISSING_MAX=0.02 bash get_genotypes.sh 2>&1
 plink2 --make-king-table --king-table-filter 0.035
 ```
 
-on the HQ direct bfile with the reviewed SNP extract list. It does not
+on the HQ direct bfile with the final SNP extract list. It does not
 materialize a separate kinship-only bfile; the exact SNP set is captured by
 `ukbb_relatedness_snps_in_hq_direct_geno_lt_threshold.txt` and the parameter
 files. KING writes:
@@ -1053,16 +1052,13 @@ nohup bash get_genotypes.sh > logs/run.log 2>&1 &
 
 Run the optional height GWAS example as well:
 ```bash
-RUN_HEIGHT_GWAS=1 KINSHIP_PROCEED_AFTER_SNP_REVIEW=1 \
-  nohup bash get_genotypes.sh > logs/run_height_gwas.log 2>&1 &
+RUN_HEIGHT_GWAS=1 nohup bash get_genotypes.sh > logs/run_height_gwas.log 2>&1 &
 ```
 
-The first full run after Step 7 is added stops after writing
-`kinship_snp_subset_summary.tsv`, so the final KING SNP count can be reviewed
-before launching the expensive all-pairs KING job. Re-run with
-`KINSHIP_PROCEED_AFTER_SNP_REVIEW=1` to proceed. Once matching KING outputs
-already exist, later re-runs continue downstream without requiring that review
-override.
+The default `bash get_genotypes.sh` command is designed to run the full
+pipeline end to end. Expensive steps, including KING and the optional REGENIE
+height GWAS, have parameter/count-based idempotency checks so later runs skip
+matching outputs instead of re-submitting work.
 
 The run logs to `logs/run_YYYYMMDD_HHMMSS.log` (timestamped) and tees through
 to the foreground if attached. Each Batch worker's stdout/stderr is uploaded
@@ -1110,9 +1106,7 @@ repo and run it as-is.
   input sizes and thresholds.
 - Step 7 skips the kinship SNP subset, KING run, AoU comparison, and close
   relationship classifier independently when their parameter files, thresholds,
-  and expected counts match. The default review gate pauses after the SNP
-  subset unless `KINSHIP_PROCEED_AFTER_SNP_REVIEW=1` or a matching KING output
-  already exists.
+  and expected counts match.
 - Step 8 skips the PCA European selector when its parameter file, summary, and
   `fit_pca_iids.txt` exist with matching input sizes, threshold, seed
   relationships, and output count.
@@ -1173,9 +1167,9 @@ and submit zero dsub tasks.
 | `dsub_admixture_concat_worker.sh` | Step 5c worker — concatenates batch Q files and writes `aou_admixture_k6.tsv`. |
 | `compare_aou_ancestry.sh` | Step 6 — idempotent wrapper for the AoU-vs-ours ancestry comparison and European keep-list. |
 | `compare_aou_ancestry.py` | Step 6 helper — joins AoU hard ancestry calls, AoU RYE fractions, and our ADMIXTURE fractions; writes aggregate tables and plots. |
-| `subset_kinship_snps.sh` | Step 7a — intersects UKBB `in_Relatedness == 1` SNPs with the HQ direct bfile, applies all-sample missingness `< KINSHIP_MISSING_MAX`, and pauses the pipeline for review. |
-| `dsub_kinship_subset_worker.sh` | Step 7a worker — computes variant missingness and writes the final reviewed KING SNP extract list plus count summary. |
-| `run_king_kinship.sh` | Step 7b — submits/verifies the PLINK2 KING run from the reviewed HQ direct SNP subset. |
+| `subset_kinship_snps.sh` | Step 7a — intersects UKBB `in_Relatedness == 1` SNPs with the HQ direct bfile and applies all-sample missingness `< KINSHIP_MISSING_MAX`. |
+| `dsub_kinship_subset_worker.sh` | Step 7a worker — computes variant missingness and writes the final KING SNP extract list plus count summary. |
+| `run_king_kinship.sh` | Step 7b — submits/verifies the PLINK2 KING run from the HQ direct SNP subset. |
 | `dsub_king_kinship_worker.sh` | Step 7b worker — runs `plink2 --make-king-table --king-table-filter 0.035`. |
 | `kinship_qc.sh` | Step 7c — idempotent wrapper comparing our KING output to AoU's provided relatedness table. |
 | `kinship_qc.py` | Step 7c helper — writes kinship comparison summaries, pair-level overlap data, scatter plots, and Bland-Altman plots. |
