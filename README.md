@@ -89,6 +89,7 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/{phen.txt,co
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step1/
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step2/chr{1..22}/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/lightweight/
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.summary.tsv
 
 # gwas_dev branch optional command:
@@ -96,10 +97,12 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/ea_gwas/{phen.txt,covar.txt
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/ea_gwas/ea_gwas.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/ea_gwas/ea_answer_counts.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/ea_gwas/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/ea_gwas/lightweight/
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/income_gwas/{phen.txt,covar.txt,training_iids.txt}
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/income_gwas/income_gwas.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/income_gwas/income_answer_counts.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/income_gwas/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/income_gwas/lightweight/
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
@@ -1006,9 +1009,16 @@ Outputs:
 ```text
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step1/
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step2/chr{1..22}/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/lightweight/chr{1..22}.height_example.regenie_lite.tsv.gz
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/lightweight/regenie_lite.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.params.tsv
 ```
+
+After Step 2 verification, the shared runner writes compact per-chromosome
+association summaries with columns `rsid`, `allele1`, `a1freq`, `n`, `beta`,
+`se`, and `log10p`. Set `REGENIE_MAKE_LIGHTWEIGHT_OUTPUTS=0` or pass
+`--no-lightweight` to skip these compact files.
 
 The previous full height GWAS output predates Step 13 final genotype
 filtering. Re-run with `RUN_HEIGHT_GWAS=1` after Step 13 completes to generate
@@ -1052,6 +1062,7 @@ Genotypes:
 REGENIE:
   quantitative trait
   rank-inverse normal transform enabled by default
+  lightweight per-chromosome outputs created by default
 ```
 
 The shared REGENIE runner names Step 1 and Step 2 output files with the GWAS
@@ -1060,6 +1071,16 @@ output name as the prefix. For example, EA outputs are
 `step2/chr1/chr1_ea_gwas.regenie.gz`; income outputs are
 `step1/income_gwas_step1_pred.list` and
 `step2/chr1/chr1_income_gwas.regenie.gz`.
+
+Future runs also write compact outputs:
+
+```text
+regenie_output/<trait>/lightweight/chr1.<trait>.regenie_lite.tsv.gz
+regenie_output/<trait>/lightweight/regenie_lite.summary.tsv
+```
+
+The lightweight columns are `rsid`, `allele1`, `a1freq`, `n`, `beta`, `se`,
+and `log10p`.
 
 The educational-attainment phenotype is AoU The Basics question `1585940`,
 "Education Level: Highest Grade." `PMI: Skip` and `PMI: Prefer Not To Answer`
@@ -1311,6 +1332,7 @@ and submit zero dsub tasks.
 | `setup_height_gwas.sh` | Step 14 — queries program-collected AoU height, exports the result inside the workspace bucket, and builds REGENIE phenotype/covariate/keep files after sample-QC exclusions. |
 | `setup_height_gwas.py` | Step 14 helper — intersects Europeans, sample-QC exclusions, height, confident sex, genotype IDs, and projected PCs; centers covariates; writes summaries and verification checks. |
 | `run_continuous_regenie_gwas.sh` | Step 15 — optional continuous-trait REGENIE runner using the final Step 13 genotype inputs. |
+| `make_lightweight_regenie_outputs.py` | Step 15 helper — converts full per-chromosome REGENIE outputs into compact `rsid/allele/frequency/effect/SE/log10p` TSVs. |
 | `dsub_regenie_step1_worker.sh` | Step 15 worker — runs REGENIE Step 1, writes LOCO predictions, and verifies sample/variant counts. |
 | `dsub_regenie_step2_worker.sh` | Step 15 worker — runs one REGENIE Step 2 chromosome, adapting AoU `#IID` psam headers and localized Step 1 prediction paths for REGENIE. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |

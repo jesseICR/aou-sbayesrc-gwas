@@ -18,6 +18,7 @@ Options:
   --chroms LIST           Chromosomes to run, e.g. 22, 1,2,3, or 1-22
   --step1-block-size N    REGENIE Step 1 block size
   --step2-block-size N    REGENIE Step 2 block size
+  --no-lightweight        Skip compact per-chromosome output files
   -h, --help              Show this help
 EOF
 }
@@ -39,6 +40,7 @@ APPLY_RINT="${REGENIE_APPLY_RINT:-1}"
 STEP1_BLOCK_SIZE="${REGENIE_STEP1_BLOCK_SIZE:-1000}"
 STEP2_BLOCK_SIZE="${REGENIE_STEP2_BLOCK_SIZE:-200}"
 CHROMS_SPEC="${REGENIE_CHROMS:-1-22}"
+MAKE_LIGHTWEIGHT_OUTPUTS="${REGENIE_MAKE_LIGHTWEIGHT_OUTPUTS:-1}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -61,6 +63,10 @@ while [[ $# -gt 0 ]]; do
         --step2-block-size)
             STEP2_BLOCK_SIZE="${2:?--step2-block-size requires a value}"
             shift 2
+            ;;
+        --no-lightweight)
+            MAKE_LIGHTWEIGHT_OUTPUTS=0
+            shift
             ;;
         -h|--help)
             usage
@@ -322,6 +328,7 @@ echo "  keep samples = ${keep_samples}"
 echo "  Step 1 bfile = ${step1_variants} variants, ${step1_samples} samples"
 echo "  RINT         = ${APPLY_RINT}"
 echo "  covars       = ${covar_cols}"
+echo "  lightweight  = ${MAKE_LIGHTWEIGHT_OUTPUTS}"
 
 bundle_uri=$(stage_regenie_bundle)
 gcloud storage cp "${desired_params}" "${output_uri}/regenie_gwas.desired_params.tsv" \
@@ -511,6 +518,55 @@ for c in "${CHROMS[@]}"; do
     total_tested=$((total_tested + tested))
 done
 
+lightweight_dir="${output_dir}/lightweight"
+lightweight_summary="${lightweight_dir}/regenie_lite.summary.tsv"
+lightweight_columns="rsid,allele1,a1freq,n,beta,se,log10p"
+lightweight_total_rows="NA"
+if [[ "${MAKE_LIGHTWEIGHT_OUTPUTS}" == "1" ]]; then
+    lightweight_valid=0
+    if [[ -s "${lightweight_summary}" ]]; then
+        lightweight_total_rows=$(awk -F'\t' -v cols="${lightweight_columns}" '
+            NR > 1 {
+                s += $5
+                if ($6 != cols) bad = 1
+            }
+            END {
+                if (bad) print "BAD";
+                else print s + 0;
+            }
+        ' "${lightweight_summary}")
+        if [[ "${lightweight_total_rows}" == "${total_tested}" ]]; then
+            lightweight_valid=1
+            for c in "${CHROMS[@]}"; do
+                if [[ ! -s "${lightweight_dir}/chr${c}.${result_prefix}.regenie_lite.tsv.gz" ]]; then
+                    lightweight_valid=0
+                    break
+                fi
+            done
+        fi
+    fi
+    if [[ "${lightweight_valid}" == "1" ]]; then
+        echo "  Lightweight REGENIE outputs already exist (${lightweight_total_rows} rows) — skipping"
+    else
+        echo "  Creating lightweight REGENIE outputs ..."
+        python3 "${SCRIPT_DIR}/make_lightweight_regenie_outputs.py" \
+            --output-dir "${output_dir}" \
+            --result-prefix "${result_prefix}" \
+            --chroms "${chroms_joined}"
+        if [[ ! -s "${lightweight_summary}" ]]; then
+            echo "ERROR: missing lightweight summary ${lightweight_summary}" >&2
+            exit 1
+        fi
+        lightweight_total_rows=$(awk -F'\t' 'NR > 1 {s += $5} END {print s + 0}' "${lightweight_summary}")
+        if [[ "${lightweight_total_rows}" != "${total_tested}" ]]; then
+            echo "ERROR: lightweight rows ${lightweight_total_rows} do not match tested variants ${total_tested}" >&2
+            exit 1
+        fi
+    fi
+else
+    echo "  Skipping lightweight REGENIE outputs because REGENIE_MAKE_LIGHTWEIGHT_OUTPUTS=${MAKE_LIGHTWEIGHT_OUTPUTS}."
+fi
+
 cp "${desired_params}" "${output_dir}/regenie_gwas.params.tsv"
 {
     printf 'metric\tvalue\n'
@@ -524,6 +580,8 @@ cp "${desired_params}" "${output_dir}/regenie_gwas.params.tsv"
     printf 'apply_rint\t%s\n' "${APPLY_RINT}"
     printf 'pheno_col\t%s\n' "${pheno_col}"
     printf 'covar_cols\t%s\n' "${covar_cols}"
+    printf 'lightweight_output_dir\t%s\n' "${lightweight_dir}"
+    printf 'lightweight_total_rows\t%s\n' "${lightweight_total_rows}"
 } > "${output_dir}/regenie_gwas.summary.tsv"
 
 echo "  Done: Step 1 samples=${keep_samples}; Step 2 tested variants=${total_tested}"
