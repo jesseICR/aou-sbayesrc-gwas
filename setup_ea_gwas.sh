@@ -20,6 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EA_QUESTION_CONCEPT_ID="${EA_QUESTION_CONCEPT_ID:-1585940}"
 EA_N_PCS="${EA_N_PCS:-10}"
 IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE="${IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE:-3}"
+GWAS_MIN_AGE_AT_SURVEY="${GWAS_MIN_AGE_AT_SURVEY:-26}"
 
 local_scrap="${LOCAL_REGENIE_DIR}/ea_gwas_scrap"
 local_out="${local_scrap}/outputs"
@@ -72,6 +73,7 @@ desired_params="${LOCAL_REGENIE_DIR}/ea_gwas.desired_params.tsv"
     printf 'ea_question_concept_id\t%s\n' "${EA_QUESTION_CONCEPT_ID}"
     printf 'ea_mapping\t%s\n' "1585941=1;1585942=2.5;1585943=6.5;1585944=10;1585945=13;1585946=15;1585947=17;1585948=20"
     printf 'ea_n_pcs\t%s\n' "${EA_N_PCS}"
+    printf 'gwas_min_age_at_survey\t%s\n' "${GWAS_MIN_AGE_AT_SURVEY}"
     printf 'europeans_size\t%s\n' "$(stat -c%s "${europeans}")"
     printf 'sscore_size\t%s\n' "$(stat -c%s "${sscore}")"
     printf 'sex_covar_size\t%s\n' "$(stat -c%s "${sex_covar_input}")"
@@ -160,6 +162,7 @@ WITH codeable AS (
           DAY
         )
       ) AS yob,
+    DATE_DIFF(DATE(s.survey_datetime), DATE(p.birth_datetime), DAY) / 365.25 AS age_at_survey,
     CAST(s.answer_concept_id AS INT64) AS answer_concept_id,
     s.answer AS answer,
     s.survey_datetime,
@@ -173,12 +176,14 @@ WITH codeable AS (
     ON p.person_id = s.person_id
   WHERE s.question_concept_id = ${EA_QUESTION_CONCEPT_ID}
     AND s.answer_concept_id IN (1585941,1585942,1585943,1585944,1585945,1585946,1585947,1585948)
+    AND s.survey_datetime IS NOT NULL
     AND p.birth_datetime IS NOT NULL
 )
 SELECT
   IID,
   ea_years,
   yob,
+  age_at_survey,
   answer_concept_id,
   answer,
   n_ea_records
@@ -225,7 +230,8 @@ python3 "${SCRIPT_DIR}/setup_ea_gwas.py" \
     --fam "${fam}" \
     --sscore "${sscore}" \
     --out-dir "${local_out}" \
-    --n-pcs "${EA_N_PCS}"
+    --n-pcs "${EA_N_PCS}" \
+    --min-age-at-survey "${GWAS_MIN_AGE_AT_SURVEY}"
 
 cp "${desired_params}" "${local_out}/ea_gwas.params.tsv"
 

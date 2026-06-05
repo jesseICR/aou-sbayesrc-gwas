@@ -1043,6 +1043,7 @@ Samples:
   AND confident genetic sex in genetic_sex/sex_covar.txt
   AND not in the Step 12 identical-component size >=3 exclusion list
   AND has a codeable trait response
+  AND age at the relevant The Basics survey response >= 26 years
 
 Genotypes:
   Step 1: gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1
@@ -1062,7 +1063,9 @@ output name as the prefix. For example, EA outputs are
 
 The educational-attainment phenotype is AoU The Basics question `1585940`,
 "Education Level: Highest Grade." `PMI: Skip` and `PMI: Prefer Not To Answer`
-are treated as missing.
+are treated as missing. Samples younger than `GWAS_MIN_AGE_AT_SURVEY=26` at
+the selected survey response are excluded so participants who may not have
+completed education yet are not included.
 
 | AoU answer concept | AoU answer | EA years |
 |---:|---|---:|
@@ -1089,7 +1092,9 @@ July 1, 1950 is approximately `1950.5`.
 
 The household-income phenotype is AoU The Basics question `1585375`, "Income:
 Annual Income." `PMI: Skip` and `PMI: Prefer Not To Answer` are treated as
-missing. Values are annual household income in thousands of dollars.
+missing. Samples younger than `GWAS_MIN_AGE_AT_SURVEY=26` at the selected
+survey response are excluded so early-career participants are not included.
+Values are annual household income in thousands of dollars.
 
 | AoU answer concept | AoU answer | income_k |
 |---:|---|---:|

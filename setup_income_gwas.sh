@@ -20,6 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INCOME_QUESTION_CONCEPT_ID="${INCOME_QUESTION_CONCEPT_ID:-1585375}"
 INCOME_N_PCS="${INCOME_N_PCS:-10}"
 IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE="${IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE:-3}"
+GWAS_MIN_AGE_AT_SURVEY="${GWAS_MIN_AGE_AT_SURVEY:-26}"
 
 local_scrap="${LOCAL_REGENIE_DIR}/income_gwas_scrap"
 local_out="${local_scrap}/outputs"
@@ -72,6 +73,7 @@ desired_params="${LOCAL_REGENIE_DIR}/income_gwas.desired_params.tsv"
     printf 'income_question_concept_id\t%s\n' "${INCOME_QUESTION_CONCEPT_ID}"
     printf 'income_mapping\t%s\n' "1585376=5;1585377=17.5;1585378=30;1585379=42.5;1585380=62.5;1585381=87.5;1585382=125;1585383=175;1585384=250"
     printf 'income_n_pcs\t%s\n' "${INCOME_N_PCS}"
+    printf 'gwas_min_age_at_survey\t%s\n' "${GWAS_MIN_AGE_AT_SURVEY}"
     printf 'europeans_size\t%s\n' "$(stat -c%s "${europeans}")"
     printf 'sscore_size\t%s\n' "$(stat -c%s "${sscore}")"
     printf 'sex_covar_size\t%s\n' "$(stat -c%s "${sex_covar_input}")"
@@ -215,7 +217,8 @@ python3 "${SCRIPT_DIR}/setup_income_gwas.py" \
     --fam "${fam}" \
     --sscore "${sscore}" \
     --out-dir "${local_out}" \
-    --n-pcs "${INCOME_N_PCS}"
+    --n-pcs "${INCOME_N_PCS}" \
+    --min-age-at-survey "${GWAS_MIN_AGE_AT_SURVEY}"
 
 cp "${desired_params}" "${local_out}/income_gwas.params.tsv"
 

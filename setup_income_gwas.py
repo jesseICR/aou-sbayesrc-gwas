@@ -158,6 +158,7 @@ def main():
     parser.add_argument("--sscore", required=True)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--n-pcs", type=int, default=10)
+    parser.add_argument("--min-age-at-survey", type=float, default=26.0)
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -167,6 +168,7 @@ def main():
     log(log_lines, f"income_query: {args.income_query}")
     log(log_lines, f"exclude_iids: {args.exclude_iids}")
     log(log_lines, f"n_pcs: {args.n_pcs}")
+    log(log_lines, f"min_age_at_survey: {args.min_age_at_survey:g}")
 
     europeans = read_keep_iids(args.europeans)
     sex_map = load_sex_covar(args.sex_covar)
@@ -190,6 +192,8 @@ def main():
     after_sample_qc = set(candidates)
     missing_income = candidates - set(income_rows)
     candidates &= set(income_rows)
+    below_min_age = {iid for iid in candidates if income_rows[iid]["age_at_survey"] < args.min_age_at_survey}
+    candidates -= below_min_age
     missing_sex = candidates - set(sex_map)
     candidates &= set(sex_map)
     missing_fam = candidates - set(fid_by_iid)
@@ -219,6 +223,7 @@ def main():
     log(log_lines, f"Europeans removed by sample-QC exclusion: {len(excluded_europeans)}")
     log(log_lines, f"Europeans after sample-QC exclusion: {len(after_sample_qc)}")
     log(log_lines, f"Europeans missing codeable income phenotype: {len(missing_income)}")
+    log(log_lines, f"Europeans with income phenotype but age_at_survey < {args.min_age_at_survey:g}: {len(below_min_age)}")
     log(log_lines, f"Europeans with income phenotype but missing sex covariate: {len(missing_sex)}")
     log(log_lines, f"Europeans with income+sex but missing fam row: {len(missing_fam)}")
     log(log_lines, f"Europeans with income+sex+fam but missing projected PCs: {len(missing_pcs)}")
@@ -272,6 +277,8 @@ def main():
         f.write(f"income_query_rows\t{len(income_rows)}\n")
         f.write(f"projected_pc_rows\t{len(pc_data)}\n")
         f.write(f"europeans_missing_codeable_income\t{len(missing_income)}\n")
+        f.write(f"min_age_at_survey\t{args.min_age_at_survey:.10g}\n")
+        f.write(f"income_candidates_below_min_age_at_survey\t{len(below_min_age)}\n")
         f.write(f"income_candidates_missing_sex_covar\t{len(missing_sex)}\n")
         f.write(f"income_sex_candidates_missing_fam\t{len(missing_fam)}\n")
         f.write(f"income_sex_fam_candidates_missing_pcs\t{len(missing_pcs)}\n")
@@ -282,6 +289,7 @@ def main():
         f.write(f"income_k_mean\t{statistics.mean(income_values):.10g}\n")
         f.write(f"income_k_median\t{statistics.median(income_values):.10g}\n")
         f.write(f"age_at_survey_mean\t{mean_age:.10g}\n")
+        f.write(f"age_at_survey_min\t{min(ages):.10g}\n")
         f.write(f"n_pcs\t{args.n_pcs}\n")
         f.write("covar_cols\tage_c,age_c_sq,sex_c,age_c_sex_c_inter," + ",".join(pc_headers) + "\n")
 
@@ -304,6 +312,8 @@ def main():
     check("all GWAS IIDs are classified European", set(training_iids) <= europeans)
     check("no GWAS IID is in sample-QC exclusion list", not (set(training_iids) & excluded_iids))
     check("all GWAS IIDs have sex covariate", set(training_iids) <= set(sex_map))
+    check("all GWAS IIDs are at least min age at survey",
+          all(income_rows[iid]["age_at_survey"] >= args.min_age_at_survey for iid in training_iids))
     check("all GWAS IIDs have genotype FID", set(training_iids) <= set(fid_by_iid))
     check("all output FID/IID pairs match genotype fam",
           all(line.split()[0] == fid_by_iid[line.split()[1]]
