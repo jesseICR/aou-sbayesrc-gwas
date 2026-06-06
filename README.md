@@ -299,11 +299,11 @@ aux/admixture_estimates/aou_admixture_estimates_rye_v8.Q
 ```
 
 AoU's RYE fractions include `mid` for Middle Eastern ancestry. Our K=6
-projection uses the UKBB/public-statgen global model and has `Oceanian`
+projection uses the public-statgen global model and has `Oceanian`
 instead of `mid`, so Step 6 treats MID as an AoU-specific component rather
 than forcing a one-to-one mapping.
 
-The European classifier mirrors the UKBB pipeline rule:
+The European classifier uses fixed ancestry-fraction thresholds:
 
 ```text
 European >= 0.8
@@ -435,7 +435,7 @@ Summary tables and plots are written under:
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/qc/
 ```
 
-`classify_relations.sh` then mirrors the UKBB relationship thresholds on our
+`classify_relations.sh` then applies fixed KING kinship/IBS0 thresholds on our
 KING table:
 
 ```text
@@ -444,9 +444,9 @@ parent_child: 0.1767 <= kinship < 0.3535 and IBS0 < 0.0012
 sibling:      0.1767 <= kinship < 0.3535 and IBS0 >= 0.0012
 ```
 
-The AoU version deliberately does not apply the UKBB birth-year/month sibling
-age-gap filter because no portable AoU phenotype dependency is part of this
-genotype pipeline.
+The AoU version deliberately does not apply a birth-year/month sibling age-gap
+filter because no portable AoU phenotype dependency is part of this genotype
+pipeline.
 
 Validation run summary from the first completed AoU v8 run in this workspace
 with `KINSHIP_MISSING_MAX=0.01` and `KING_TABLE_FILTER=0.035`:
@@ -489,7 +489,7 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/close_relations.csv
 ```
 
 Those samples are the seed exclusion set. The script expands that seed set to
-include everyone directly related to those seeds at the UKBB third-degree
+include everyone directly related to those seeds at a third-degree kinship
 threshold:
 
 ```text
@@ -593,9 +593,8 @@ The tighter ALT-frequency agreement filter reuses Step 4's
 recomputing frequency concordance and keeps the Step 9 accounting directly
 tied to the Step 4 QC table.
 
-The long-range LD regions are the hg38 regions used by the UKBB analog,
-downloaded from the public `plinkQC` resource by the orchestrator and staged
-to the private Batch worker.
+The long-range LD regions are hg38 regions downloaded from the public `plinkQC`
+resource by the orchestrator and staged to the private Batch worker.
 
 Outputs:
 
@@ -1142,6 +1141,293 @@ PC1_AVG ... PC10_AVG
 The setup scripts write the current workspace-specific sample counts and answer
 counts to `{ea,income}_gwas.summary.tsv` and `{ea,income}_answer_counts.tsv`.
 
+### ses_ea_proxy primary setup and scoring
+
+`run_ses_ea_proxy_gwas.sh` builds the primary SES-EA proxy scores and the
+matching REGENIE input files. Setup/scoring is the default behavior; it does
+not submit REGENIE unless `--run-gwas` is passed explicitly.
+
+Recommended run order:
+
+```bash
+# 1. Build genotype/sample-QC/PCA/sex/genotype inputs.
+nohup bash get_genotypes.sh > logs/run.log 2>&1 &
+
+# 2. Build SES-EA proxy scores and REGENIE input files.
+bash run_ses_ea_proxy_gwas.sh --setup-only
+
+# 3. Build ETM cognitive scores from the proxy-score outputs.
+bash run_etm_cog_task_factors.sh --stage-aggregate
+```
+
+```bash
+bash run_ses_ea_proxy_gwas.sh --setup-only
+```
+
+This command is downstream of the genotype/sample-prep pipeline. Run
+`get_genotypes.sh` first and let it complete through the European ancestry,
+PCA, confirmed genetic sex, identical-component sample-QC, and final REGENIE
+genotype-input steps. The proxy setup consumes these outputs:
+
+```text
+sbayesrc_genotypes/europeans/classified_european_iids.txt
+sbayesrc_genotypes/pca_eur/fit_pca_iids.txt
+sbayesrc_genotypes/pca_eur/aou_projected.sscore
+sbayesrc_genotypes/genetic_sex/sex_covar.txt
+sbayesrc_genotypes/sample_qc/exclude_identical_component_size_ge3_iids.txt
+sbayesrc_genotypes/gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1.fam
+```
+
+The goal is to produce a non-genetic proxy for the education-attainment
+teacher label, then review out-of-sample model performance and covariate
+correlations before deciding whether to run GWAS. The setup therefore stops
+after score generation by default. REGENIE is only an opt-in follow-up.
+
+Samples are restricted to classified European IIDs, confirmed genetic sex in
+`genetic_sex/sex_covar.txt`, samples not in the identical-component size `>=3`
+sample-QC exclusion list, codeable EA from The Basics question `1585940`, and
+age at that The Basics response `>=26`. Confirmed genetic sex is also included
+as an XGBoost model feature.
+
+The score uses a cross-fit design:
+
+```text
+1. Split eligible fit_pca_iids into 5 seeded folds.
+2. For each fold, fit the EA residualization OLS and XGBoost model on the
+   other four folds only, then predict the held-out fold.
+3. Fit a sixth model on all eligible fit_pca_iids.
+4. Apply the sixth model to eligible classified-European samples that were not
+   in fit_pca_iids.
+```
+
+The EA teacher label is mapped to years from answers `1585941` through
+`1585948`. In each cross-fit fold, EA years are residualized on
+`yob_c`, `sex_c`, and `yob_c * sex_c` using only the four-fifths training
+pool, then z-scored using that training-pool residual mean and SD. The sixth
+model uses the same residualization procedure fit on all eligible
+`fit_pca_iids`.
+
+Survey features come from The Basics, Lifestyle, Overall Health, Healthcare
+Access & Utilization, Personal and Family Health History, Social Determinants
+of Health, and Behavioral Health & Personality. BHP is read from the
+off-cycle Mental Health / Well-Being CDR dataset; override
+`WORKSPACE_MHWB_CDR` if the dataset name differs. The Washington Group
+disability items are sourced from The Basics. ZIP3-derived socioeconomic
+features come from `ds_zip_code_socioeconomic`; raw ZIP codes are not used.
+
+Feature extraction is multi-select safe. For each person/question, the setup
+selects the latest survey timestamp, keeps all answer rows from that timestamp,
+and one-hot encodes every retained `answer_concept_id` for nominal and
+multi-select fields. Ordered Likert-style fields are encoded as one ordinal
+numeric feature; continuous survey values are parsed as numeric features.
+
+Missing-data handling is explicit:
+
+```text
+Did not take survey:
+  Survey item features remain NaN, took_<survey>=0, age_at_<survey>=NaN.
+
+Took survey:
+  took_<survey>=1 and age_at_<survey> is included as a model feature.
+
+PMI: Skip (903096):
+  Value remains NaN for native XGBoost missing routing and is counted
+  separately; no nonresponse indicator is set.
+
+PMI: Prefer Not To Answer (903079) / PMI: Don't Know (903087):
+  Value remains NaN. Curated high-value fields also get a *_nonresponse
+  indicator where valid answers are 0 and Prefer Not/Don't Know are 1.
+  Not asked or did not take the survey remains NaN.
+
+Lifestyle branching:
+  Never/no parent answers set not-applicable downstream smoking, alcohol, and
+  substance-use count/frequency fields to 0 rather than NaN.
+```
+
+XGBoost receives `DMatrix(missing=np.nan)`, so survey nonparticipation and
+unanswered fields route through missing-native tree splits. The setup writes
+audit tables for these choices:
+
+```text
+feature_manifest.resolved.tsv
+missing_data_handling.tsv
+pmi_missingness_counts.tsv
+branch_recoding_summary.tsv
+feature_missingness.tsv
+feature_counts.tsv
+```
+
+The main scoring outputs are:
+
+```text
+regenie_input/ses_ea_proxy/oof_scores.tsv
+regenie_input/ses_ea_proxy/applied_scores.tsv
+regenie_input/ses_ea_proxy/all_scores.tsv
+regenie_input/ses_ea_proxy/fold_metrics.tsv
+regenie_input/ses_ea_proxy/applied_metrics.tsv
+regenie_input/ses_ea_proxy/proxy_covariate_correlations.tsv
+regenie_input/ses_ea_proxy/xgboost_model_manifest.tsv
+regenie_input/ses_ea_proxy/xgboost_feature_columns.json
+regenie_input/ses_ea_proxy/xgboost_models/fold_0.json
+regenie_input/ses_ea_proxy/xgboost_models/fold_1.json
+regenie_input/ses_ea_proxy/xgboost_models/fold_2.json
+regenie_input/ses_ea_proxy/xgboost_models/fold_3.json
+regenie_input/ses_ea_proxy/xgboost_models/fold_4.json
+regenie_input/ses_ea_proxy/xgboost_models/final_model.json
+regenie_input/ses_ea_proxy/phen.txt
+regenie_input/ses_ea_proxy/covar.txt
+regenie_input/ses_ea_proxy/ses_ea_proxy_gwas.summary.tsv
+```
+
+`fold_metrics.tsv` reports the correlation of each held-out fold's OOF score
+with the fold-safe teacher label. `applied_metrics.tsv` reports the same
+correlation for the sixth-model applied samples. `proxy_covariate_correlations.tsv`
+reports correlations with `teacher_z`, EA years, `yob_c`, `sex_c`, and
+PC1 through PC10 by fold, OOF overall, sixth-model applied samples, and the
+combined scored set. The XGBoost model JSON files are saved with the feature
+column hash recorded in `xgboost_model_manifest.tsv`; reload them with the
+same feature order in `xgboost_feature_columns.json` if continuing training or
+auditing predictions.
+
+The generated result files should be read as follows:
+
+```text
+ses_ea_proxy_gwas.summary.tsv
+  One-row-per-metric setup summary: sample filters, final scored sample
+  counts, feature counts, model score scale, OOF performance, and applied-set
+  performance.
+
+fold_metrics.tsv
+  One row for each OOF fold. These are the primary performance checks because
+  every sample in a fold was predicted by a model that did not train on it.
+
+applied_metrics.tsv
+  Performance for the sixth model applied to classified-European samples that
+  were outside fit_pca_iids.
+
+proxy_covariate_correlations.tsv
+  Pearson and Spearman correlations between the proxy score and teacher_z,
+  EA years, yob_c, sex_c, and PC1 through PC10, split by fold, OOF overall,
+  applied samples, and combined scored samples.
+
+feature_importance.tsv
+  Gain/cover importance from the sixth model fit on all eligible fit_pca_iids.
+
+feature_manifest.resolved.tsv
+  Per-question manifest with question_concept_id, survey, item name, resolved
+  encoding, include/exclude status, analog notes, and implementation notes.
+
+xgboost_model_manifest.tsv
+  Saved booster inventory. It records each model file, role, fold id, feature
+  column hash, boost rounds, prediction sample count, and the teacher
+  residualization parameters used by that model.
+```
+
+The saved Booster files can be loaded later with XGBoost for auditing or
+continued training:
+
+```python
+import json
+import xgboost as xgb
+
+with open("xgboost_feature_columns.json") as f:
+    feature_columns = json.load(f)
+
+booster = xgb.Booster()
+booster.load_model("xgboost_models/final_model.json")
+```
+
+If continuing training, rebuild the feature matrix with the same column order
+from `xgboost_feature_columns.json` and pass the loaded booster as
+`xgb_model=` to `xgb.train`.
+
+The cognitive-score command is downstream of this proxy setup: it reads
+`regenie_input/ses_ea_proxy/all_scores.tsv` and
+`regenie_input/ses_ea_proxy/base_covar.txt`.
+
+### ETM cognitive task factor scoring
+
+`run_etm_cog_task_factors.sh` builds task-specific Exploring the Mind cognitive
+scores for the already-defined `ses_ea_proxy` phenotype cohort. It consumes
+`regenie_input/ses_ea_proxy/all_scores.tsv`, so both out-of-fold proxy scores
+and sixth-model applied proxy scores are included. This command does not run a
+GWAS.
+
+```bash
+bash run_etm_cog_task_factors.sh --stage-aggregate
+```
+
+The scorer reads Flanker, GradCPT, and Delay Discounting from the ETM off-cycle
+dataset. Set `WORKSPACE_ETM_CDR` or pass `--etm-dataset PROJECT.DATASET` if the
+dataset name differs. It computes age at each task from ETM
+`test_start_date_time` and the main CDR `person.birth_datetime`, and it uses the
+confirmed genetic-sex `sex_c` already present in
+`regenie_input/ses_ea_proxy/base_covar.txt`.
+
+The command writes a long diagnostic score table plus a one-row-per-sample
+recommended-score table. The recommended scores are:
+
+```text
+dd_patience_z_age_sex          # sourced from official -lnk
+gradcpt_perf_z_age_sex         # PC1 of dprime + RT consistency/speed
+flanker_efficiency_z_age_sex   # Flanker efficiency source selected by diagnostics
+```
+
+The current rationale is:
+
+```text
+Delay Discounting:
+  Use official -lnk. It summarizes all four delay-specific log-k fields as
+  log(mean(k)), where k = exp(delay_lnk). The four-delay factor is still
+  computed for diagnostics, but -lnk was stronger against both the SES-EA proxy
+  and teacher-label diagnostics and is the cleaner official aggregate.
+
+GradCPT:
+  Use the PC1 fallback from dprime, -log(cv_rtc), and -log(median_rtc). The
+  one-factor FA optimizer did not converge cleanly because the three-indicator
+  correlation pattern sits on an invalid common-factor boundary, but PC1 was
+  coherent and stable. The component-accuracy sensitivity score is computed but
+  not recommended because no-go accuracy had a weak loading.
+
+Flanker:
+  Use the efficiency score. The one-factor efficiency/interference blend failed
+  the loading rule, and the interference split was unstable. The efficiency
+  score is selected against the official Flanker score by the predeclared
+  simple-score rule.
+```
+
+Individual-level cognitive score files stay in:
+
+```text
+data/regenie/ses_ea_proxy_scrap/etm_cog_task_factors/
+```
+
+Aggregate diagnostics can be staged to:
+
+```text
+regenie_input/ses_ea_proxy/scrap/etm_cog_task_factors/
+```
+
+Diagnostics include factor loadings, indicator correlation matrices, dropped
+redundant indicators, factor-vs-simple-score correlations, SES-EA/teacher
+correlations, repeat-sitting counts, and age/sex plus administration-metadata
+sensitivity checks.
+
+The most useful output files are:
+
+```text
+etm_cog_task_factors_recommended_wide.tsv
+  One row per SES-EA proxy-cohort sample, with the three recommended
+  age/sex-normalized cognitive scores and task-specific sitting metadata.
+
+etm_cog_task_factors_recommended_sources.tsv
+  The exact source score used for each recommended score.
+
+etm_cog_task_factors_correlations.tsv
+  Proxy, teacher, EA-years, and proxy-plus-teacher correlations for all
+  candidate and recommended scores, split by combined/oof/applied role.
+```
+
 ## Prerequisites
 
 You are inside an AoU Verily Jupyter session terminal (the standard
@@ -1335,6 +1621,11 @@ and submit zero dsub tasks.
 | `make_lightweight_regenie_outputs.py` | Step 15 helper — converts full per-chromosome REGENIE outputs into compact `rsid/allele/frequency/effect/SE/log10p` TSVs. |
 | `dsub_regenie_step1_worker.sh` | Step 15 worker — runs REGENIE Step 1, writes LOCO predictions, and verifies sample/variant counts. |
 | `dsub_regenie_step2_worker.sh` | Step 15 worker — runs one REGENIE Step 2 chromosome, adapting AoU `#IID` psam headers and localized Step 1 prediction paths for REGENIE. |
+| `run_ses_ea_proxy_gwas.sh` | Optional phenotype/GWAS command downstream of `get_genotypes.sh`; builds SES-EA proxy scores by default and runs REGENIE only with `--run-gwas`. |
+| `setup_ses_ea_proxy_gwas.sh` | SES-EA proxy setup wrapper; checks required `get_genotypes.sh` outputs, extracts survey features, trains/saves XGBoost models, and writes REGENIE inputs. |
+| `setup_ses_ea_proxy_gwas.py` | SES-EA proxy helper; implements multi-select-safe feature encoding, missing-data handling, cross-fit teacher residualization, XGBoost training, and diagnostics. |
+| `run_etm_cog_task_factors.sh` | Optional cognitive-score command downstream of SES-EA proxy setup; creates recommended ETM cognitive scores and aggregate diagnostics without running GWAS. |
+| `score_etm_cog_task_factors.py` | ETM cognitive scoring helper; implements task QC, first-valid sitting selection, age/sex norming, DD `-lnk`, GradCPT PC1, and Flanker efficiency outputs. |
+| `cognitive_task_factor_score_spec.md` | Specification for the ETM cognitive scoring method and final recommended-score contract. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
-| `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |

@@ -1,8 +1,7 @@
 """Select unrelated European IIDs for fitting PCA.
 
-This AoU version mirrors the UKBB PCA-training selector, but replaces the
-UKBB White British seed set with AoU samples that this pipeline classified as
-European and that are involved in sibling or identical/twin/duplicate pairs.
+The seed exclusion set is built from AoU samples that this pipeline classified
+as European and that are involved in sibling or identical/twin/duplicate pairs.
 """
 
 from __future__ import annotations

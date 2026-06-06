@@ -1,8 +1,8 @@
 """Classify close relationships from a plink2 KING .kin0 table.
 
-This AoU version mirrors the UKBB kinship/IBS0 thresholds, but deliberately
-does not apply the UKBB age-gap sibling filter because no portable AoU
-birth-year/month dependency is part of this genotype pipeline.
+This AoU pipeline uses fixed kinship/IBS0 thresholds and deliberately does not
+apply an age-gap sibling filter because no portable AoU birth-year/month
+dependency is part of this genotype pipeline.
 """
 
 import argparse
