@@ -1478,20 +1478,10 @@ first-vs-second task scores.
 | `flanker_efficiency_z_age_sex` | 173 | 0.776 | 0.772 | 0.121 |
 | `emorecog_perf_z_age_sex` | 209 | 0.802 | 0.758 | 0.070 |
 
-The repeat gaps are mostly same-day retries rather than year-scale retests. The
-right tail is long for DD, Flanker, and Emotional Recognition, but the median
-second sitting is only minutes after the first:
-
-| Task | Repeat pairs | Median gap | P10 gap | P75 gap | P90 gap | P95 gap | Same-day repeats |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| DD | 223 | 0.003 days, about 4.9 min | 0.000 days | 47.3 days | 157.5 days | 204.1 days | 65.0% |
-| GradCPT | 64 | 0.007 days, about 10.6 min | 0.000 days | 0.015 days | 2.1 days | 7.0 days | 84.4% |
-| Flanker | 173 | 0.017 days, about 23.8 min | 0.000 days | 15.4 days | 153.4 days | 204.1 days | 57.2% |
-| Emotional Recognition | 209 | 0.004 days, about 5.7 min | 0.000 days | 20.1 days | 157.4 days | 209.9 days | 69.4% |
-
-These correlations are encouraging, but they should be read as short-interval
-repeatability more than long-term stability because most repeats happened on
-the same day.
+The repeat gaps are mostly same-day retries rather than year-scale retests:
+65.0% for DD, 84.4% for GradCPT, 57.2% for Flanker, and 69.4% for Emotional
+Recognition. These correlations are encouraging, but they should be read as
+short-interval repeatability more than long-term stability.
 
 Individual-level cognitive score files stay in:
 
