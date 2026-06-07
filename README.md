@@ -1465,6 +1465,34 @@ the recommended PC1 because flipping a single indicator after PCA would define a
 different construct. It means this empirical score/RT PC is mostly accuracy plus
 speed, with RT variability entering in the opposite direction for this task.
 
+Repeat valid sittings are uncommon, but they provide a useful test-retest
+diagnostic. The diagnostic fits the production scoring recipe on first valid
+sittings, applies those same transforms/loadings/age-sex residualization
+parameters unchanged to each person's second valid sitting, and then correlates
+first-vs-second task scores.
+
+| Task score | Repeat pairs | Pearson r | Spearman r | Mean second - first z |
+|---|---:|---:|---:|---:|
+| `dd_patience_z_age_sex` | 223 | 0.781 | 0.771 | 0.036 |
+| `gradcpt_perf_z_age_sex` | 64 | 0.892 | 0.904 | 0.150 |
+| `flanker_efficiency_z_age_sex` | 173 | 0.776 | 0.772 | 0.121 |
+| `emorecog_perf_z_age_sex` | 209 | 0.802 | 0.758 | 0.070 |
+
+The repeat gaps are mostly same-day retries rather than year-scale retests. The
+right tail is long for DD, Flanker, and Emotional Recognition, but the median
+second sitting is only minutes after the first:
+
+| Task | Repeat pairs | Median gap | P10 gap | P75 gap | P90 gap | P95 gap | Same-day repeats |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| DD | 223 | 0.003 days, about 4.9 min | 0.000 days | 47.3 days | 157.5 days | 204.1 days | 65.0% |
+| GradCPT | 64 | 0.007 days, about 10.6 min | 0.000 days | 0.015 days | 2.1 days | 7.0 days | 84.4% |
+| Flanker | 173 | 0.017 days, about 23.8 min | 0.000 days | 15.4 days | 153.4 days | 204.1 days | 57.2% |
+| Emotional Recognition | 209 | 0.004 days, about 5.7 min | 0.000 days | 20.1 days | 157.4 days | 209.9 days | 69.4% |
+
+These correlations are encouraging, but they should be read as short-interval
+repeatability more than long-term stability because most repeats happened on
+the same day.
+
 Individual-level cognitive score files stay in:
 
 ```text
