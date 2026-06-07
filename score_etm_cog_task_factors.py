@@ -34,7 +34,7 @@ WEAK_LOADING = 0.20
 WINSOR_LO = 0.005
 WINSOR_HI = 0.995
 LOGIT_EPS = 0.001
-RECOMMENDED_SCORE_NAMES = ("dd_patience", "gradcpt_perf", "flanker_efficiency")
+RECOMMENDED_SCORE_NAMES = ("dd_patience", "gradcpt_perf", "flanker_efficiency", "emorecog_perf")
 
 
 @dataclass(frozen=True)
@@ -135,6 +135,83 @@ FLANKER_INTERFERENCE = ScoreConfig(
     notes="Predeclared Flanker split score for lower interference cost.",
 )
 
+EMORECOG_EFFICIENCY = ScoreConfig(
+    score_name="emorecog_efficiency_factor",
+    task="emorecog",
+    score_type="fa_primary",
+    indicators=(
+        IndicatorSpec("emorecog_happy_rcs_log", "emorecog_happy_rcs", "log_plus_eps", 1),
+        IndicatorSpec("emorecog_angry_rcs_log", "emorecog_angry_rcs", "log_plus_eps", 2),
+        IndicatorSpec("emorecog_fearful_rcs_log", "emorecog_fearful_rcs", "log_plus_eps", 3),
+        IndicatorSpec("emorecog_sad_rcs_log", "emorecog_sad_rcs", "log_plus_eps", 4),
+    ),
+    simple_compare=("emorecog_simple_accuracy", "emorecog_simple_score", "emorecog_accuracy_factor"),
+    notes="Emotional Recognition per-emotion trial-derived rate-correct efficiency factor.",
+)
+
+EMORECOG_SUMMARY_EFFICIENCY = ScoreConfig(
+    score_name="emorecog_summary_efficiency_factor",
+    task="emorecog",
+    score_type="fa_sensitivity",
+    indicators=(
+        IndicatorSpec("emorecog_happy_summary_eff_log", "emorecog_happy_summary_eff", "log_plus_eps", 1),
+        IndicatorSpec("emorecog_angry_summary_eff_log", "emorecog_angry_summary_eff", "log_plus_eps", 2),
+        IndicatorSpec("emorecog_fearful_summary_eff_log", "emorecog_fearful_summary_eff", "log_plus_eps", 3),
+        IndicatorSpec("emorecog_sad_summary_eff_log", "emorecog_sad_summary_eff", "log_plus_eps", 4),
+    ),
+    simple_compare=("emorecog_simple_accuracy", "emorecog_simple_score"),
+    notes="Emotional Recognition summary-field per-emotion accuracy / median correct RT efficiency factor.",
+)
+
+EMORECOG_ACCURACY = ScoreConfig(
+    score_name="emorecog_accuracy_factor",
+    task="emorecog",
+    score_type="fa_sensitivity",
+    indicators=(
+        IndicatorSpec("emorecog_happy_accuracy_logit", "emorecog_happy_accuracy", "logit", 1),
+        IndicatorSpec("emorecog_angry_accuracy_logit", "emorecog_angry_accuracy", "logit", 2),
+        IndicatorSpec("emorecog_fearful_accuracy_logit", "emorecog_fearful_accuracy", "logit", 3),
+        IndicatorSpec("emorecog_sad_accuracy_logit", "emorecog_sad_accuracy", "logit", 4),
+    ),
+    simple_compare=("emorecog_simple_accuracy", "emorecog_simple_score"),
+    notes="Emotional Recognition accuracy-only per-emotion sensitivity factor.",
+)
+
+EMORECOG_EFFICIENCY_UNIT_MEAN = ScoreConfig(
+    score_name="emorecog_efficiency_unit_mean",
+    task="emorecog",
+    score_type="unit_mean_fallback",
+    indicators=EMORECOG_EFFICIENCY.indicators,
+    simple_compare=("emorecog_simple_accuracy", "emorecog_efficiency_factor"),
+    notes="Emotional Recognition fallback unit mean of z-scored per-emotion efficiency indicators.",
+)
+
+EMORECOG_SPEED = ScoreConfig(
+    score_name="emorecog_speed_diagnostic",
+    task="emorecog",
+    score_type="diagnostic",
+    indicators=(
+        IndicatorSpec("emorecog_median_rtc_neglog", "emorecog_median_rtc", "neg_log", 1),
+        IndicatorSpec("emorecog_mean_rtc_neglog", "emorecog_mean_rtc", "neg_log", 2),
+        IndicatorSpec("emorecog_cv_rtc_neglog", "emorecog_cv_rtc", "neg_log", 3),
+    ),
+    simple_compare=("emorecog_simple_median_rtc",),
+    notes="Emotional Recognition speed-only diagnostic, not a recommended primary construct.",
+)
+
+EMORECOG_SCORE_RT = ScoreConfig(
+    score_name="emorecog_score_rt_factor",
+    task="emorecog",
+    score_type="pca_primary",
+    indicators=(
+        IndicatorSpec("emorecog_score", "emorecog_score", "identity", 1),
+        IndicatorSpec("emorecog_cv_rtc_neglog", "emorecog_cv_rtc", "neg_log", 2),
+        IndicatorSpec("emorecog_median_rtc_neglog", "emorecog_median_rtc", "neg_log", 3),
+    ),
+    simple_compare=("emorecog_simple_score", "emorecog_simple_accuracy", "emorecog_simple_median_rtc"),
+    notes="Emotional Recognition GradCPT-analog PC1: score plus RT consistency/speed.",
+)
+
 SIMPLE_SCORES = (
     ScoreConfig(
         score_name="dd_simple_lnk",
@@ -191,6 +268,27 @@ SIMPLE_SCORES = (
         score_type="split_component",
         indicators=(IndicatorSpec("flanker_median_rt_interference_rev", "flanker_median_rt_interference", "neg_identity", 1),),
         notes="Single reversed Flanker RT-interference component for unstable interference composites.",
+    ),
+    ScoreConfig(
+        score_name="emorecog_simple_accuracy",
+        task="emorecog",
+        score_type="official_simple",
+        indicators=(IndicatorSpec("emorecog_accuracy_logit", "emorecog_accuracy", "logit", 1),),
+        notes="Overall Emotional Recognition accuracy, clipped-logit transformed.",
+    ),
+    ScoreConfig(
+        score_name="emorecog_simple_score",
+        task="emorecog",
+        score_type="simple_validation",
+        indicators=(IndicatorSpec("emorecog_score", "emorecog_score", "identity", 1),),
+        notes="Participant-facing Emotional Recognition number-correct score.",
+    ),
+    ScoreConfig(
+        score_name="emorecog_simple_median_rtc",
+        task="emorecog",
+        score_type="simple_validation",
+        indicators=(IndicatorSpec("emorecog_median_rtc_neglog", "emorecog_median_rtc", "neg_log", 1),),
+        notes="Overall Emotional Recognition median correct RT speed diagnostic.",
     ),
 )
 
@@ -273,13 +371,37 @@ def load_proxy_cohort(ses_ea_dir: Path) -> pd.DataFrame:
     return cohort
 
 
+def extract_has_emorecog(path: Path) -> tuple[bool, bool]:
+    with path.open("r", encoding="utf-8") as f:
+        header = f.readline().rstrip("\n").split(",")
+        has_columns = "emorecog_score" in header and "emorecog_happy_rcs" in header
+        if not has_columns or "task" not in header:
+            return has_columns, False
+        task_idx = header.index("task")
+        for line in f:
+            fields = line.rstrip("\n").split(",")
+            if len(fields) > task_idx and fields[task_idx] == "emorecog":
+                return True, True
+    return has_columns, False
+
+
 def ensure_bq_extract(args: argparse.Namespace, cohort: pd.DataFrame) -> Path:
     extract_path = args.work_dir / "etm_cog_task_factor_valid_sittings.csv"
     if extract_path.exists() and extract_path.stat().st_size > 0 and not args.force:
+        has_columns, has_rows = extract_has_emorecog(extract_path)
+        require(
+            has_columns and has_rows,
+            f"{extract_path} predates Emotional Recognition extraction or has no emorecog rows; rerun with --force",
+        )
         print(f"Reusing ETM extract: {extract_path}", flush=True)
         return extract_path
     if args.reuse_extracts:
         require(extract_path.exists() and extract_path.stat().st_size > 0, f"--reuse-extracts requested but {extract_path} is missing")
+        has_columns, has_rows = extract_has_emorecog(extract_path)
+        require(
+            has_columns and has_rows,
+            f"--reuse-extracts requested but {extract_path} lacks emorecog columns/rows; rerun without --reuse-extracts and with --force",
+        )
 
     google_project = os.environ.get("GOOGLE_PROJECT")
     require(bool(google_project), "GOOGLE_PROJECT is not set")
@@ -290,6 +412,7 @@ def ensure_bq_extract(args: argparse.Namespace, cohort: pd.DataFrame) -> Path:
         (args.etm_dataset, "delaydiscounting"),
         (args.etm_dataset, "gradcpt"),
         (args.etm_dataset, "flanker"),
+        (args.etm_dataset, "emorecog"),
         (args.workspace_cdr, "person"),
     ]:
         run_command(["bq", "show", cli_ref(dataset, table)])
@@ -320,6 +443,7 @@ def ensure_bq_extract(args: argparse.Namespace, cohort: pd.DataFrame) -> Path:
     dd = sql_ref(args.etm_dataset, "delaydiscounting")
     grad = sql_ref(args.etm_dataset, "gradcpt")
     flank = sql_ref(args.etm_dataset, "flanker")
+    emo = sql_ref(args.etm_dataset, "emorecog")
     person = sql_ref(args.workspace_cdr, "person")
     query = f"""
 WITH cohort AS (
@@ -383,7 +507,44 @@ delaydiscounting AS (
     CAST(NULL AS FLOAT64) AS flanker_rcs_incongruent,
     CAST(NULL AS FLOAT64) AS flanker_accuracy_interference,
     CAST(NULL AS FLOAT64) AS flanker_median_rt_interference,
-    CAST(NULL AS FLOAT64) AS flanker_rcs_interference
+    CAST(NULL AS FLOAT64) AS flanker_rcs_interference,
+    CAST(NULL AS INT64) AS emorecog_flag_median_rtc,
+    CAST(NULL AS INT64) AS emorecog_flag_same_response,
+    CAST(NULL AS INT64) AS emorecog_flag_trial_flags,
+    CAST(NULL AS FLOAT64) AS emorecog_score,
+    CAST(NULL AS FLOAT64) AS emorecog_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_mean_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_sd_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_cv_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_rcs,
+    CAST(NULL AS INT64) AS emorecog_happy_trials,
+    CAST(NULL AS INT64) AS emorecog_happy_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_rt_seconds,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_rcs,
+    CAST(NULL AS INT64) AS emorecog_angry_trials,
+    CAST(NULL AS INT64) AS emorecog_angry_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_rt_seconds,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_rcs,
+    CAST(NULL AS INT64) AS emorecog_fearful_trials,
+    CAST(NULL AS INT64) AS emorecog_fearful_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_rt_seconds,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_rcs,
+    CAST(NULL AS INT64) AS emorecog_sad_trials,
+    CAST(NULL AS INT64) AS emorecog_sad_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_rt_seconds
   FROM {dd} AS d
   JOIN cohort AS c ON c.IID = d.person_id
   LEFT JOIN person_birth AS p ON p.person_id = d.person_id
@@ -444,7 +605,44 @@ gradcpt AS (
     CAST(NULL AS FLOAT64) AS flanker_rcs_incongruent,
     CAST(NULL AS FLOAT64) AS flanker_accuracy_interference,
     CAST(NULL AS FLOAT64) AS flanker_median_rt_interference,
-    CAST(NULL AS FLOAT64) AS flanker_rcs_interference
+    CAST(NULL AS FLOAT64) AS flanker_rcs_interference,
+    CAST(NULL AS INT64) AS emorecog_flag_median_rtc,
+    CAST(NULL AS INT64) AS emorecog_flag_same_response,
+    CAST(NULL AS INT64) AS emorecog_flag_trial_flags,
+    CAST(NULL AS FLOAT64) AS emorecog_score,
+    CAST(NULL AS FLOAT64) AS emorecog_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_mean_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_sd_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_cv_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_rcs,
+    CAST(NULL AS INT64) AS emorecog_happy_trials,
+    CAST(NULL AS INT64) AS emorecog_happy_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_rt_seconds,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_rcs,
+    CAST(NULL AS INT64) AS emorecog_angry_trials,
+    CAST(NULL AS INT64) AS emorecog_angry_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_rt_seconds,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_rcs,
+    CAST(NULL AS INT64) AS emorecog_fearful_trials,
+    CAST(NULL AS INT64) AS emorecog_fearful_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_rt_seconds,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_rcs,
+    CAST(NULL AS INT64) AS emorecog_sad_trials,
+    CAST(NULL AS INT64) AS emorecog_sad_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_rt_seconds
   FROM {grad} AS g
   JOIN cohort AS c ON c.IID = g.person_id
   LEFT JOIN person_birth AS p ON p.person_id = g.person_id
@@ -506,13 +704,233 @@ flanker AS (
     f.outcomes.rcs_incongruent AS flanker_rcs_incongruent,
     f.outcomes.accuracy_interference AS flanker_accuracy_interference,
     f.outcomes.median_rt_interference AS flanker_median_rt_interference,
-    f.outcomes.rcs_interference AS flanker_rcs_interference
+    f.outcomes.rcs_interference AS flanker_rcs_interference,
+    CAST(NULL AS INT64) AS emorecog_flag_median_rtc,
+    CAST(NULL AS INT64) AS emorecog_flag_same_response,
+    CAST(NULL AS INT64) AS emorecog_flag_trial_flags,
+    CAST(NULL AS FLOAT64) AS emorecog_score,
+    CAST(NULL AS FLOAT64) AS emorecog_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_mean_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_sd_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_cv_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_rcs,
+    CAST(NULL AS INT64) AS emorecog_happy_trials,
+    CAST(NULL AS INT64) AS emorecog_happy_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_happy_rt_seconds,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_rcs,
+    CAST(NULL AS INT64) AS emorecog_angry_trials,
+    CAST(NULL AS INT64) AS emorecog_angry_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_angry_rt_seconds,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_rcs,
+    CAST(NULL AS INT64) AS emorecog_fearful_trials,
+    CAST(NULL AS INT64) AS emorecog_fearful_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_fearful_rt_seconds,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_accuracy,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_median_rtc,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_summary_eff,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_rcs,
+    CAST(NULL AS INT64) AS emorecog_sad_trials,
+    CAST(NULL AS INT64) AS emorecog_sad_correct,
+    CAST(NULL AS FLOAT64) AS emorecog_sad_rt_seconds
   FROM {flank} AS f
   JOIN cohort AS c ON c.IID = f.person_id
   LEFT JOIN person_birth AS p ON p.person_id = f.person_id
   WHERE COALESCE(f.outcomes.flag_accuracy, 0) = 0
     AND COALESCE(f.outcomes.flag_trial_flags, 0) = 0
     AND COALESCE(f.metadata.test_restarted, FALSE) = FALSE
+),
+emorecog_base AS (
+  SELECT
+    e.person_id,
+    e.sitting_id,
+    e.metadata.test_start_date_time AS test_start_date_time,
+    e.metadata.test_end_date_time AS test_end_date_time,
+    DATE_DIFF(DATE(e.metadata.test_start_date_time), DATE(p.birth_datetime), DAY) / 365.25 AS age_at_test,
+    CAST(e.metadata.response_device AS STRING) AS response_device,
+    CAST(e.metadata.touch AS BOOL) AS touch,
+    CAST(e.metadata.test_language AS STRING) AS test_language,
+    CAST(e.metadata.test_version AS STRING) AS test_version,
+    CAST(e.metadata.aou_version AS STRING) AS aou_version,
+    CAST(e.metadata.operating_system AS STRING) AS operating_system,
+    CAST(e.metadata.user_agent AS STRING) AS user_agent,
+    CAST(e.metadata.test_restarted AS BOOL) AS test_restarted,
+    CAST(e.outcomes.any_timeouts AS INT64) AS any_timeouts,
+    CAST(e.outcomes.flag_median_rtc AS INT64) AS emorecog_flag_median_rtc,
+    CAST(e.outcomes.flag_same_response AS INT64) AS emorecog_flag_same_response,
+    CAST(e.outcomes.flag_trial_flags AS INT64) AS emorecog_flag_trial_flags,
+    CAST(e.outcomes.score AS FLOAT64) AS emorecog_score,
+    CAST(e.outcomes.accuracy AS FLOAT64) AS emorecog_accuracy,
+    CAST(e.outcomes.mean_rtc AS FLOAT64) AS emorecog_mean_rtc,
+    CAST(e.outcomes.median_rtc AS FLOAT64) AS emorecog_median_rtc,
+    CAST(e.outcomes.sd_rtc AS FLOAT64) AS emorecog_sd_rtc,
+    SAFE_DIVIDE(CAST(e.outcomes.sd_rtc AS FLOAT64), CAST(e.outcomes.mean_rtc AS FLOAT64)) AS emorecog_cv_rtc,
+    CAST(e.outcomes.happy_accuracy AS FLOAT64) AS emorecog_happy_accuracy,
+    CAST(e.outcomes.happy_median_rtc AS FLOAT64) AS emorecog_happy_median_rtc,
+    SAFE_DIVIDE(CAST(e.outcomes.happy_accuracy AS FLOAT64), CAST(e.outcomes.happy_median_rtc AS FLOAT64) / 1000.0) AS emorecog_happy_summary_eff,
+    CAST(e.outcomes.angry_accuracy AS FLOAT64) AS emorecog_angry_accuracy,
+    CAST(e.outcomes.angry_median_rtc AS FLOAT64) AS emorecog_angry_median_rtc,
+    SAFE_DIVIDE(CAST(e.outcomes.angry_accuracy AS FLOAT64), CAST(e.outcomes.angry_median_rtc AS FLOAT64) / 1000.0) AS emorecog_angry_summary_eff,
+    CAST(e.outcomes.fearful_accuracy AS FLOAT64) AS emorecog_fearful_accuracy,
+    CAST(e.outcomes.fearful_median_rtc AS FLOAT64) AS emorecog_fearful_median_rtc,
+    SAFE_DIVIDE(CAST(e.outcomes.fearful_accuracy AS FLOAT64), CAST(e.outcomes.fearful_median_rtc AS FLOAT64) / 1000.0) AS emorecog_fearful_summary_eff,
+    CAST(e.outcomes.sad_accuracy AS FLOAT64) AS emorecog_sad_accuracy,
+    CAST(e.outcomes.sad_median_rtc AS FLOAT64) AS emorecog_sad_median_rtc,
+    SAFE_DIVIDE(CAST(e.outcomes.sad_accuracy AS FLOAT64), CAST(e.outcomes.sad_median_rtc AS FLOAT64) / 1000.0) AS emorecog_sad_summary_eff
+  FROM {emo} AS e
+  JOIN cohort AS c ON c.IID = e.person_id
+  LEFT JOIN person_birth AS p ON p.person_id = e.person_id
+  WHERE COALESCE(e.outcomes.flag_median_rtc, 0) = 0
+    AND COALESCE(e.outcomes.flag_same_response, 0) = 0
+    AND COALESCE(e.outcomes.flag_trial_flags, 0) = 0
+    AND COALESCE(e.metadata.test_restarted, FALSE) = FALSE
+),
+emorecog_trial_rows AS (
+  SELECT
+    e.person_id,
+    e.sitting_id,
+    CASE
+      WHEN LOWER(CAST(td.emotion AS STRING)) IN ('h', 'happy') THEN 'happy'
+      WHEN LOWER(CAST(td.emotion AS STRING)) IN ('a', 'angry') THEN 'angry'
+      WHEN LOWER(CAST(td.emotion AS STRING)) IN ('f', 'fearful') THEN 'fearful'
+      WHEN LOWER(CAST(td.emotion AS STRING)) IN ('s', 'sad') THEN 'sad'
+      ELSE NULL
+    END AS emotion,
+    SAFE_CAST(td.correct AS INT64) AS correct,
+    SAFE_CAST(td.reaction_time AS FLOAT64) AS reaction_time
+  FROM {emo} AS e
+  JOIN emorecog_base AS b
+    ON b.person_id = e.person_id
+   AND b.sitting_id = e.sitting_id
+  LEFT JOIN UNNEST(e.trial_data) AS td
+),
+emorecog_trial_agg AS (
+  SELECT
+    person_id,
+    sitting_id,
+    COUNTIF(emotion = 'happy') AS emorecog_happy_trials,
+    SUM(IF(emotion = 'happy' AND correct = 1, 1, 0)) AS emorecog_happy_correct,
+    SUM(IF(emotion = 'happy' AND reaction_time > 0, reaction_time, 0)) / 1000.0 AS emorecog_happy_rt_seconds,
+    SAFE_DIVIDE(SUM(IF(emotion = 'happy' AND correct = 1, 1, 0)), SUM(IF(emotion = 'happy' AND reaction_time > 0, reaction_time, 0)) / 1000.0) AS emorecog_happy_rcs,
+    COUNTIF(emotion = 'angry') AS emorecog_angry_trials,
+    SUM(IF(emotion = 'angry' AND correct = 1, 1, 0)) AS emorecog_angry_correct,
+    SUM(IF(emotion = 'angry' AND reaction_time > 0, reaction_time, 0)) / 1000.0 AS emorecog_angry_rt_seconds,
+    SAFE_DIVIDE(SUM(IF(emotion = 'angry' AND correct = 1, 1, 0)), SUM(IF(emotion = 'angry' AND reaction_time > 0, reaction_time, 0)) / 1000.0) AS emorecog_angry_rcs,
+    COUNTIF(emotion = 'fearful') AS emorecog_fearful_trials,
+    SUM(IF(emotion = 'fearful' AND correct = 1, 1, 0)) AS emorecog_fearful_correct,
+    SUM(IF(emotion = 'fearful' AND reaction_time > 0, reaction_time, 0)) / 1000.0 AS emorecog_fearful_rt_seconds,
+    SAFE_DIVIDE(SUM(IF(emotion = 'fearful' AND correct = 1, 1, 0)), SUM(IF(emotion = 'fearful' AND reaction_time > 0, reaction_time, 0)) / 1000.0) AS emorecog_fearful_rcs,
+    COUNTIF(emotion = 'sad') AS emorecog_sad_trials,
+    SUM(IF(emotion = 'sad' AND correct = 1, 1, 0)) AS emorecog_sad_correct,
+    SUM(IF(emotion = 'sad' AND reaction_time > 0, reaction_time, 0)) / 1000.0 AS emorecog_sad_rt_seconds,
+    SAFE_DIVIDE(SUM(IF(emotion = 'sad' AND correct = 1, 1, 0)), SUM(IF(emotion = 'sad' AND reaction_time > 0, reaction_time, 0)) / 1000.0) AS emorecog_sad_rcs
+  FROM emorecog_trial_rows
+  GROUP BY person_id, sitting_id
+),
+emorecog AS (
+  SELECT
+    'emorecog' AS task,
+    b.person_id AS IID,
+    b.sitting_id,
+    b.test_start_date_time,
+    b.test_end_date_time,
+    b.age_at_test,
+    b.response_device,
+    b.touch,
+    b.test_language,
+    b.test_version,
+    b.aou_version,
+    b.operating_system,
+    b.user_agent,
+    b.test_restarted,
+    b.any_timeouts,
+    CAST(NULL AS INT64) AS dd_flag_median_rt,
+    CAST(NULL AS INT64) AS dd_flag_catch_trials,
+    CAST(NULL AS INT64) AS gradcpt_flag_trial_flags,
+    CAST(NULL AS INT64) AS gradcpt_flag_non_response,
+    CAST(NULL AS INT64) AS gradcpt_flag_omission_error_rate,
+    CAST(NULL AS INT64) AS flanker_flag_accuracy,
+    CAST(NULL AS INT64) AS flanker_flag_trial_flags,
+    CAST(NULL AS FLOAT64) AS dd_score,
+    CAST(NULL AS FLOAT64) AS dd_catch_score,
+    CAST(NULL AS FLOAT64) AS dd_lnk,
+    CAST(NULL AS FLOAT64) AS dd_two_weeks_lnk,
+    CAST(NULL AS FLOAT64) AS dd_one_month_lnk,
+    CAST(NULL AS FLOAT64) AS dd_one_year_lnk,
+    CAST(NULL AS FLOAT64) AS dd_ten_years_lnk,
+    CAST(NULL AS FLOAT64) AS dd_mean_rt,
+    CAST(NULL AS FLOAT64) AS dd_median_rt,
+    CAST(NULL AS FLOAT64) AS dd_sd_rt,
+    CAST(NULL AS FLOAT64) AS gradcpt_dprime,
+    CAST(NULL AS FLOAT64) AS gradcpt_accuracy,
+    CAST(NULL AS FLOAT64) AS gradcpt_go_accuracy,
+    CAST(NULL AS FLOAT64) AS gradcpt_nogo_accuracy,
+    CAST(NULL AS FLOAT64) AS gradcpt_score,
+    CAST(NULL AS FLOAT64) AS gradcpt_crit,
+    CAST(NULL AS FLOAT64) AS gradcpt_mean_rtc,
+    CAST(NULL AS FLOAT64) AS gradcpt_median_rtc,
+    CAST(NULL AS FLOAT64) AS gradcpt_sd_rtc,
+    CAST(NULL AS FLOAT64) AS gradcpt_cv_rtc,
+    CAST(NULL AS FLOAT64) AS flanker_score,
+    CAST(NULL AS FLOAT64) AS flanker_accuracy,
+    CAST(NULL AS FLOAT64) AS flanker_mean_rtc,
+    CAST(NULL AS FLOAT64) AS flanker_median_rtc,
+    CAST(NULL AS FLOAT64) AS flanker_sd_rtc,
+    CAST(NULL AS FLOAT64) AS flanker_rcs_congruent,
+    CAST(NULL AS FLOAT64) AS flanker_rcs_incongruent,
+    CAST(NULL AS FLOAT64) AS flanker_accuracy_interference,
+    CAST(NULL AS FLOAT64) AS flanker_median_rt_interference,
+    CAST(NULL AS FLOAT64) AS flanker_rcs_interference,
+    b.emorecog_flag_median_rtc,
+    b.emorecog_flag_same_response,
+    b.emorecog_flag_trial_flags,
+    b.emorecog_score,
+    b.emorecog_accuracy,
+    b.emorecog_mean_rtc,
+    b.emorecog_median_rtc,
+    b.emorecog_sd_rtc,
+    b.emorecog_cv_rtc,
+    b.emorecog_happy_accuracy,
+    b.emorecog_happy_median_rtc,
+    b.emorecog_happy_summary_eff,
+    t.emorecog_happy_rcs,
+    t.emorecog_happy_trials,
+    t.emorecog_happy_correct,
+    t.emorecog_happy_rt_seconds,
+    b.emorecog_angry_accuracy,
+    b.emorecog_angry_median_rtc,
+    b.emorecog_angry_summary_eff,
+    t.emorecog_angry_rcs,
+    t.emorecog_angry_trials,
+    t.emorecog_angry_correct,
+    t.emorecog_angry_rt_seconds,
+    b.emorecog_fearful_accuracy,
+    b.emorecog_fearful_median_rtc,
+    b.emorecog_fearful_summary_eff,
+    t.emorecog_fearful_rcs,
+    t.emorecog_fearful_trials,
+    t.emorecog_fearful_correct,
+    t.emorecog_fearful_rt_seconds,
+    b.emorecog_sad_accuracy,
+    b.emorecog_sad_median_rtc,
+    b.emorecog_sad_summary_eff,
+    t.emorecog_sad_rcs,
+    t.emorecog_sad_trials,
+    t.emorecog_sad_correct,
+    t.emorecog_sad_rt_seconds
+  FROM emorecog_base AS b
+  LEFT JOIN emorecog_trial_agg AS t
+    ON t.person_id = b.person_id
+   AND t.sitting_id = b.sitting_id
 )
 SELECT *
 FROM delaydiscounting
@@ -520,6 +938,8 @@ UNION ALL
 SELECT * FROM gradcpt
 UNION ALL
 SELECT * FROM flanker
+UNION ALL
+SELECT * FROM emorecog
 ORDER BY task, IID, test_start_date_time, sitting_id
 """
 
@@ -838,18 +1258,42 @@ def compute_factor_score(
     *,
     seed: int,
     allow_grad_median_drop: bool = False,
+    allow_emorecog_happy_drop: bool = False,
+    dominance_threshold: float | None = None,
+    force_pca: bool = False,
 ) -> dict[str, object]:
     z, params, missing_rows = prepare_indicators(task_df, config)
     selected, corr_df, redundancy = drop_redundant_indicators(z, config)
     selected_note = "initial"
+
+    if allow_emorecog_happy_drop and "emorecog_happy_rcs_log" in selected:
+        complete_with_happy = z[selected].apply(np.isfinite).all(axis=1)
+        happy = z["emorecog_happy_rcs_log"].to_numpy(dtype=float)
+        happy_finite = happy[np.isfinite(happy)]
+        if int(complete_with_happy.sum()) < 20 or len(happy_finite) < 20 or float(np.nanstd(happy_finite, ddof=0)) == 0.0:
+            selected = [x for x in selected if x != "emorecog_happy_rcs_log"]
+            redundancy.append(
+                {
+                    "score_name": config.score_name,
+                    "task": config.task,
+                    "kept_indicator": ",".join(selected),
+                    "dropped_indicator": "emorecog_happy_rcs_log",
+                    "pearson": np.nan,
+                    "reason": "happy_near_zero_or_missing_variance",
+                }
+            )
+            selected_note = "emorecog_happy_dropped_before_fit"
 
     def fit_with_selected(selected_cols: list[str]) -> dict[str, object]:
         complete = z[selected_cols].apply(np.isfinite).all(axis=1) & np.isfinite(task_df["age_at_test"]) & np.isfinite(task_df["sex_c"])
         meta = task_df.loc[complete].copy()
         X = z.loc[complete, selected_cols].to_numpy(dtype=float)
         require(len(meta) >= 20, f"too few complete rows for {config.score_name}")
-        fa_score, fa_loading, method, max_resid, mean_resid = fit_fa(X, seed)
         pca_score, pca_loading, pca_var = fit_pca(X)
+        if force_pca:
+            fa_score, fa_loading, method, max_resid, mean_resid = pca_score, pca_loading, "pca_primary", np.nan, np.nan
+        else:
+            fa_score, fa_loading, method, max_resid, mean_resid = fit_fa(X, seed)
         unit_mean = X.mean(axis=1)
         determ_pearson, _, _ = pearson_spearman(fa_score, unit_mean)
         loadings = [
@@ -907,6 +1351,23 @@ def compute_factor_score(
 
     fit = fit_with_selected(selected)
 
+    if allow_emorecog_happy_drop and "emorecog_happy_rcs_log" in fit["selected"]:
+        load_map = {row["indicator"]: row["loading"] for row in fit["loadings"]}
+        if abs(load_map.get("emorecog_happy_rcs_log", 0.0)) < WEAK_LOADING and len(fit["selected"]) > 3:
+            selected = [x for x in fit["selected"] if x != "emorecog_happy_rcs_log"]
+            redundancy.append(
+                {
+                    "score_name": config.score_name,
+                    "task": config.task,
+                    "kept_indicator": ",".join(selected),
+                    "dropped_indicator": "emorecog_happy_rcs_log",
+                    "pearson": np.nan,
+                    "reason": "happy_loading_below_0.20",
+                }
+            )
+            selected_note = "emorecog_happy_dropped_weak_loading"
+            fit = fit_with_selected(selected)
+
     if allow_grad_median_drop and "gradcpt_median_rtc_neglog" in fit["selected"]:
         load_map = {row["indicator"]: row["loading"] for row in fit["loadings"]}
         if load_map.get("gradcpt_median_rtc_neglog", 0.0) < 0 and load_map.get("gradcpt_dprime", 0.0) > 0 and load_map.get("gradcpt_cv_rtc_neglog", 0.0) > 0:
@@ -927,8 +1388,16 @@ def compute_factor_score(
     status = "accepted"
     if fit["wrong"] or any(ind in fit["weak"] for ind in fit["selected"]):
         status = "flagged_loading_rule"
+    dominance_ratio = np.nan
+    if dominance_threshold is not None and fit["loadings"]:
+        abs_load = np.asarray([abs(row["loading"]) for row in fit["loadings"]], dtype=float)
+        denom = float(abs_load.sum())
+        dominance_ratio = float(abs_load.max() / denom) if denom > 0 else np.nan
+        if np.isfinite(dominance_ratio) and dominance_ratio > dominance_threshold:
+            status = "flagged_dominant_indicator"
     fit["diagnostics"]["status"] = status
     fit["diagnostics"]["selected_note"] = selected_note
+    fit["diagnostics"]["dominance_ratio"] = dominance_ratio
     score_df, age_model = make_score_frame(
         fit["meta"],
         fit["raw_score"],
@@ -937,6 +1406,9 @@ def compute_factor_score(
         score_type=config.score_type,
         status=status,
     )
+    score_df["n_indicators_used"] = len(fit["selected"])
+    score_df["selected_indicators"] = ",".join(fit["selected"])
+    score_df["score_method"] = fit["method"]
     fit["score_df"] = score_df
     fit["age_model"] = age_model
     fit["params"] = params
@@ -966,6 +1438,9 @@ def compute_unit_mean_score(task_df: pd.DataFrame, config: ScoreConfig) -> dict[
         score_type=config.score_type,
         status=status,
     )
+    score_df["n_indicators_used"] = len(selected)
+    score_df["selected_indicators"] = ",".join(selected)
+    score_df["score_method"] = "unit_mean"
     pca_score, pca_loading, pca_var = fit_pca(X)
     return {
         "score_df": score_df,
@@ -1030,6 +1505,9 @@ def compute_simple_score(task_df: pd.DataFrame, config: ScoreConfig) -> dict[str
         score_type=config.score_type,
         status="accepted",
     )
+    score_df["n_indicators_used"] = 1
+    score_df["selected_indicators"] = indicator
+    score_df["score_method"] = "single_indicator"
     return {
         "score_df": score_df,
         "age_model": age_model,
@@ -1086,7 +1564,11 @@ def age_residualized_indicator_sensitivity(task_df: pd.DataFrame, config: ScoreC
     if len(meta) < 20:
         return {"score_name": config.score_name, "task": config.task, "n": len(meta), "pearson_with_primary": np.nan, "note": "too_few_rows"}
     z_resid = residualize_indicator_matrix(z.loc[complete, selected], meta)
-    score, loading, method, _, _ = fit_fa(z_resid.to_numpy(dtype=float), seed)
+    if config.score_name == "emorecog_score_rt_factor":
+        score, loading, _ = fit_pca(z_resid.to_numpy(dtype=float))
+        method = "pca_primary"
+    else:
+        score, loading, method, _, _ = fit_fa(z_resid.to_numpy(dtype=float), seed)
     sensitivity_df, _ = make_score_frame(
         meta,
         score,
@@ -1147,6 +1629,12 @@ def simple_score_correlations(scores: pd.DataFrame) -> pd.DataFrame:
         "flanker_perf_factor": ["flanker_simple_score", "flanker_simple_rcs_interference"],
         "flanker_efficiency_unit_mean": ["flanker_simple_score"],
         "flanker_interference_unit_mean": ["flanker_simple_rcs_interference"],
+        "emorecog_efficiency_factor": ["emorecog_simple_accuracy", "emorecog_simple_score", "emorecog_accuracy_factor"],
+        "emorecog_summary_efficiency_factor": ["emorecog_simple_accuracy", "emorecog_simple_score"],
+        "emorecog_accuracy_factor": ["emorecog_simple_accuracy", "emorecog_simple_score"],
+        "emorecog_efficiency_unit_mean": ["emorecog_simple_accuracy", "emorecog_efficiency_factor"],
+        "emorecog_speed_diagnostic": ["emorecog_simple_median_rtc"],
+        "emorecog_score_rt_factor": ["emorecog_simple_score", "emorecog_simple_accuracy", "emorecog_simple_median_rtc", "emorecog_efficiency_factor"],
     }
     slim = scores[["IID", "score_name", "score_z_age_sex"]].copy()
     for score_name, simple_names in comparisons.items():
@@ -1168,6 +1656,7 @@ def choose_recommended_scores(scores: pd.DataFrame, simple_corr: pd.DataFrame, d
         if src.empty:
             rows.append({"recommended_score": alias, "source_score": source, "reason": "source_missing"})
             return
+        src["score_source"] = source
         src["score_name"] = alias
         src["score_type"] = "recommended"
         src["score_status"] = reason
@@ -1195,6 +1684,23 @@ def choose_recommended_scores(scores: pd.DataFrame, simple_corr: pd.DataFrame, d
     else:
         add_alias("flanker_simple_score" if corr_ge("flanker_efficiency_unit_mean", "flanker_simple_score") else "flanker_efficiency_unit_mean", "flanker_efficiency", "simple_ge_0.95_with_efficiency" if corr_ge("flanker_efficiency_unit_mean", "flanker_simple_score") else "split_efficiency")
 
+    emorecog_diag = diagnostics.loc[diagnostics["score_name"] == "emorecog_score_rt_factor"]
+    emorecog_has_score_rt = bool(len(emorecog_diag))
+    if emorecog_has_score_rt:
+        add_alias(
+            "emorecog_score_rt_factor",
+            "emorecog_perf",
+            "score_cv_median_pc1_primary",
+        )
+    else:
+        unit_diag = diagnostics.loc[diagnostics["score_name"] == "emorecog_efficiency_unit_mean"]
+        unit_ok = bool(len(unit_diag) and unit_diag["status"].iloc[0] == "accepted")
+        add_alias(
+            "emorecog_efficiency_unit_mean" if unit_ok else "emorecog_simple_accuracy",
+            "emorecog_perf",
+            "efficiency_unit_mean_fallback" if unit_ok else "simple_accuracy_fallback",
+        )
+
     rec_df = pd.concat(recommended, ignore_index=True) if recommended else pd.DataFrame()
     return rec_df, pd.DataFrame(rows)
 
@@ -1203,17 +1709,44 @@ def recommended_wide_table(scores: pd.DataFrame, cohort: pd.DataFrame) -> pd.Dat
     base_cols = ["FID", "IID", "role", "fold_id", "ea_years", "teacher_z", "ses_ea_proxy_z", "sex_c"]
     base = cohort[base_cols].drop_duplicates("IID").copy()
     for score_name in RECOMMENDED_SCORE_NAMES:
+        keep_cols = ["IID", "score_z_age_sex", "sitting_id", "age_at_test"]
+        if score_name == "emorecog_perf":
+            keep_cols.extend(
+                [
+                    "score_raw",
+                    "score_source",
+                    "n_indicators_used",
+                    "selected_indicators",
+                    "score_method",
+                    "score_status",
+                    "any_timeouts",
+                ]
+            )
+        keep_cols = [col for col in keep_cols if col in scores.columns]
         sub = scores.loc[
             (scores["score_name"] == score_name) & (scores["score_type"] == "recommended"),
-            ["IID", "score_z_age_sex", "sitting_id", "age_at_test"],
+            keep_cols,
         ].copy()
-        sub = sub.rename(
-            columns={
-                "score_z_age_sex": f"{score_name}_z_age_sex",
-                "sitting_id": f"{score_name}_sitting_id",
-                "age_at_test": f"{score_name}_age_at_test",
-            }
-        )
+        rename = {
+            "score_z_age_sex": f"{score_name}_z_age_sex",
+            "sitting_id": f"{score_name}_sitting_id",
+            "age_at_test": f"{score_name}_age_at_test",
+        }
+        if score_name == "emorecog_perf":
+            rename.update(
+                {
+                    "score_raw": "emorecog_perf_raw",
+                    "score_source": "emorecog_score_source",
+                    "n_indicators_used": "emorecog_n_indicators_used",
+                    "selected_indicators": "emorecog_selected_indicators",
+                    "score_method": "emorecog_score_method",
+                    "score_status": "emorecog_score_status",
+                    "any_timeouts": "emorecog_any_timeouts",
+                    "sitting_id": "emorecog_valid_sitting_id",
+                    "age_at_test": "emorecog_age_at_test",
+                }
+            )
+        sub = sub.rename(columns=rename)
         base = base.merge(sub, on="IID", how="left", validate="one_to_one")
     return base
 
@@ -1263,6 +1796,101 @@ def admin_sensitivity(scores: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def recommended_cross_task_correlations(wide: pd.DataFrame, work_dir: Path) -> pd.DataFrame:
+    score_cols = {
+        "dd_patience": "dd_patience_z_age_sex",
+        "gradcpt_perf": "gradcpt_perf_z_age_sex",
+        "flanker_efficiency": "flanker_efficiency_z_age_sex",
+        "emorecog_perf": "emorecog_perf_z_age_sex",
+    }
+    etmg = work_dir / "etm_general_factor" / "etm_general_factor_scores_wide.tsv"
+    if etmg.exists() and etmg.stat().st_size > 0:
+        g = pd.read_csv(etmg, sep="\t", dtype={"IID": str}, usecols=["IID", "etm_g_z"])
+        wide = wide.merge(g, on="IID", how="left", validate="one_to_one")
+        score_cols["etm_g_three_domain"] = "etm_g_z"
+    rows = []
+    names = [name for name, col in score_cols.items() if col in wide.columns]
+    for i, left in enumerate(names):
+        for right in names[i + 1 :]:
+            lcol = score_cols[left]
+            rcol = score_cols[right]
+            pearson, spearman, n = pearson_spearman(wide[lcol], wide[rcol])
+            rows.append(
+                {
+                    "score_a": left,
+                    "score_b": right,
+                    "column_a": lcol,
+                    "column_b": rcol,
+                    "n": n,
+                    "pearson": pearson,
+                    "spearman": spearman,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def emorecog_qc_counts(valid: pd.DataFrame, first: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for label, df in [("all_valid_sittings", valid.loc[valid["task"] == "emorecog"]), ("first_valid_sittings", first.loc[first["task"] == "emorecog"])]:
+        row = {
+            "subset": label,
+            "n_rows": int(len(df)),
+            "n_iids": int(df["IID"].nunique()) if "IID" in df.columns else 0,
+            "n_any_timeouts": int(pd.to_numeric(df.get("any_timeouts", pd.Series(dtype=float)), errors="coerce").fillna(0).astype(float).gt(0).sum()),
+        }
+        for flag in ["emorecog_flag_median_rtc", "emorecog_flag_same_response", "emorecog_flag_trial_flags"]:
+            if flag in df.columns:
+                row[f"{flag}_sum"] = int(pd.to_numeric(df[flag], errors="coerce").fillna(0).sum())
+        for emotion in ["happy", "angry", "fearful", "sad"]:
+            rcs = f"emorecog_{emotion}_rcs"
+            trials = f"emorecog_{emotion}_trials"
+            if rcs in df.columns:
+                row[f"{emotion}_rcs_nonmissing"] = int(pd.to_numeric(df[rcs], errors="coerce").notna().sum())
+            if trials in df.columns:
+                row[f"{emotion}_trial_count_sum"] = float(pd.to_numeric(df[trials], errors="coerce").sum())
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def emorecog_timeout_sensitivity(task_df: pd.DataFrame, recommended_scores: pd.DataFrame, seed: int) -> pd.DataFrame:
+    primary = recommended_scores.loc[recommended_scores["score_name"] == "emorecog_perf"].copy()
+    if task_df.empty or primary.empty or "any_timeouts" not in task_df.columns:
+        return pd.DataFrame([{"n": 0, "note": "missing_emorecog_task_or_primary"}])
+    no_timeout = task_df.loc[pd.to_numeric(task_df["any_timeouts"], errors="coerce").fillna(0).eq(0)].copy()
+    if len(no_timeout) < 20:
+        return pd.DataFrame([{"n": int(len(no_timeout)), "note": "too_few_no_timeout_rows"}])
+    try:
+        result = compute_factor_score(
+            no_timeout,
+            EMORECOG_SCORE_RT,
+            seed=seed,
+            force_pca=True,
+        )
+    except SystemExit as exc:
+        return pd.DataFrame([{"n": int(len(no_timeout)), "note": f"timeout_exclusion_fit_failed:{exc}"}])
+    sens = result["score_df"]
+    merged = primary[["IID", "score_z_age_sex"]].merge(
+        sens[["IID", "score_z_age_sex"]],
+        on="IID",
+        suffixes=("_primary", "_no_timeout_sensitivity"),
+    )
+    pearson, spearman, n = pearson_spearman(merged["score_z_age_sex_primary"], merged["score_z_age_sex_no_timeout_sensitivity"])
+    return pd.DataFrame(
+        [
+            {
+                "n_all_primary": int(len(primary)),
+                "n_no_timeout_fit": int(len(no_timeout)),
+                "n_overlap": n,
+                "pearson_primary_vs_no_timeout_sensitivity": pearson,
+                "spearman_primary_vs_no_timeout_sensitivity": spearman,
+                "no_timeout_method": result["diagnostics"].get("method"),
+                "no_timeout_status": result["diagnostics"].get("status"),
+                "no_timeout_selected_indicators": result["diagnostics"].get("selected_indicators"),
+            }
+        ]
+    )
+
+
 def write_outputs(args: argparse.Namespace, outputs: dict[str, pd.DataFrame]) -> None:
     args.work_dir.mkdir(parents=True, exist_ok=True)
     for name, df in outputs.items():
@@ -1287,6 +1915,16 @@ def write_outputs(args: argparse.Namespace, outputs: dict[str, pd.DataFrame]) ->
             "admin_sensitivity",
             "age_residualized_indicator_sensitivity",
             "params",
+            "recommended_cross_task_correlations",
+            "emorecog_indicator_correlations",
+            "emorecog_fa_loadings",
+            "emorecog_pca_loadings",
+            "emorecog_factor_vs_simple_correlations",
+            "emorecog_qc_counts",
+            "emorecog_redundancy_decisions",
+            "emorecog_age_sex_diagnostics",
+            "emorecog_device_language_version_diagnostics",
+            "emorecog_timeout_sensitivity",
         }
         args.workspace_scrap_dir.mkdir(parents=True, exist_ok=True)
         for name in aggregate:
@@ -1362,7 +2000,7 @@ def main() -> None:
     task_map = {task: df.copy() for task, df in first.groupby("task")}
 
     # Primary/sensitivity factor scores.
-    for config in [DD_PRIMARY, GRADCPT_PRIMARY, GRADCPT_COMPONENT, FLANKER_PRIMARY]:
+    for config in [DD_PRIMARY, GRADCPT_PRIMARY, GRADCPT_COMPONENT, FLANKER_PRIMARY, EMORECOG_SCORE_RT, EMORECOG_EFFICIENCY, EMORECOG_SUMMARY_EFFICIENCY, EMORECOG_ACCURACY, EMORECOG_SPEED]:
         task_df = task_map.get(config.task, pd.DataFrame())
         require(not task_df.empty, f"no first-valid rows for task {config.task}")
         result = compute_factor_score(
@@ -1370,6 +2008,9 @@ def main() -> None:
             config,
             seed=args.seed,
             allow_grad_median_drop=(config.score_name == "gradcpt_perf_factor"),
+            allow_emorecog_happy_drop=(config.score_name == "emorecog_efficiency_factor"),
+            dominance_threshold=0.60 if config.score_name == "emorecog_efficiency_factor" else None,
+            force_pca=(config.score_name == "emorecog_score_rt_factor"),
         )
         all_results.append(result)
         scores.append(result["score_df"])
@@ -1383,8 +2024,10 @@ def main() -> None:
         age_resid_sens.append(age_residualized_indicator_sensitivity(task_df, config, result["score_df"], args.seed))
 
     # Flanker split scores are always computed; recommendation chooses them only if one-factor is rejected.
-    for config in [FLANKER_EFFICIENCY, FLANKER_INTERFERENCE]:
-        result = compute_unit_mean_score(task_map["flanker"], config)
+    for config in [FLANKER_EFFICIENCY, FLANKER_INTERFERENCE, EMORECOG_EFFICIENCY_UNIT_MEAN]:
+        task_df = task_map.get(config.task, pd.DataFrame())
+        require(not task_df.empty, f"no first-valid rows for task {config.task}")
+        result = compute_unit_mean_score(task_df, config)
         all_results.append(result)
         scores.append(result["score_df"])
         loadings.extend(result["loadings"])
@@ -1413,28 +2056,56 @@ def main() -> None:
     recommended_scores, recommended_sources = choose_recommended_scores(all_scores, simple_corr, factor_diag)
     if not recommended_scores.empty:
         all_scores = pd.concat([all_scores, recommended_scores], ignore_index=True)
+    recommended_wide = recommended_wide_table(all_scores, cohort)
+    loadings_df = pd.DataFrame(loadings)
+    pca_loadings_df = pd.DataFrame(pca_loadings)
+    indicator_corr_df = pd.concat(corr_mats, ignore_index=True) if corr_mats else pd.DataFrame()
+    redundancy_df = pd.DataFrame(
+        redundancy,
+        columns=["score_name", "task", "kept_indicator", "dropped_indicator", "pearson", "reason"],
+    )
+    indicator_missingness_df = pd.DataFrame(missingness)
+    age_sex_models_df = pd.DataFrame(age_models)
+    admin_sensitivity_df = admin_sensitivity(all_scores)
+    age_resid_sens_df = pd.DataFrame(age_resid_sens)
+
+    def emorecog_filter(df: pd.DataFrame, *cols: str) -> pd.DataFrame:
+        if df.empty:
+            return df
+        mask = pd.Series(False, index=df.index)
+        for col in cols:
+            if col in df.columns:
+                mask |= df[col].astype(str).str.contains("emorecog", na=False)
+        return df.loc[mask].copy()
 
     outputs = {
         "scores": all_scores,
-        "recommended_wide": recommended_wide_table(all_scores, cohort),
+        "recommended_wide": recommended_wide,
         "summary": summarize_scores(all_scores),
         "correlations": score_correlations(all_scores),
         "simple_score_correlations": simple_corr,
         "factor_diagnostics": factor_diag,
-        "loadings": pd.DataFrame(loadings),
-        "pca_loadings": pd.DataFrame(pca_loadings),
-        "indicator_correlations": pd.concat(corr_mats, ignore_index=True) if corr_mats else pd.DataFrame(),
-        "redundancy_decisions": pd.DataFrame(
-            redundancy,
-            columns=["score_name", "task", "kept_indicator", "dropped_indicator", "pearson", "reason"],
-        ),
-        "indicator_missingness": pd.DataFrame(missingness),
-        "age_sex_models": pd.DataFrame(age_models),
+        "loadings": loadings_df,
+        "pca_loadings": pca_loadings_df,
+        "indicator_correlations": indicator_corr_df,
+        "redundancy_decisions": redundancy_df,
+        "indicator_missingness": indicator_missingness_df,
+        "age_sex_models": age_sex_models_df,
         "repeat_sittings": repeat,
         "recommended_sources": recommended_sources,
-        "admin_sensitivity": admin_sensitivity(all_scores),
-        "age_residualized_indicator_sensitivity": pd.DataFrame(age_resid_sens),
+        "admin_sensitivity": admin_sensitivity_df,
+        "age_residualized_indicator_sensitivity": age_resid_sens_df,
         "params": pd.DataFrame(params),
+        "recommended_cross_task_correlations": recommended_cross_task_correlations(recommended_wide, args.work_dir),
+        "emorecog_indicator_correlations": emorecog_filter(indicator_corr_df, "score_name", "task"),
+        "emorecog_fa_loadings": emorecog_filter(loadings_df, "score_name", "task"),
+        "emorecog_pca_loadings": emorecog_filter(pca_loadings_df, "score_name", "task"),
+        "emorecog_factor_vs_simple_correlations": emorecog_filter(simple_corr, "score_name", "simple_score_name"),
+        "emorecog_qc_counts": emorecog_qc_counts(valid, first),
+        "emorecog_redundancy_decisions": emorecog_filter(redundancy_df, "score_name", "task"),
+        "emorecog_age_sex_diagnostics": emorecog_filter(pd.concat([age_sex_models_df, age_resid_sens_df], ignore_index=True, sort=False), "score_name", "task"),
+        "emorecog_device_language_version_diagnostics": emorecog_filter(admin_sensitivity_df, "score_name", "task"),
+        "emorecog_timeout_sensitivity": emorecog_timeout_sensitivity(task_map.get("emorecog", pd.DataFrame()), recommended_scores, args.seed),
     }
     write_outputs(args, outputs)
 

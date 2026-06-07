@@ -1158,6 +1158,9 @@ bash run_ses_ea_proxy_gwas.sh --setup-only
 
 # 3. Build ETM cognitive scores from the proxy-score outputs.
 bash run_etm_cog_task_factors.sh --stage-aggregate
+
+# 4. Combine the task scores into one ETM general cognitive/performance score.
+bash run_etm_g_from_task_scores.sh --stage-aggregate
 ```
 
 ```bash
@@ -1357,12 +1360,43 @@ GWAS.
 bash run_etm_cog_task_factors.sh --stage-aggregate
 ```
 
-The scorer reads Flanker, GradCPT, and Delay Discounting from the ETM off-cycle
-dataset. Set `WORKSPACE_ETM_CDR` or pass `--etm-dataset PROJECT.DATASET` if the
-dataset name differs. It computes age at each task from ETM
+The scorer reads Flanker, GradCPT, Delay Discounting, and Emotional Recognition
+from the ETM off-cycle dataset. Set `WORKSPACE_ETM_CDR` or pass
+`--etm-dataset PROJECT.DATASET` if the dataset name differs. It computes age at
+each task from ETM
 `test_start_date_time` and the main CDR `person.birth_datetime`, and it uses the
 confirmed genetic-sex `sex_c` already present in
 `regenie_input/ses_ea_proxy/base_covar.txt`.
+
+For each task, the scoring order is deliberately fixed:
+
+```text
+1. Apply task-specific invalid-performance QC flags.
+2. Exclude restarted tests when test_restarted is available.
+3. Keep the first valid sitting per person/task by test_start_date_time,
+   then sitting_id.
+4. Build transformed indicators, winsorize them, and z-score them.
+5. Fit the task-specific FA/PCA/simple score on those transformed indicators.
+6. Only after the raw task score is formed, residualize:
+     raw_task_score ~ sex_c + age_at_test + age_at_test^2
+   then z-score the residual.
+```
+
+The individual measurement indicators are not residualized for age or sex
+before FA/PCA. Age and confirmed genetic sex are removed only from the final
+task score, so the factor/PCA loadings are learned from the task measurements
+themselves rather than from age/sex-residualized inputs.
+
+The primary valid-sitting filters are:
+
+| Task | Excluded when any primary condition is true |
+|---|---|
+| Delay Discounting | `flag_median_rt != 0`, `flag_catch_trials != 0`, or `test_restarted` is true |
+| GradCPT | `flag_trial_flags != 0`, `flag_non_response != 0`, `flag_omission_error_rate != 0`, or `test_restarted` is true |
+| Flanker | `flag_accuracy != 0`, `flag_trial_flags != 0`, or `test_restarted` is true |
+| Emotional Recognition | `flag_median_rtc != 0`, `flag_same_response != 0`, `flag_trial_flags != 0`, or `test_restarted` is true |
+
+`any_timeouts` is retained as a diagnostic rather than an exclusion by default.
 
 The command writes a long diagnostic score table plus a one-row-per-sample
 recommended-score table. The recommended scores are:
@@ -1371,6 +1405,7 @@ recommended-score table. The recommended scores are:
 dd_patience_z_age_sex          # sourced from official -lnk
 gradcpt_perf_z_age_sex         # PC1 of dprime + RT consistency/speed
 flanker_efficiency_z_age_sex   # Flanker efficiency source selected by diagnostics
+emorecog_perf_z_age_sex        # Emotional Recognition PC1 of score + RT consistency/speed
 ```
 
 The current rationale is:
@@ -1394,7 +1429,41 @@ Flanker:
   the loading rule, and the interference split was unstable. The efficiency
   score is selected against the official Flanker score by the predeclared
   simple-score rule.
+
+Emotional Recognition:
+  Score the task with the GradCPT-analog PC1 of score, -log(cv_rtc), and
+  -log(median_rtc), after fixed transforms, winsorization, and z-scoring. The
+  combined PC1 is then residualized on sex_c + age_at_test + age_at_test^2 and
+  z-scored. The older per-emotion rate-correct efficiency factor, per-emotion
+  accuracy factor, and simple score are still written as diagnostics.
 ```
+
+Current aggregate diagnostics from the scored cohort are below. These are not
+pipeline constants; they are regenerated into the diagnostic TSVs whenever the
+command is run on a new cohort/CDR.
+
+| Recommended score | Source used by the pipeline | Scored N | Pearson r with `ses_ea_proxy_z` | Spearman r |
+|---|---|---:|---:|---:|
+| `dd_patience_z_age_sex` | official `-lnk` | 15,148 | 0.281 | 0.266 |
+| `gradcpt_perf_z_age_sex` | PC1 of `dprime`, `-log(cv_rtc)`, `-log(median_rtc)` | 15,195 | 0.260 | 0.247 |
+| `flanker_efficiency_z_age_sex` | selected Flanker efficiency/simple score | 14,629 | 0.250 | 0.240 |
+| `emorecog_perf_z_age_sex` | PC1 of `score`, `-log(cv_rtc)`, `-log(median_rtc)` | 18,486 | 0.116 | 0.108 |
+
+The main PC1 loadings used in the current run were:
+
+| Score | Indicator | PC1 loading |
+|---|---|---:|
+| GradCPT | `dprime` | 0.661 |
+| GradCPT | `-log(cv_rtc)` | 0.614 |
+| GradCPT | `-log(median_rtc)` | 0.432 |
+| Emotional Recognition | `score` | 0.649 |
+| Emotional Recognition | `-log(cv_rtc)` | -0.423 |
+| Emotional Recognition | `-log(median_rtc)` | 0.633 |
+
+The negative Emotional Recognition `cv_rtc` loading is kept intentionally in
+the recommended PC1 because flipping a single indicator after PCA would define a
+different construct. It means this empirical score/RT PC is mostly accuracy plus
+speed, with RT variability entering in the opposite direction for this task.
 
 Individual-level cognitive score files stay in:
 
@@ -1417,7 +1486,7 @@ The most useful output files are:
 
 ```text
 etm_cog_task_factors_recommended_wide.tsv
-  One row per SES-EA proxy-cohort sample, with the three recommended
+  One row per SES-EA proxy-cohort sample, with the four recommended
   age/sex-normalized cognitive scores and task-specific sitting metadata.
 
 etm_cog_task_factors_recommended_sources.tsv
@@ -1426,7 +1495,149 @@ etm_cog_task_factors_recommended_sources.tsv
 etm_cog_task_factors_correlations.tsv
   Proxy, teacher, EA-years, and proxy-plus-teacher correlations for all
   candidate and recommended scores, split by combined/oof/applied role.
+
+etm_cog_task_factors_recommended_cross_task_correlations.tsv
+  Pairwise correlations among the recommended task scores and the existing
+  three-domain ETM-g score when that output is present.
+
+etm_cog_task_factors_emorecog_*.tsv
+  Emotional Recognition-specific indicator, loading, simple-score, QC,
+  timeout, age/sex, administration-metadata, and cross-task diagnostics.
 ```
+
+### ETM general cognitive/performance factor scoring
+
+`run_etm_g_from_task_scores.sh` builds downstream ETM general
+cognitive/performance factor scores from the recommended task scores. It reads
+the task-score output and the SES-EA proxy cohort files only; it does not query
+ETM tables again and does not run GWAS.
+
+```bash
+bash run_etm_g_from_task_scores.sh --stage-aggregate
+```
+
+The primary three-domain score is retained for continuity:
+
+```text
+dd_patience_z_age_sex          # official -lnk, age/sex-normalized upstream
+gradcpt_perf_z_age_sex         # GradCPT PC1 score, age/sex-normalized upstream
+flanker_efficiency_z_age_sex   # Flanker efficiency score, age/sex-normalized upstream
+```
+
+When `emorecog_perf_z_age_sex` is present, the same command also writes a
+four-domain score:
+
+```text
+etm_g4_z                       # DD + GradCPT + Flanker + Emotional Recognition
+```
+
+The ETM-g command fits a one-factor Gaussian factor model only in participants
+with all selected task scores observed. Before model fitting, the selected task
+scores are re-centered and re-scaled using the all-task complete-case reference
+sample:
+
+```text
+x_ij = (task_ij - mean_j_complete_case) / sd_j_complete_case
+
+x_DD       = lambda_DD       * g + error_DD
+x_GradCPT  = lambda_GradCPT  * g + error_GradCPT
+x_Flanker  = lambda_Flanker  * g + error_Flanker
+x_EmoRecog = lambda_EmoRecog * g + error_EmoRecog   # four-domain model only
+```
+
+The learned loadings and uniquenesses are then applied to everyone with at
+least one observed selected task score. Missing tasks are not imputed. For each
+observed task pattern, the score is the regression factor-score point estimate:
+
+```text
+g_hat_i = lambda_O' * Sigma_O^{-1} * x_iO
+Sigma_O = lambda_O lambda_O' + diag(psi_O)
+```
+
+One-task scores are therefore intentionally shrunk toward zero; the command does
+not divide by the sum of available weights or z-score within missingness
+pattern. The final ETM-g score is z-scored using the complete-case `g_hat`
+distribution. It is not residualized again for age or sex because the task
+inputs were already age/sex-normalized upstream. Age/sex correlations and
+regressions are written as validation diagnostics only.
+
+Current complete-case FA loadings and external-validity diagnostics:
+
+| Model | Complete-case N | Scored N | DD loading | GradCPT loading | Flanker loading | EmoRecog loading | Pearson r with proxy | Pearson r with teacher |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Three-domain `etm_g_z` | 11,165 | 19,613 | 0.170 | 0.658 | 0.706 | NA | 0.290 | 0.202 |
+| Four-domain `etm_g4_z` | 11,077 | 22,121 | 0.154 | 0.789 | 0.588 | 0.321 | 0.274 | 0.188 |
+
+Among complete cases only, the proxy correlations were:
+
+| Model | Complete-case definition | N | Pearson r with proxy | Spearman r with proxy |
+|---|---|---:|---:|---:|
+| `etm_g_z` | DD + GradCPT + Flanker observed | 11,165 | 0.306 | 0.291 |
+| `etm_g4_z` | DD + GradCPT + Flanker + EmoRecog observed | 11,077 | 0.298 | 0.282 |
+
+The four-domain score is accepted by the loading checks and adds coverage for
+people with only Emotional Recognition observed, but in the current run it is
+slightly weaker against the SES-EA proxy than the three-domain score. The
+three-domain score is therefore kept as the continuity/primary ETM-g phenotype,
+with `etm_g4_z` available as the four-domain coverage/sensitivity score.
+
+The current four-task positive-manifold check was:
+
+| Pair | Pair-available N | Pearson r |
+|---|---:|---:|
+| DD vs GradCPT | 12,487 | 0.114 |
+| DD vs Flanker | 12,271 | 0.128 |
+| DD vs Emotional Recognition | 13,887 | 0.057 |
+| GradCPT vs Flanker | 11,766 | 0.466 |
+| GradCPT vs Emotional Recognition | 13,459 | 0.270 |
+| Flanker vs Emotional Recognition | 13,148 | 0.182 |
+
+The age/sex validation checks on the final ETM-g scores were small:
+
+| Score | N | Pearson r with `sex_c` | Pearson r with `yob_c` | Linear age/sex R^2 | Quadratic age/sex R^2 |
+|---|---:|---:|---:|---:|---:|
+| `etm_g_z` | 19,613 | -0.002 | 0.002 | 0.000006 | 0.000011 |
+| `etm_g4_z` | 22,121 | -0.001 | 0.003 | 0.000011 | 0.000011 |
+
+Local individual-level outputs stay in:
+
+```text
+data/regenie/ses_ea_proxy_scrap/etm_cog_task_factors/etm_general_factor/
+```
+
+The main files are:
+
+```text
+etm_general_factor_scores_wide.tsv
+  One row per SES-EA proxy-cohort sample. `etm_g_z` is the three-domain score.
+  `etm_g4_z` is present when the four-domain model passes the loading/positive-
+  manifold checks and the person has at least one observed task score among the
+  four domains.
+
+etm_general_factor_scores_scored_only.tsv
+  Convenience subset with only participants who have at least one observed ETM
+  task score.
+```
+
+Aggregate diagnostics are written locally under:
+
+```text
+data/regenie/ses_ea_proxy_scrap/etm_cog_task_factors/etm_general_factor/diagnostics/
+```
+
+With `--stage-aggregate`, only diagnostic tables are staged to:
+
+```text
+regenie_input/ses_ea_proxy/scrap/etm_cog_task_factors/etm_general_factor/
+```
+
+Diagnostics include complete-case and pair-available task correlations, FA
+loadings and uniquenesses, model-implied and residual correlations,
+pattern-specific scoring weights, score distributions by missingness pattern,
+age/sex validation, SES-EA/teacher/EA-years correlations, comparison scores,
+the three-vs-four ETM-g comparison, and the GradCPT/Flanker
+`etm_attention_exec_z` diagnostic score. These diagnostics do not choose or
+alter the phenotype.
 
 ## Prerequisites
 
@@ -1625,7 +1836,10 @@ and submit zero dsub tasks.
 | `setup_ses_ea_proxy_gwas.sh` | SES-EA proxy setup wrapper; checks required `get_genotypes.sh` outputs, extracts survey features, trains/saves XGBoost models, and writes REGENIE inputs. |
 | `setup_ses_ea_proxy_gwas.py` | SES-EA proxy helper; implements multi-select-safe feature encoding, missing-data handling, cross-fit teacher residualization, XGBoost training, and diagnostics. |
 | `run_etm_cog_task_factors.sh` | Optional cognitive-score command downstream of SES-EA proxy setup; creates recommended ETM cognitive scores and aggregate diagnostics without running GWAS. |
-| `score_etm_cog_task_factors.py` | ETM cognitive scoring helper; implements task QC, first-valid sitting selection, age/sex norming, DD `-lnk`, GradCPT PC1, and Flanker efficiency outputs. |
+| `score_etm_cog_task_factors.py` | ETM cognitive scoring helper; implements task QC, first-valid sitting selection, final age/sex norming, DD `-lnk`, GradCPT PC1, Flanker efficiency, and Emotional Recognition score/RT PC1 outputs. |
 | `cognitive_task_factor_score_spec.md` | Specification for the ETM cognitive scoring method and final recommended-score contract. |
+| `run_etm_g_from_task_scores.sh` | Optional downstream command that combines recommended ETM task scores into one ETM general cognitive/performance factor and aggregate diagnostics. |
+| `score_etm_general_factor.py` | ETM-g helper; fits the complete-case one-factor model, scores observed-task patterns with regression weights, and writes diagnostics. |
+| `etm_general_factor_score_spec.md` | Specification for the downstream ETM general cognitive/performance factor score. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |

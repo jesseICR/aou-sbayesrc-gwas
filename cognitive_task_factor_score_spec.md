@@ -29,6 +29,8 @@ Primary/recommended task scores:
   `-log(cv_rtc)`, and `-log(median_rtc)`
 - `flanker_efficiency_z_age_sex`, sourced from the Flanker efficiency score
   selected by the simple-score rule
+- `emorecog_perf_z_age_sex`, sourced from Emotional Recognition PC1 of score
+  plus RT consistency/speed
 
 Individual-level outputs stay in the local on-platform scratch directory:
 
@@ -54,7 +56,7 @@ the participant did not take.
 ## Final Score Decisions
 
 The scorer still computes factor and sensitivity diagnostics, but the
-programmatic recommended outputs are fixed to the three-score set above.
+programmatic recommended outputs are fixed to the four-score set above.
 
 Delay Discounting:
 
@@ -141,6 +143,15 @@ Flanker valid sitting:
 
 ```text
 flag_accuracy == 0
+flag_trial_flags == 0
+test_restarted == false when available
+```
+
+Emotional Recognition valid sitting:
+
+```text
+flag_median_rtc == 0
+flag_same_response == 0
 flag_trial_flags == 0
 test_restarted == false when available
 ```
@@ -257,6 +268,96 @@ flanker_interference:
   score = mean of z-scored aligned indicators if both align
   otherwise report the indicators separately and mark the composite unstable
 ```
+
+### Emotional Recognition
+
+Recommended score:
+
+```text
+emorecog_perf_z_age_sex
+```
+
+Recommended inputs mirror the GradCPT construction:
+
+```text
+emorecog_score
+-log(emorecog_cv_rtc)
+-log(emorecog_median_rtc)
+```
+
+After fixed transforms, winsorization, and z-scoring, fit PC1 and orient it so
+the score and median-speed axes load positively. The final combined PC1 is
+residualized on:
+
+```text
+sex_c + age_at_test + age_at_test^2
+```
+
+and the residual is z-scored to produce `emorecog_perf_z_age_sex`.
+
+The CV term is retained in the PC1 construction for a direct GradCPT analogy,
+but diagnostics should be inspected because lower RT variability does not
+necessarily align with higher Emotional Recognition score in these data.
+
+Per-emotion rate-correct efficiency diagnostics are also computed from trial
+data:
+
+```text
+log(happy_rcs + eps)
+log(angry_rcs + eps)
+log(fearful_rcs + eps)
+log(sad_rcs + eps)
+```
+
+where each RCS is:
+
+```text
+number correct for that emotion / total positive reaction time for that emotion in seconds
+```
+
+and `eps` is half the smallest positive per-emotion RCS in the QC-passing task
+reference set.
+
+Summary-field efficiency sensitivity inputs are:
+
+```text
+log(happy_accuracy / (happy_median_rtc / 1000) + eps)
+log(angry_accuracy / (angry_median_rtc / 1000) + eps)
+log(fearful_accuracy / (fearful_median_rtc / 1000) + eps)
+log(sad_accuracy / (sad_median_rtc / 1000) + eps)
+```
+
+Accuracy-only sensitivity inputs are:
+
+```text
+logit(happy_accuracy)
+logit(angry_accuracy)
+logit(fearful_accuracy)
+logit(sad_accuracy)
+```
+
+Validation-only simple scores:
+
+```text
+accuracy
+score
+-log(median_rtc)
+```
+
+Do not include `score` and `accuracy` in the same factor; with a fixed number
+of trials they are effectively the same information on different scales. Do not
+use speed-only diagnostics as the recommended score.
+
+Happy-emotion handling:
+
+```text
+If happy efficiency has near-zero usable variance or loading < 0.20, drop happy
+and refit the efficiency model using angry, fearful, and sad.
+```
+
+The Emotional Recognition score remains task-specific, and the downstream ETM-g
+command writes both the retained three-domain score and a four-domain score that
+adds Emotional Recognition when the column is present.
 
 Validate `flanker_efficiency` against `score`, and validate
 `flanker_interference` against `-rcs_interference`.

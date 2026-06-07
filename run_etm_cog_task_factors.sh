@@ -9,13 +9,15 @@ usage() {
     cat <<'EOF'
 Usage: bash run_etm_cog_task_factors.sh [OPTIONS]
 
-Builds Flanker, GradCPT, and Delay Discounting cognitive task scores for the
-existing ses_ea_proxy phenotype cohort. This command does not run GWAS.
+Builds Flanker, GradCPT, Delay Discounting, and Emotional Recognition cognitive
+task scores for the existing ses_ea_proxy phenotype cohort. This command does
+not run GWAS.
 
 Options:
   --reuse-extracts              Reuse existing local ETM extract; fail if absent.
   --force                       Re-query ETM and overwrite outputs.
   --stage-aggregate             Stage aggregate diagnostics to workspace bucket scrap.
+  --make-etm-g                  Run downstream ETM general-factor scoring afterward.
   --etm-dataset PROJECT.DATASET Override WORKSPACE_ETM_CDR.
   --bq-temp-dataset DATASET     Existing writable BigQuery dataset for temp tables.
   -h, --help                    Show this help.
@@ -25,6 +27,7 @@ EOF
 REUSE_EXTRACTS=0
 FORCE=0
 STAGE_AGGREGATE=0
+MAKE_ETM_G=0
 ETM_DATASET_OVERRIDE=""
 BQ_TMP_OVERRIDE=""
 
@@ -40,6 +43,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --stage-aggregate)
             STAGE_AGGREGATE=1
+            shift
+            ;;
+        --make-etm-g)
+            MAKE_ETM_G=1
             shift
             ;;
         --etm-dataset)
@@ -142,6 +149,7 @@ echo "  Workspace scrap dir  = ${WORKSPACE_SCRAP}"
 echo "  REUSE_EXTRACTS       = ${REUSE_EXTRACTS}"
 echo "  FORCE                = ${FORCE}"
 echo "  STAGE_AGGREGATE      = ${STAGE_AGGREGATE}"
+echo "  MAKE_ETM_G           = ${MAKE_ETM_G}"
 echo "  LOG_FILE             = ${LOG_FILE}"
 echo ""
 
@@ -165,6 +173,19 @@ if [[ "${STAGE_AGGREGATE}" -eq 1 ]]; then
 fi
 
 "${cmd[@]}"
+
+if [[ "${MAKE_ETM_G}" -eq 1 ]]; then
+    echo ""
+    echo "=== Running downstream ETM general factor scoring ==="
+    g_cmd=(bash "${SCRIPT_DIR}/run_etm_g_from_task_scores.sh")
+    if [[ "${STAGE_AGGREGATE}" -eq 1 ]]; then
+        g_cmd+=(--stage-aggregate)
+    fi
+    if [[ "${FORCE}" -eq 1 ]]; then
+        g_cmd+=(--force)
+    fi
+    "${g_cmd[@]}"
+fi
 
 echo ""
 echo "=== ETM cognitive task factor command complete ==="
