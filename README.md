@@ -1210,6 +1210,35 @@ pool, then z-scored using that training-pool residual mean and SD. The sixth
 model uses the same residualization procedure fit on all eligible
 `fit_pca_iids`.
 
+As a diagnostic, the current run also fit a categorical regression of the
+finished proxy score on the EA answer categories:
+
+```text
+ses_ea_proxy_z ~ 0 + C(answer_concept_id)
+```
+
+With no intercept, each coefficient is the mean proxy z-score for that answer
+category. Those categorical coefficients were then linearly transformed onto an
+EA-years-like scale by anchoring `Highest Grade: Twelve Or GED` to 13 and
+`Highest Grade: Advanced Degree` to 20. This is only a diagnostic of how the
+proxy score orders the response categories; these proxy-implied years are not
+used to train the model. Categories with final-cohort `N < 20` are omitted.
+
+| AoU answer concept | AoU answer | Final proxy-cohort N | EA years used | Proxy-implied years |
+|---:|---|---:|---:|---:|
+| `1585942` | Highest Grade: One Through Four | 98 | 2.5 | 9.61 |
+| `1585943` | Highest Grade: Five Through Eight | 1,046 | 6.5 | 9.02 |
+| `1585944` | Highest Grade: Nine Through Eleven | 4,130 | 10.0 | 10.12 |
+| `1585945` | Highest Grade: Twelve Or GED | 26,274 | 13.0 | 13.00 |
+| `1585946` | Highest Grade: College One to Three | 54,808 | 15.0 | 15.43 |
+| `1585947` | Highest Grade: College Graduate | 61,130 | 17.0 | 18.29 |
+| `1585948` | Highest Grade: Advanced Degree | 68,981 | 20.0 | 20.00 |
+
+The values are sensible from Twelve/GED upward. The small low-education bins are
+noisier and compressed by the proxy model, which suggests their original
+teacher-year coding creates some label extremity but did not dominate the
+trained proxy.
+
 Survey features come from The Basics, Lifestyle, Overall Health, Healthcare
 Access & Utilization, Personal and Family Health History, Social Determinants
 of Health, and Behavioral Health & Personality. BHP is read from the
