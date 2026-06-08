@@ -1,6 +1,9 @@
-resources/
 reference/
-data/
+resources/
+data/*
+!data/aou_metadata/
+data/aou_metadata/*
+!data/aou_metadata/aou_ds_survey_question_concepts.tsv
 logs/
 scrap/
 tools/
@@ -11,3 +14,4 @@ CLAUDE.md
 
 .ipynb_checkpoints/
 nohup.out
+proxy_gwas_spec.md

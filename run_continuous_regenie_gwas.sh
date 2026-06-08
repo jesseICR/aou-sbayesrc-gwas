@@ -18,6 +18,7 @@ Options:
   --chroms LIST           Chromosomes to run, e.g. 22, 1,2,3, or 1-22
   --step1-block-size N    REGENIE Step 1 block size
   --step2-block-size N    REGENIE Step 2 block size
+  --no-lightweight        Skip compact per-chromosome output files
   -h, --help              Show this help
 EOF
 }
@@ -39,6 +40,7 @@ APPLY_RINT="${REGENIE_APPLY_RINT:-1}"
 STEP1_BLOCK_SIZE="${REGENIE_STEP1_BLOCK_SIZE:-1000}"
 STEP2_BLOCK_SIZE="${REGENIE_STEP2_BLOCK_SIZE:-200}"
 CHROMS_SPEC="${REGENIE_CHROMS:-1-22}"
+MAKE_LIGHTWEIGHT_OUTPUTS="${REGENIE_MAKE_LIGHTWEIGHT_OUTPUTS:-1}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -61,6 +63,10 @@ while [[ $# -gt 0 ]]; do
         --step2-block-size)
             STEP2_BLOCK_SIZE="${2:?--step2-block-size requires a value}"
             shift 2
+            ;;
+        --no-lightweight)
+            MAKE_LIGHTWEIGHT_OUTPUTS=0
+            shift
             ;;
         -h|--help)
             usage
@@ -101,6 +107,16 @@ fi
 
 is_uint() {
     [[ "${1:-}" =~ ^[0-9]+$ ]]
+}
+
+sanitize_prefix() {
+    local value="$1" sanitized
+    sanitized="$(printf '%s' "${value}" | tr -c 'A-Za-z0-9_.-' '_' | sed 's/^_*//; s/_*$//')"
+    if [[ -z "${sanitized}" ]]; then
+        echo "ERROR: output name ${value} cannot be converted to a valid file prefix" >&2
+        return 1
+    fi
+    printf '%s\n' "${sanitized}"
 }
 
 regenie_version_text() {
@@ -193,13 +209,41 @@ step1_dir="${output_dir}/step1"
 step1_uri="${output_uri}/step1"
 step2_dir="${output_dir}/step2"
 step2_uri="${output_uri}/step2"
+result_prefix="$(sanitize_prefix "${OUTPUT_NAME}")"
+step1_output_prefix="${result_prefix}_step1"
 mkdir -p "${output_dir}" "${step1_dir}" "${step2_dir}" "${LOCAL_REGENIE_DIR}"
 
 phen="${input_dir}/phen.txt"
 covar="${input_dir}/covar.txt"
 keep="${input_dir}/training_iids.txt"
-input_params="${input_dir}/height_gwas.params.tsv"
-input_summary="${input_dir}/height_gwas.summary.tsv"
+
+find_input_metadata_file() {
+    local suffix="$1" candidate matches
+    for candidate in \
+        "${input_dir}/${INPUT_NAME}.${suffix}" \
+        "${input_dir}/${OUTPUT_NAME}.${suffix}" \
+        "${input_dir}/height_gwas.${suffix}" \
+        "${input_dir}/ea_gwas.${suffix}" \
+        "${input_dir}/income_gwas.${suffix}"; do
+        if [[ -s "${candidate}" ]]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+    mapfile -t matches < <(find "${input_dir}" -maxdepth 1 -type f -name "*.${suffix}" -print | sort)
+    if [[ "${#matches[@]}" -eq 1 && -s "${matches[0]}" ]]; then
+        printf '%s\n' "${matches[0]}"
+        return 0
+    fi
+    echo "ERROR: could not identify unique input metadata file *.${suffix} in ${input_dir}" >&2
+    if [[ "${#matches[@]}" -gt 1 ]]; then
+        printf '  candidate: %s\n' "${matches[@]}" >&2
+    fi
+    return 1
+}
+
+input_params="$(find_input_metadata_file params.tsv)"
+input_summary="$(find_input_metadata_file summary.tsv)"
 for f in "${phen}" "${covar}" "${keep}" "${input_params}" "${input_summary}"; do
     if [[ ! -s "${f}" ]]; then
         echo "ERROR: missing REGENIE input file ${f}" >&2
@@ -240,6 +284,7 @@ desired_params="${LOCAL_REGENIE_DIR}/${OUTPUT_NAME}.regenie_gwas.desired_params.
     printf 'parameter\tvalue\n'
     printf 'input_name\t%s\n' "${INPUT_NAME}"
     printf 'output_name\t%s\n' "${OUTPUT_NAME}"
+    printf 'result_prefix\t%s\n' "${result_prefix}"
     printf 'step1_bfile\t%s\n' "gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1"
     printf 'step1_bfile_variants\t%s\n' "${step1_variants}"
     printf 'step1_bfile_samples\t%s\n' "${step1_samples}"
@@ -277,11 +322,13 @@ desired_params="${LOCAL_REGENIE_DIR}/${OUTPUT_NAME}.regenie_gwas.desired_params.
 echo "=== REGENIE continuous GWAS ==="
 echo "  input        = ${input_dir}"
 echo "  output       = ${output_dir}"
+echo "  file prefix  = ${result_prefix}"
 echo "  chroms       = ${chroms_joined}"
 echo "  keep samples = ${keep_samples}"
 echo "  Step 1 bfile = ${step1_variants} variants, ${step1_samples} samples"
 echo "  RINT         = ${APPLY_RINT}"
 echo "  covars       = ${covar_cols}"
+echo "  lightweight  = ${MAKE_LIGHTWEIGHT_OUTPUTS}"
 
 bundle_uri=$(stage_regenie_bundle)
 gcloud storage cp "${desired_params}" "${output_uri}/regenie_gwas.desired_params.tsv" \
@@ -289,7 +336,7 @@ gcloud storage cp "${desired_params}" "${output_uri}/regenie_gwas.desired_params
 
 step1_summary="${step1_dir}/regenie_step1.summary.tsv"
 step1_params="${step1_dir}/regenie_step1.params.tsv"
-step1_pred="${step1_dir}/height_step1_pred.list"
+step1_pred="${step1_dir}/${step1_output_prefix}_pred.list"
 run_step1=1
 if [[ -s "${step1_summary}" && -s "${step1_params}" && -s "${step1_pred}" ]]; then
     if diff -q "${desired_params}" "${step1_params}" >/dev/null 2>&1; then
@@ -320,6 +367,7 @@ if [[ "${run_step1}" -eq 1 ]]; then
         --env COVAR_COLS="${covar_cols}" \
         --env APPLY_RINT="${APPLY_RINT}" \
         --env STEP1_BLOCK_SIZE="${STEP1_BLOCK_SIZE}" \
+        --env RESULT_PREFIX="${result_prefix}" \
         --env EXPECTED_KEEP_SAMPLES="${keep_samples}" \
         --env EXPECTED_BFILE_VARIANTS="${step1_variants}" \
         --env EXPECTED_BFILE_SAMPLES="${step1_samples}" \
@@ -361,10 +409,11 @@ tasks_tsv="${SCRIPT_DIR}/logs/dsub_regenie_step2_${OUTPUT_NAME}_$(date +%Y%m%d_%
         '--output-recursive OUTDIR' '--env PHENO_COL' '--env COVAR_COLS'
     for c in "${CHROMS[@]}"; do
         chrom="chr${c}"
-        chrom_summary="${step2_dir}/${chrom}/${chrom}_height.summary.tsv"
+        chrom_result_prefix="${chrom}_${result_prefix}"
+        chrom_summary="${step2_dir}/${chrom}/${chrom_result_prefix}.summary.tsv"
         submit=1
-        if [[ -s "${chrom_summary}" && -s "${step2_dir}/${chrom}/${chrom}_height.params.tsv" ]]; then
-            if diff -q "${desired_params}" "${step2_dir}/${chrom}/${chrom}_height.params.tsv" >/dev/null 2>&1; then
+        if [[ -s "${chrom_summary}" && -s "${step2_dir}/${chrom}/${chrom_result_prefix}.params.tsv" ]]; then
+            if diff -q "${desired_params}" "${step2_dir}/${chrom}/${chrom_result_prefix}.params.tsv" >/dev/null 2>&1; then
                 submit=0
             fi
         fi
@@ -403,6 +452,7 @@ if [[ "${to_submit}" -gt 0 ]]; then
         --tasks "${tasks_tsv}" \
         --env APPLY_RINT="${APPLY_RINT}" \
         --env STEP2_BLOCK_SIZE="${STEP2_BLOCK_SIZE}" \
+        --env RESULT_PREFIX="${result_prefix}" \
         --env EXPECTED_KEEP_SAMPLES="${keep_samples}" \
         --input REGENIE_BUNDLE="${bundle_uri}" \
         --input PHEN="${input_uri}/phen.txt" \
@@ -449,8 +499,9 @@ echo "  Verifying REGENIE Step 2 outputs ..."
 total_tested=0
 for c in "${CHROMS[@]}"; do
     chrom="chr${c}"
-    chrom_summary="${step2_dir}/${chrom}/${chrom}_height.summary.tsv"
-    chrom_params="${step2_dir}/${chrom}/${chrom}_height.params.tsv"
+    chrom_result_prefix="${chrom}_${result_prefix}"
+    chrom_summary="${step2_dir}/${chrom}/${chrom_result_prefix}.summary.tsv"
+    chrom_params="${step2_dir}/${chrom}/${chrom_result_prefix}.params.tsv"
     if [[ ! -s "${chrom_summary}" || ! -s "${chrom_params}" ]]; then
         echo "ERROR: missing Step 2 summary/params for ${chrom}" >&2
         exit 1
@@ -467,6 +518,55 @@ for c in "${CHROMS[@]}"; do
     total_tested=$((total_tested + tested))
 done
 
+lightweight_dir="${output_dir}/lightweight"
+lightweight_summary="${lightweight_dir}/regenie_lite.summary.tsv"
+lightweight_columns="rsid,allele1,a1freq,n,beta,se,log10p"
+lightweight_total_rows="NA"
+if [[ "${MAKE_LIGHTWEIGHT_OUTPUTS}" == "1" ]]; then
+    lightweight_valid=0
+    if [[ -s "${lightweight_summary}" ]]; then
+        lightweight_total_rows=$(awk -F'\t' -v cols="${lightweight_columns}" '
+            NR > 1 {
+                s += $5
+                if ($6 != cols) bad = 1
+            }
+            END {
+                if (bad) print "BAD";
+                else print s + 0;
+            }
+        ' "${lightweight_summary}")
+        if [[ "${lightweight_total_rows}" == "${total_tested}" ]]; then
+            lightweight_valid=1
+            for c in "${CHROMS[@]}"; do
+                if [[ ! -s "${lightweight_dir}/chr${c}.${result_prefix}.regenie_lite.tsv.gz" ]]; then
+                    lightweight_valid=0
+                    break
+                fi
+            done
+        fi
+    fi
+    if [[ "${lightweight_valid}" == "1" ]]; then
+        echo "  Lightweight REGENIE outputs already exist (${lightweight_total_rows} rows) — skipping"
+    else
+        echo "  Creating lightweight REGENIE outputs ..."
+        python3 "${SCRIPT_DIR}/make_lightweight_regenie_outputs.py" \
+            --output-dir "${output_dir}" \
+            --result-prefix "${result_prefix}" \
+            --chroms "${chroms_joined}"
+        if [[ ! -s "${lightweight_summary}" ]]; then
+            echo "ERROR: missing lightweight summary ${lightweight_summary}" >&2
+            exit 1
+        fi
+        lightweight_total_rows=$(awk -F'\t' 'NR > 1 {s += $5} END {print s + 0}' "${lightweight_summary}")
+        if [[ "${lightweight_total_rows}" != "${total_tested}" ]]; then
+            echo "ERROR: lightweight rows ${lightweight_total_rows} do not match tested variants ${total_tested}" >&2
+            exit 1
+        fi
+    fi
+else
+    echo "  Skipping lightweight REGENIE outputs because REGENIE_MAKE_LIGHTWEIGHT_OUTPUTS=${MAKE_LIGHTWEIGHT_OUTPUTS}."
+fi
+
 cp "${desired_params}" "${output_dir}/regenie_gwas.params.tsv"
 {
     printf 'metric\tvalue\n'
@@ -480,6 +580,8 @@ cp "${desired_params}" "${output_dir}/regenie_gwas.params.tsv"
     printf 'apply_rint\t%s\n' "${APPLY_RINT}"
     printf 'pheno_col\t%s\n' "${pheno_col}"
     printf 'covar_cols\t%s\n' "${covar_cols}"
+    printf 'lightweight_output_dir\t%s\n' "${lightweight_dir}"
+    printf 'lightweight_total_rows\t%s\n' "${lightweight_total_rows}"
 } > "${output_dir}/regenie_gwas.summary.tsv"
 
 echo "  Done: Step 1 samples=${keep_samples}; Step 2 tested variants=${total_tested}"

@@ -18,6 +18,7 @@ set -euo pipefail
 : "${COVAR_COLS:?COVAR_COLS not set}"
 : "${APPLY_RINT:?APPLY_RINT not set}"
 : "${STEP2_BLOCK_SIZE:?STEP2_BLOCK_SIZE not set}"
+: "${RESULT_PREFIX:?RESULT_PREFIX not set}"
 : "${EXPECTED_KEEP_SAMPLES:?EXPECTED_KEEP_SAMPLES not set}"
 : "${EXPECTED_VARIANTS:?EXPECTED_VARIANTS not set}"
 
@@ -68,6 +69,7 @@ log "PHENO_COL=${PHENO_COL}"
 log "COVAR_COLS=${COVAR_COLS}"
 log "APPLY_RINT=${APPLY_RINT}"
 log "STEP2_BLOCK_SIZE=${STEP2_BLOCK_SIZE}"
+log "RESULT_PREFIX=${RESULT_PREFIX}"
 df -h /mnt/data | sed 's/^/  /'
 
 keep_samples=$(wc -l < "${KEEP}")
@@ -81,9 +83,9 @@ if [[ "${variants}" -ne "${EXPECTED_VARIANTS}" ]]; then
     exit 1
 fi
 
-pred_list=$(find "${STEP1_DIR}" -maxdepth 1 -name '*_pred.list' | head -1)
-if [[ -z "${pred_list}" || ! -s "${pred_list}" ]]; then
-    log "ERROR: could not find Step 1 *_pred.list in ${STEP1_DIR}"
+pred_list="${STEP1_DIR}/${RESULT_PREFIX}_step1_pred.list"
+if [[ ! -s "${pred_list}" ]]; then
+    log "ERROR: could not find Step 1 prediction list ${pred_list}"
     find "${STEP1_DIR}" -maxdepth 1 -type f -print | sed 's/^/  /'
     exit 1
 fi
@@ -126,7 +128,7 @@ cmd=(
     --pred "${pred_rewritten}"
     --gz
     --no-split
-    --out "${OUTDIR}/${CHROM}_height"
+    --out "${OUTDIR}/${CHROM}_${RESULT_PREFIX}"
 )
 if [[ "${APPLY_RINT}" == "1" ]]; then
     cmd+=(--apply-rint)
@@ -136,7 +138,7 @@ log "running REGENIE Step 2 with localized prediction list ${pred_rewritten}"
 "${cmd[@]}"
 
 result_file=$(find "${OUTDIR}" -maxdepth 1 -type f \
-    \( -name "${CHROM}_height.regenie.gz" -o -name "${CHROM}_height.regenie" \) |
+    \( -name "${CHROM}_${RESULT_PREFIX}.regenie.gz" -o -name "${CHROM}_${RESULT_PREFIX}.regenie" \) |
     head -1)
 if [[ -z "${result_file}" || ! -s "${result_file}" ]]; then
     log "ERROR: missing REGENIE Step 2 result file in ${OUTDIR}"
@@ -151,7 +153,7 @@ else
 fi
 tested_variants=$((result_lines > 0 ? result_lines - 1 : 0))
 
-cp "${PARAMS}" "${OUTDIR}/${CHROM}_height.params.tsv"
+cp "${PARAMS}" "${OUTDIR}/${CHROM}_${RESULT_PREFIX}.params.tsv"
 {
     printf 'metric\tvalue\n'
     printf 'chrom\t%s\n' "${CHROM}"
@@ -165,8 +167,8 @@ cp "${PARAMS}" "${OUTDIR}/${CHROM}_height.params.tsv"
     printf 'result_file\t%s\n' "$(basename "${result_file}")"
     printf 'result_lines\t%s\n' "${result_lines}"
     printf 'tested_variants\t%s\n' "${tested_variants}"
-} > "${OUTDIR}/${CHROM}_height.summary.tsv"
+} > "${OUTDIR}/${CHROM}_${RESULT_PREFIX}.summary.tsv"
 
 log "=== done ${CHROM}: ${tested_variants} tested variants ==="
-cat "${OUTDIR}/${CHROM}_height.summary.tsv" | sed 's/^/  /'
+cat "${OUTDIR}/${CHROM}_${RESULT_PREFIX}.summary.tsv" | sed 's/^/  /'
 ls -lh "${OUTDIR}" | sed 's/^/  /'

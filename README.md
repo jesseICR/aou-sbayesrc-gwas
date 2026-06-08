@@ -89,7 +89,9 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/{phen.txt,co
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step1/
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step2/chr{1..22}/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/lightweight/
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.summary.tsv
+
 ```
 
 Each `summary.tsv` reports `requested / src_variants / src_samples /
@@ -286,11 +288,11 @@ aux/admixture_estimates/aou_admixture_estimates_rye_v8.Q
 ```
 
 AoU's RYE fractions include `mid` for Middle Eastern ancestry. Our K=6
-projection uses the UKBB/public-statgen global model and has `Oceanian`
+projection uses the public-statgen global model and has `Oceanian`
 instead of `mid`, so Step 6 treats MID as an AoU-specific component rather
 than forcing a one-to-one mapping.
 
-The European classifier mirrors the UKBB pipeline rule:
+The European classifier uses fixed ancestry-fraction thresholds:
 
 ```text
 European >= 0.8
@@ -422,7 +424,7 @@ Summary tables and plots are written under:
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/qc/
 ```
 
-`classify_relations.sh` then mirrors the UKBB relationship thresholds on our
+`classify_relations.sh` then applies fixed KING kinship/IBS0 thresholds on our
 KING table:
 
 ```text
@@ -431,9 +433,9 @@ parent_child: 0.1767 <= kinship < 0.3535 and IBS0 < 0.0012
 sibling:      0.1767 <= kinship < 0.3535 and IBS0 >= 0.0012
 ```
 
-The AoU version deliberately does not apply the UKBB birth-year/month sibling
-age-gap filter because no portable AoU phenotype dependency is part of this
-genotype pipeline.
+The AoU version deliberately does not apply a birth-year/month sibling age-gap
+filter because no portable AoU phenotype dependency is part of this genotype
+pipeline.
 
 Validation run summary from the first completed AoU v8 run in this workspace
 with `KINSHIP_MISSING_MAX=0.01` and `KING_TABLE_FILTER=0.035`:
@@ -476,7 +478,7 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/close_relations.csv
 ```
 
 Those samples are the seed exclusion set. The script expands that seed set to
-include everyone directly related to those seeds at the UKBB third-degree
+include everyone directly related to those seeds at a third-degree kinship
 threshold:
 
 ```text
@@ -580,9 +582,8 @@ The tighter ALT-frequency agreement filter reuses Step 4's
 recomputing frequency concordance and keeps the Step 9 accounting directly
 tied to the Step 4 QC table.
 
-The long-range LD regions are the hg38 regions used by the UKBB analog,
-downloaded from the public `plinkQC` resource by the orchestrator and staged
-to the private Batch worker.
+The long-range LD regions are hg38 regions downloaded from the public `plinkQC`
+resource by the orchestrator and staged to the private Batch worker.
 
 Outputs:
 
@@ -996,13 +997,28 @@ Outputs:
 ```text
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step1/
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/step2/chr{1..22}/
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/lightweight/chr{1..22}.height_example.regenie_lite.tsv.gz
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/lightweight/regenie_lite.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_output/height_example/regenie_gwas.params.tsv
 ```
 
+After Step 2 verification, the shared runner writes compact per-chromosome
+association summaries with columns `rsid`, `allele1`, `a1freq`, `n`, `beta`,
+`se`, and `log10p`. Set `REGENIE_MAKE_LIGHTWEIGHT_OUTPUTS=0` or pass
+`--no-lightweight` to skip these compact files.
+
 The previous full height GWAS output predates Step 13 final genotype
 filtering. Re-run with `RUN_HEIGHT_GWAS=1` after Step 13 completes to generate
 current REGENIE counts for the stricter final genotype inputs.
+
+## Downstream Phenotype Workflows
+
+Additional downstream workflows for educational attainment, household income,
+ETM cognitive task scores, and the final GradCPT/Flanker-enriched proxy
+phenotype are documented in [ea_proxy.md](ea_proxy.md). They are separate from
+the core genotype-preparation pipeline and assume `get_genotypes.sh` has
+completed through the final REGENIE genotype-input step.
 
 ## Prerequisites
 
@@ -1194,8 +1210,8 @@ and submit zero dsub tasks.
 | `setup_height_gwas.sh` | Step 14 — queries program-collected AoU height, exports the result inside the workspace bucket, and builds REGENIE phenotype/covariate/keep files after sample-QC exclusions. |
 | `setup_height_gwas.py` | Step 14 helper — intersects Europeans, sample-QC exclusions, height, confident sex, genotype IDs, and projected PCs; centers covariates; writes summaries and verification checks. |
 | `run_continuous_regenie_gwas.sh` | Step 15 — optional continuous-trait REGENIE runner using the final Step 13 genotype inputs. |
+| `make_lightweight_regenie_outputs.py` | Step 15 helper — converts full per-chromosome REGENIE outputs into compact `rsid/allele/frequency/effect/SE/log10p` TSVs. |
 | `dsub_regenie_step1_worker.sh` | Step 15 worker — runs REGENIE Step 1, writes LOCO predictions, and verifies sample/variant counts. |
 | `dsub_regenie_step2_worker.sh` | Step 15 worker — runs one REGENIE Step 2 chromosome, adapting AoU `#IID` psam headers and localized Step 1 prediction paths for REGENIE. |
 | `requirements.txt` | Python dependencies for the local helper scripts. |
 | `CLAUDE.md` | Project conventions, AoU platform notes, portability rules, dsub-from-Jupyter recipe. Gitignored — local developer reference. |
-| `reference/ukbb-sbayesrc-gwas/` | UKBB analog this pipeline mirrors. Gitignored — clone locally for reference only. |
