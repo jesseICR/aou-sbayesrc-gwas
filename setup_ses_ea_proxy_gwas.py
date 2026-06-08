@@ -3,9 +3,9 @@
 
 This helper consumes workspace-local extracts produced by
 setup_ses_ea_proxy_gwas.sh. It trains the primary-only SES/behavior proxy with
-5-fold out-of-fold scoring over fit_pca_iids, then trains a sixth model on all
-eligible fit_pca_iids and applies it to the remaining eligible classified-EUR
-samples.
+5-fold out-of-fold scoring over fit_pca_iids, then trains a sixth model on
+kinship-clean eligible fit_pca_iids and applies it to the remaining eligible
+classified-EUR samples.
 """
 
 import argparse
@@ -25,13 +25,13 @@ import pandas as pd
 
 
 EA_MAPPING = {
-    1585941: 1.0,
-    1585942: 2.5,
-    1585943: 6.5,
+    1585941: 9.0,
+    1585942: 9.0,
+    1585943: 9.0,
     1585944: 10.0,
     1585945: 13.0,
     1585946: 15.0,
-    1585947: 17.0,
+    1585947: 18.0,
     1585948: 20.0,
 }
 
@@ -40,7 +40,40 @@ PMI_PREFER_NOT_ANSWER_ID = 903079
 PMI_DONT_KNOW_ANSWER_ID = 903087
 PMI_MISSING_ANSWER_IDS = {PMI_SKIP_ANSWER_ID, PMI_PREFER_NOT_ANSWER_ID, PMI_DONT_KNOW_ANSWER_ID}
 PMI_NONRESPONSE_ANSWER_IDS = {PMI_PREFER_NOT_ANSWER_ID, PMI_DONT_KNOW_ANSWER_ID}
+PFHH_FAMILY_CONDITION_QID = 43529217
 PFHH_ADHD_ANY_ANSWER_ID = 43528365
+PFHH_FAMILY_CONDITION_ANSWER_IDS = {
+    903095,  # None
+    836758,  # Alcohol use disorder
+    836760,  # Drug use disorder
+    836759,  # Autism spectrum disorder
+    PFHH_ADHD_ANY_ANSWER_ID,
+}
+PFHH_ALCOHOL_RELATIVE_QID = 836827
+PFHH_ALCOHOL_RELATIVE_ANSWER_IDS = {
+    43528372,  # Father
+    43528375,  # Sibling
+    43528373,  # Grandparent
+    43528374,  # Mother
+    1384600,  # Self
+    43528376,  # Son
+    43528371,  # Daughter
+}
+PFHH_DRUG_RELATIVE_QID = 836851
+PFHH_DRUG_RELATIVE_ANSWER_IDS = {
+    43528657,  # Sibling
+    1384413,  # Self
+    43528654,  # Father
+    43528656,  # Mother
+    43528658,  # Son
+    43528655,  # Grandparent
+    43528653,  # Daughter
+}
+PFHH_ALLOWLIST_ANSWER_IDS = {
+    PFHH_FAMILY_CONDITION_QID: PFHH_FAMILY_CONDITION_ANSWER_IDS,
+    PFHH_ALCOHOL_RELATIVE_QID: PFHH_ALCOHOL_RELATIVE_ANSWER_IDS,
+    PFHH_DRUG_RELATIVE_QID: PFHH_DRUG_RELATIVE_ANSWER_IDS,
+}
 AREA_SES_COLS = [
     "deprivation_index",
     "median_income",
@@ -98,8 +131,8 @@ MAIN_PRIMARY_IDS = {
     43530562, 43530590, 43530439, 43530399, 43530400, 43530403, 43528660,
     43528661, 43530402, 43530404, 43530401, 43530405, 43530406, 43530595,
     43530407, 43529978, 43530593, 43530559, 43530418,
-    # PFHH ADHD items.
-    1740660, 43529217,
+    # PFHH mental health/substance-use family-history items.
+    1740660, PFHH_FAMILY_CONDITION_QID, PFHH_ALCOHOL_RELATIVE_QID, PFHH_DRUG_RELATIVE_QID,
 }
 
 NUMERIC_IDS = {
@@ -140,7 +173,8 @@ LIFESTYLE_BRANCH_RECODE_NUMERIC = {
 
 LEAKAGE_DENYLIST_RE = re.compile(r"education|school|grade|degree|ged|race|ethnic|discrimination", re.I)
 LEAKAGE_WHITELIST_IDS = {
-    1740660, 43529217, 1586135, 1585766, 1585772, 1585778,
+    1740660, PFHH_FAMILY_CONDITION_QID, PFHH_ALCOHOL_RELATIVE_QID, PFHH_DRUG_RELATIVE_QID,
+    1586135, 1585766, 1585772, 1585778,
 }
 
 
@@ -313,13 +347,10 @@ def load_ea_rows(path):
         for row in reader:
             iid = row["IID"].strip()
             answer_id = int(row["answer_concept_id"])
-            ea_years = float(row["ea_years"])
             if answer_id not in EA_MAPPING:
                 raise ValueError(f"Unexpected EA answer_concept_id={answer_id}")
-            if abs(ea_years - EA_MAPPING[answer_id]) > 1e-8:
-                raise ValueError(f"EA mapping mismatch for answer_concept_id={answer_id}")
             out[iid] = {
-                "ea_years": ea_years,
+                "ea_years": EA_MAPPING[answer_id],
                 "yob": float(row["yob"]),
                 "age_at_basics": float(row["age_at_basics"]),
                 "answer_concept_id": answer_id,
@@ -399,9 +430,13 @@ def add_survey_feature_rows(path, feature_state, metadata, bhp=False):
 
             answer_id = parse_int(row.get("answer_concept_id"))
             answer = row.get("answer", "")
-            if qid == 43529217:
+            if qid in PFHH_ALLOWLIST_ANSWER_IDS:
+                if answer_id in PMI_MISSING_ANSWER_IDS:
+                    feature_state["nonresponse"][(qid, answer_id)] += 1
+                    feature_state["pmi_missing_iids"][(qid, answer_id)].add(iid)
+                    continue
                 feature_state["answered_qids"][qid].add(iid)
-                if answer_id == PFHH_ADHD_ANY_ANSWER_ID:
+                if answer_id in PFHH_ALLOWLIST_ANSWER_IDS[qid]:
                     feature_state["selected_answers"][qid][iid].add(answer_id)
                     feature_state["answer_names"][(qid, answer_id)] = answer
                 continue
@@ -477,7 +512,7 @@ def apply_lifestyle_branch_recodes(feature_state):
 
 
 def qid_is_ordinal(feature_state, qid):
-    if qid == 43529217 or qid in NUMERIC_IDS:
+    if qid in PFHH_ALLOWLIST_ANSWER_IDS or qid in NUMERIC_IDS:
         return False
     selected = feature_state["selected_answers"].get(qid, {})
     for aids in selected.values():
@@ -558,8 +593,8 @@ def build_feature_matrix(iids, sex_map, area_ses, feature_state):
         selected_by_iid = feature_state["selected_answers"][qid]
         answered = feature_state["answered_qids"].get(qid, set())
         answer_ids = sorted({aid for aids in selected_by_iid.values() for aid in aids})
-        if qid == 43529217:
-            answer_ids = [PFHH_ADHD_ANY_ANSWER_ID] if PFHH_ADHD_ANY_ANSWER_ID in answer_ids else []
+        if qid in PFHH_ALLOWLIST_ANSWER_IDS:
+            answer_ids = sorted(PFHH_ALLOWLIST_ANSWER_IDS[qid])
         feature_state["question_encoding"][qid] = "one_hot"
         for answer_id in answer_ids:
             arr = np.full(len(iids), np.nan, dtype=np.float32)
@@ -637,6 +672,49 @@ def compute_metric_row(label, pred, teacher_z, ea):
     }
 
 
+def read_final_model_kinship_exclusions(path, threshold, seed_iids, candidate_train_iids):
+    """Return candidate training IIDs directly related to final applied seeds."""
+    if not path:
+        return set(), [], 0
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        raise FileNotFoundError(f"Missing final-model kinship table: {path}")
+
+    seed_iids = set(seed_iids)
+    candidate_train_iids = set(candidate_train_iids)
+    excluded = set()
+    edge_rows = []
+    total_edges_ge_threshold = 0
+
+    with open(path) as handle:
+        header = handle.readline().strip().split()
+        cols = {name.lstrip("#"): idx for idx, name in enumerate(header)}
+        required = {"IID1", "IID2", "KINSHIP"}
+        missing = required - set(cols)
+        if missing:
+            raise ValueError(f"{path} missing required columns: {sorted(missing)}")
+        for line in handle:
+            if not line.strip():
+                continue
+            parts = line.split()
+            iid1 = parts[cols["IID1"]]
+            iid2 = parts[cols["IID2"]]
+            try:
+                kinship = float(parts[cols["KINSHIP"]])
+            except ValueError:
+                continue
+            if kinship < threshold:
+                continue
+            total_edges_ge_threshold += 1
+            if iid1 in seed_iids and iid2 in candidate_train_iids:
+                excluded.add(iid2)
+                edge_rows.append({"seed_iid": iid1, "excluded_iid": iid2, "kinship": kinship})
+            elif iid2 in seed_iids and iid1 in candidate_train_iids:
+                excluded.add(iid1)
+                edge_rows.append({"seed_iid": iid2, "excluded_iid": iid1, "kinship": kinship})
+    edge_rows.sort(key=lambda r: (r["excluded_iid"], r["seed_iid"], -float(r["kinship"])))
+    return excluded, edge_rows, total_edges_ge_threshold
+
+
 def leakage_report_rows(feature_state, feature_columns):
     rows = []
     for qid, meta in sorted(feature_state["question_meta"].items()):
@@ -674,8 +752,8 @@ def build_feature_manifest(feature_state, feature_columns):
         encoding = feature_state["question_encoding"].get(qid)
         if encoding is None:
             encoding = "numeric" if qid in NUMERIC_IDS else "one_hot"
-        if qid == 43529217:
-            encoding = "adhd_answer_indicator"
+        if qid in PFHH_ALLOWLIST_ANSWER_IDS:
+            encoding = "allowlisted_one_hot"
         rows.append({
             "question_concept_id": qid,
             "survey": meta.get("survey", ""),
@@ -720,6 +798,8 @@ def main():
     parser.add_argument("--num-boost-round", type=int, default=2000)
     parser.add_argument("--early-stopping-rounds", type=int, default=50)
     parser.add_argument("--cv-folds", type=int, default=4)
+    parser.add_argument("--final-kinship-holdout-kin0", default="")
+    parser.add_argument("--final-kinship-holdout-threshold", type=float, default=0.0441941)
     args = parser.parse_args()
 
     start = time.time()
@@ -796,6 +876,25 @@ def main():
     log(log_lines, f"Eligible fit_pca training samples: {len(train_iids)}")
     log(log_lines, f"Eligible applied classified-EUR extras: {len(applied_iids)}")
 
+    final_excluded_iids, final_exclusion_edges, final_total_edges_ge_threshold = read_final_model_kinship_exclusions(
+        args.final_kinship_holdout_kin0,
+        args.final_kinship_holdout_threshold,
+        applied_iids,
+        train_iids,
+    )
+    final_train_iids = sort_iids(set(train_iids) - final_excluded_iids)
+    if args.final_kinship_holdout_kin0 and not final_train_iids:
+        raise RuntimeError("No final-model training samples remain after kinship holdout")
+    final_train_allowed_by_iid = {iid: iid in set(final_train_iids) for iid in eligible_iids}
+    log(log_lines, "")
+    log(log_lines, "=== Final applied-model kinship holdout ===")
+    log(log_lines, f"Kinship table: {args.final_kinship_holdout_kin0 or 'not used'}")
+    log(log_lines, f"Kinship threshold: {args.final_kinship_holdout_threshold:g}")
+    log(log_lines, f"Applied seed samples: {len(applied_iids)}")
+    log(log_lines, f"KING edges at or above threshold: {final_total_edges_ge_threshold}")
+    log(log_lines, f"Eligible fit_pca samples excluded as applied relatives: {len(final_excluded_iids)}")
+    log(log_lines, f"Final applied-model training samples: {len(final_train_iids)}")
+
     feature_state = {
         "survey_seen": defaultdict(set),
         "survey_age": defaultdict(dict),
@@ -838,6 +937,7 @@ def main():
     iid_to_row = {iid: idx for idx, iid in enumerate(eligible_iids)}
     train_idx = np.asarray([iid_to_row[iid] for iid in train_iids], dtype=np.int64)
     applied_idx = np.asarray([iid_to_row[iid] for iid in applied_iids], dtype=np.int64)
+    final_train_idx = np.asarray([iid_to_row[iid] for iid in final_train_iids], dtype=np.int64)
 
     ea = np.asarray([ea_rows[iid]["ea_years"] for iid in eligible_iids], dtype=np.float64)
     yob = np.asarray([ea_rows[iid]["yob"] for iid in eligible_iids], dtype=np.float64)
@@ -953,22 +1053,30 @@ def main():
     final_rounds = int(statistics.median(best_rounds))
     train_mask = np.zeros(len(eligible_iids), dtype=bool)
     apply_mask = np.zeros(len(eligible_iids), dtype=bool)
-    train_mask[train_idx] = True
-    apply_mask[train_idx] = True
+    train_mask[final_train_idx] = True
+    apply_mask[final_train_idx] = True
     apply_mask[applied_idx] = True
     final_teacher_z, final_coef, final_resid_mean, final_resid_sd = residualize_and_z(
         ea, yob_c, sex_c, train_mask, apply_mask
     )
     teacher_z[applied_idx] = final_teacher_z[applied_idx]
-    dtrain_final = xgb.DMatrix(X_all[train_idx, :], label=final_teacher_z[train_idx], feature_names=feature_columns, missing=np.nan)
+    dtrain_final = xgb.DMatrix(
+        X_all[final_train_idx, :],
+        label=final_teacher_z[final_train_idx],
+        feature_names=feature_columns,
+        missing=np.nan,
+    )
     final_model = xgb.train(params, dtrain_final, num_boost_round=final_rounds, verbose_eval=False)
     final_model.set_attr(
         role="applied_final_model",
         fold_id="final_model",
         feature_columns_sha256=feature_columns_sha256,
-        train_pool_samples=str(len(train_idx)),
+        train_pool_samples=str(len(final_train_idx)),
         prediction_samples=str(len(applied_idx)),
         num_boost_round=str(final_rounds),
+        final_kinship_holdout_kin0=str(args.final_kinship_holdout_kin0),
+        final_kinship_holdout_threshold=str(args.final_kinship_holdout_threshold),
+        final_kinship_excluded_fit_pca_samples=str(len(final_excluded_iids)),
     )
     final_model_file = os.path.join("xgboost_models", "final_model.json")
     final_model.save_model(os.path.join(args.out_dir, final_model_file))
@@ -980,7 +1088,7 @@ def main():
         "feature_columns_json": "xgboost_feature_columns.json",
         "feature_columns_sha256": feature_columns_sha256,
         "num_boost_round": final_rounds,
-        "train_pool_samples": len(train_idx),
+        "train_pool_samples": len(final_train_idx),
         "prediction_samples": len(applied_idx),
         "ols_intercept": final_coef[0],
         "ols_yob_c": final_coef[1],
@@ -988,6 +1096,11 @@ def main():
         "ols_yob_c_sex_c_inter": final_coef[3],
         "resid_train_mean": final_resid_mean,
         "resid_train_sd": final_resid_sd,
+        "final_kinship_holdout_kin0": args.final_kinship_holdout_kin0,
+        "final_kinship_holdout_threshold": args.final_kinship_holdout_threshold,
+        "final_applied_seed_samples": len(applied_iids),
+        "final_kinship_excluded_fit_pca_samples": len(final_excluded_iids),
+        "final_model_train_allowed_samples": len(final_train_iids),
     })
     if len(applied_idx):
         dapplied = xgb.DMatrix(X_all[applied_idx, :], feature_names=feature_columns, missing=np.nan)
@@ -1007,6 +1120,7 @@ def main():
             "IID": iid,
             "role": "oof",
             "fold_id": fold_by_iid[iid],
+            "final_model_train_allowed": int(final_train_allowed_by_iid[iid]),
             "ea_years": ea[idx],
             "teacher_z": teacher_z[idx],
             "score_raw": pred_raw[idx],
@@ -1020,6 +1134,7 @@ def main():
             "IID": iid,
             "role": "applied",
             "fold_id": "final_model",
+            "final_model_train_allowed": 0,
             "ea_years": ea[idx],
             "teacher_z": teacher_z[idx],
             "score_raw": pred_raw[idx],
@@ -1031,7 +1146,7 @@ def main():
         row = compute_metric_row("applied_6th_model", proxy_z[applied_idx], teacher_z[applied_idx], ea[applied_idx])
         row.update({
             "best_rounds": final_rounds,
-            "train_pool_samples": len(train_idx),
+            "train_pool_samples": len(final_train_idx),
             "test_samples": len(applied_idx),
             "ols_intercept": final_coef[0],
             "ols_yob_c": final_coef[1],
@@ -1075,7 +1190,10 @@ def main():
 
     all_score_rows = fit_rows + applied_rows
     all_score_rows.sort(key=lambda r: (0, int(r["IID"])) if str(r["IID"]).isdigit() else (1, r["IID"]))
-    score_header = ["FID", "IID", "role", "fold_id", "ea_years", "teacher_z", "score_raw", "ses_ea_proxy_z"]
+    score_header = [
+        "FID", "IID", "role", "fold_id", "final_model_train_allowed",
+        "ea_years", "teacher_z", "score_raw", "ses_ea_proxy_z",
+    ]
     write_tsv(os.path.join(args.out_dir, "oof_scores.tsv"), fit_rows, score_header)
     write_tsv(os.path.join(args.out_dir, "applied_scores.tsv"), applied_rows, score_header)
     write_tsv(os.path.join(args.out_dir, "all_scores.tsv"), all_score_rows, score_header)
@@ -1127,7 +1245,35 @@ def main():
               ["model_name", "role", "fold_id", "model_file", "feature_columns_json",
                "feature_columns_sha256", "num_boost_round", "train_pool_samples",
                "prediction_samples", "ols_intercept", "ols_yob_c", "ols_sex_c",
-               "ols_yob_c_sex_c_inter", "resid_train_mean", "resid_train_sd"])
+               "ols_yob_c_sex_c_inter", "resid_train_mean", "resid_train_sd",
+               "final_kinship_holdout_kin0", "final_kinship_holdout_threshold",
+               "final_applied_seed_samples", "final_kinship_excluded_fit_pca_samples",
+               "final_model_train_allowed_samples"])
+
+    with open(os.path.join(args.out_dir, "final_model_train_iids.txt"), "w") as f:
+        for iid in final_train_iids:
+            f.write(f"{fid_by_iid[iid]} {iid}\n")
+    with open(os.path.join(args.out_dir, "final_model_excluded_related_to_applied_iids.txt"), "w") as f:
+        for iid in sort_iids(final_excluded_iids):
+            f.write(f"{fid_by_iid.get(iid, iid)} {iid}\n")
+    write_tsv(
+        os.path.join(args.out_dir, "final_model_excluded_related_to_applied_edges.tsv"),
+        final_exclusion_edges,
+        ["seed_iid", "excluded_iid", "kinship"],
+    )
+    write_tsv(
+        os.path.join(args.out_dir, "final_model_kinholdout_summary.tsv"),
+        [
+            {"metric": "final_kinship_holdout_kin0", "value": args.final_kinship_holdout_kin0},
+            {"metric": "final_kinship_holdout_threshold", "value": args.final_kinship_holdout_threshold},
+            {"metric": "final_applied_seed_samples", "value": len(applied_iids)},
+            {"metric": "final_candidate_fit_pca_samples", "value": len(train_iids)},
+            {"metric": "final_kinship_edges_ge_threshold", "value": final_total_edges_ge_threshold},
+            {"metric": "final_kinship_excluded_fit_pca_samples", "value": len(final_excluded_iids)},
+            {"metric": "final_model_train_allowed_samples", "value": len(final_train_iids)},
+        ],
+        ["metric", "value"],
+    )
 
     importance_rows = []
     importance_gain = final_model.get_score(importance_type="gain")
@@ -1251,6 +1397,11 @@ def main():
         f.write(f"eligible_classified_eur_samples\t{len(eligible_iids)}\n")
         f.write(f"eligible_fit_pca_oof_samples\t{len(train_iids)}\n")
         f.write(f"eligible_applied_6th_model_samples\t{len(applied_iids)}\n")
+        f.write(f"final_kinship_holdout_kin0\t{args.final_kinship_holdout_kin0}\n")
+        f.write(f"final_kinship_holdout_threshold\t{args.final_kinship_holdout_threshold:.10g}\n")
+        f.write(f"final_kinship_edges_ge_threshold\t{final_total_edges_ge_threshold}\n")
+        f.write(f"final_kinship_excluded_fit_pca_samples\t{len(final_excluded_iids)}\n")
+        f.write(f"final_model_train_allowed_samples\t{len(final_train_iids)}\n")
         f.write(f"mean_yob_fit_pca\t{mean_yob:.10g}\n")
         f.write(f"outer_folds\t{args.outer_folds}\n")
         f.write(f"seed\t{args.seed}\n")
@@ -1283,6 +1434,11 @@ def main():
         "saved_xgboost_models": len(model_manifest_rows),
         "eligible_fit_pca_oof_samples": len(train_iids),
         "eligible_applied_samples": len(applied_iids),
+        "final_kinship_holdout_kin0": args.final_kinship_holdout_kin0,
+        "final_kinship_holdout_threshold": args.final_kinship_holdout_threshold,
+        "final_kinship_edges_ge_threshold": final_total_edges_ge_threshold,
+        "final_kinship_excluded_fit_pca_samples": len(final_excluded_iids),
+        "final_model_train_allowed_samples": len(final_train_iids),
         "lifestyle_branch_recode_rules_with_samples": len(branch_recode_rows),
         "lifestyle_branch_recoded_sample_feature_cells": branch_recode_total,
         "pmi_missing_answer_rows": sum(feature_state["nonresponse"].values()),
@@ -1310,6 +1466,8 @@ def main():
     check("all score IIDs have genotype FID", set(all_iids) <= set(fid_by_iid))
     check("all score IIDs have requested PCs", set(all_iids) <= set(pc_data))
     check("OOF and applied sets are disjoint", not (set(train_iids) & set(applied_iids)))
+    check("final-model training set is subset of OOF fit_pca set", set(final_train_iids) <= set(train_iids))
+    check("final-model training set excludes applied relatives", not (set(final_train_iids) & final_excluded_iids))
     check("all eligible fit_pca samples have OOF scores", np.all(np.isfinite(pred_raw[train_idx])))
     check("all eligible applied samples have sixth-model scores", np.all(np.isfinite(pred_raw[applied_idx])) if len(applied_idx) else True)
     check("phenotype rows match all score rows", len(all_score_rows) == len(eligible_iids))

@@ -11,6 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${DX_SES_EA_PROXY_REGENIE_INPUT_DIR:?DX_SES_EA_PROXY_REGENIE_INPUT_DIR not set}"
 : "${DX_SES_EA_PROXY_REGENIE_INPUT_URI:?DX_SES_EA_PROXY_REGENIE_INPUT_URI not set}"
 : "${DX_EUROPEANS_DIR:?DX_EUROPEANS_DIR not set}"
+: "${DX_KINSHIP_DIR:?DX_KINSHIP_DIR not set}"
 : "${DX_PCA_EUR_DIR:?DX_PCA_EUR_DIR not set}"
 : "${DX_GENETIC_SEX_DIR:?DX_GENETIC_SEX_DIR not set}"
 : "${DX_SAMPLE_QC_DIR:?DX_SAMPLE_QC_DIR not set}"
@@ -24,6 +25,7 @@ SES_EA_PROXY_THREADS="${SES_EA_PROXY_THREADS:-$(nproc)}"
 SES_EA_PROXY_NUM_BOOST_ROUND="${SES_EA_PROXY_NUM_BOOST_ROUND:-2000}"
 SES_EA_PROXY_EARLY_STOPPING_ROUNDS="${SES_EA_PROXY_EARLY_STOPPING_ROUNDS:-50}"
 SES_EA_PROXY_CV_FOLDS="${SES_EA_PROXY_CV_FOLDS:-4}"
+SES_EA_PROXY_FINAL_KINSHIP_THRESHOLD="${SES_EA_PROXY_FINAL_KINSHIP_THRESHOLD:-0.0441941}"
 GWAS_MIN_AGE_AT_SURVEY="${GWAS_MIN_AGE_AT_SURVEY:-26}"
 IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE="${IDENTICAL_COMPONENT_EXCLUDE_MIN_SIZE:-3}"
 WORKSPACE_MHWB_CDR="${WORKSPACE_MHWB_CDR:-${WORKSPACE_CDR%%.*}.C_V8_R2_offcycle_mhwb}"
@@ -61,6 +63,7 @@ sql_table_ref_to_bq_show_ref() {
 }
 
 europeans="${DX_EUROPEANS_DIR}/classified_european_iids.txt"
+kin0="${DX_KINSHIP_DIR}/aou_hq_direct_rel.kin0"
 fit_pca_iids="${DX_PCA_EUR_DIR}/fit_pca_iids.txt"
 sscore="${DX_PCA_EUR_DIR}/aou_projected.sscore"
 sex_covar_input="${DX_GENETIC_SEX_DIR}/sex_covar.txt"
@@ -71,7 +74,7 @@ sample_qc_params="${DX_SAMPLE_QC_DIR}/identical_component_sample_qc.params.tsv"
 sample_qc_summary="${DX_SAMPLE_QC_DIR}/identical_component_sample_qc.summary.tsv"
 fam="${DX_GWAS_STEP1_BFILE_DIR}/chr1_22_merged_gwas_step1.fam"
 metadata="${SCRIPT_DIR}/data/aou_metadata/aou_ds_survey_question_concepts.tsv"
-for f in "${europeans}" "${fit_pca_iids}" "${sscore}" "${sex_covar_input}" "${sex_params}" \
+for f in "${europeans}" "${kin0}" "${fit_pca_iids}" "${sscore}" "${sex_covar_input}" "${sex_params}" \
          "${sex_summary}" "${sample_qc_exclude}" "${sample_qc_params}" "${sample_qc_summary}" \
          "${fam}" "${metadata}"; do
     if [[ ! -s "${f}" ]]; then
@@ -117,9 +120,11 @@ desired_params="${LOCAL_REGENIE_DIR}/ses_ea_proxy_gwas.desired_params.tsv"
     printf 'ses_ea_proxy_num_boost_round\t%s\n' "${SES_EA_PROXY_NUM_BOOST_ROUND}"
     printf 'ses_ea_proxy_early_stopping_rounds\t%s\n' "${SES_EA_PROXY_EARLY_STOPPING_ROUNDS}"
     printf 'ses_ea_proxy_cv_folds\t%s\n' "${SES_EA_PROXY_CV_FOLDS}"
+    printf 'ses_ea_proxy_final_kinship_threshold\t%s\n' "${SES_EA_PROXY_FINAL_KINSHIP_THRESHOLD}"
     printf 'main_feature_question_ids_sha256\t%s\n' "${main_ids_hash}"
     printf 'bhp_question_codes_sha256\t%s\n' "${bhp_codes_hash}"
     printf 'europeans_size\t%s\n' "$(stat -c%s "${europeans}")"
+    printf 'kin0_size\t%s\n' "$(stat -c%s "${kin0}")"
     printf 'fit_pca_iids_size\t%s\n' "$(stat -c%s "${fit_pca_iids}")"
     printf 'sscore_size\t%s\n' "$(stat -c%s "${sscore}")"
     printf 'sex_covar_size\t%s\n' "$(stat -c%s "${sex_covar_input}")"
@@ -161,6 +166,9 @@ xgboost_model_manifest="${DX_SES_EA_PROXY_REGENIE_INPUT_DIR}/xgboost_model_manif
 xgboost_feature_columns_json="${DX_SES_EA_PROXY_REGENIE_INPUT_DIR}/xgboost_feature_columns.json"
 xgboost_feature_columns_tsv="${DX_SES_EA_PROXY_REGENIE_INPUT_DIR}/xgboost_feature_columns.tsv"
 xgboost_final_model="${DX_SES_EA_PROXY_REGENIE_INPUT_DIR}/xgboost_models/final_model.json"
+final_model_train_iids="${DX_SES_EA_PROXY_REGENIE_INPUT_DIR}/final_model_train_iids.txt"
+final_model_excluded_iids="${DX_SES_EA_PROXY_REGENIE_INPUT_DIR}/final_model_excluded_related_to_applied_iids.txt"
+final_model_kinholdout_summary="${DX_SES_EA_PROXY_REGENIE_INPUT_DIR}/final_model_kinholdout_summary.tsv"
 log_file="${DX_SES_EA_PROXY_REGENIE_INPUT_DIR}/ses_ea_proxy_gwas_log.txt"
 
 xgboost_fold_models_ok=1
@@ -179,7 +187,9 @@ if [[ -s "${params}" && -s "${summary}" && -s "${phen}" && -s "${base_covar}" &&
       -s "${pmi_missingness_counts}" && -s "${branch_recoding_summary}" &&
       -s "${missing_data_handling}" && -s "${xgboost_model_manifest}" &&
       -s "${xgboost_feature_columns_json}" && -s "${xgboost_feature_columns_tsv}" &&
-      -s "${xgboost_final_model}" && "${xgboost_fold_models_ok}" -eq 1 &&
+      -s "${xgboost_final_model}" && -s "${final_model_train_iids}" &&
+      -s "${final_model_excluded_iids}" && -s "${final_model_kinholdout_summary}" &&
+      "${xgboost_fold_models_ok}" -eq 1 &&
       -s "${log_file}" ]]; then
     if diff -q "${desired_params}" "${params}" >/dev/null 2>&1; then
         expected=$(awk -F'\t' '$1 == "eligible_classified_eur_samples" {print $2; exit}' "${summary}")
@@ -272,13 +282,13 @@ WITH codeable AS (
   SELECT
     CAST(s.person_id AS STRING) AS IID,
     CAST(CASE s.answer_concept_id
-      WHEN 1585941 THEN 1.0
-      WHEN 1585942 THEN 2.5
-      WHEN 1585943 THEN 6.5
+      WHEN 1585941 THEN 9.0
+      WHEN 1585942 THEN 9.0
+      WHEN 1585943 THEN 9.0
       WHEN 1585944 THEN 10.0
       WHEN 1585945 THEN 13.0
       WHEN 1585946 THEN 15.0
-      WHEN 1585947 THEN 17.0
+      WHEN 1585947 THEN 18.0
       WHEN 1585948 THEN 20.0
       ELSE NULL
     END AS FLOAT64) AS ea_years,
@@ -485,6 +495,8 @@ python3 "${SCRIPT_DIR}/setup_ses_ea_proxy_gwas.py" \
     --area-ses "${area_ses}" \
     --metadata "${metadata}" \
     --europeans "${europeans}" \
+    --final-kinship-holdout-kin0 "${kin0}" \
+    --final-kinship-holdout-threshold "${SES_EA_PROXY_FINAL_KINSHIP_THRESHOLD}" \
     --fit-pca-iids "${fit_pca_iids}" \
     --sex-covar "${sex_covar_input}" \
     --exclude-iids "${sample_qc_exclude}" \
@@ -516,6 +528,10 @@ gcloud storage cp \
     "${local_out}/applied_metrics.tsv" \
     "${local_out}/proxy_covariate_correlations.tsv" \
     "${local_out}/feature_importance.tsv" \
+    "${local_out}/final_model_train_iids.txt" \
+    "${local_out}/final_model_excluded_related_to_applied_iids.txt" \
+    "${local_out}/final_model_excluded_related_to_applied_edges.tsv" \
+    "${local_out}/final_model_kinholdout_summary.tsv" \
     "${local_out}/feature_manifest.resolved.tsv" \
     "${local_out}/feature_counts.tsv" \
     "${local_out}/feature_missingness.tsv" \

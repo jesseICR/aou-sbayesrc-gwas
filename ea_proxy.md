@@ -1,0 +1,1517 @@
+# EA Proxy, Income, ETM Cognitive Scores, and Final GradCPT/Flanker Proxy
+
+This document covers downstream phenotype workflows that build on the core
+AoU SBayesRC/REGENIE genotype setup in `README.md`. These workflows stay
+on-platform and regenerate AoU-derived individual-level files inside the
+workspace bucket or local scratch; generated score tables, model JSONs,
+phenotype files, covariates, and REGENIE outputs are not tracked in git.
+
+## Downstream phenotype command overview
+
+These commands are deliberately separate from `get_genotypes.sh`. They assume
+the main pipeline has completed through Step 13, but they do not require the
+optional height GWAS to have run.
+
+Cheap setup-only checks for simple survey phenotypes:
+
+```bash
+bash run_ea_gwas.sh --setup-only
+bash run_income_gwas.sh --setup-only
+```
+
+Full GWAS submissions for those simple survey phenotypes:
+
+```bash
+bash run_ea_gwas.sh
+bash run_income_gwas.sh
+```
+
+Final selected GradCPT/Flanker-enriched proxy GWAS:
+
+```bash
+bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --preflight-only
+bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --smoke
+bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --chroms 1-22
+```
+
+This command uses the final fold-safe no-teacher phenotype:
+
+```text
+regenie_input/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_ses_ea_proxy_v2_kinholdout/phen.txt
+gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z
+```
+
+The final GWAS covariates are `sex_c` and `PC1_AVG` through `PC10_AVG`. It
+does not include `yob_c` or `yob_c_sex_c_inter`; age/year-of-birth was not part
+of the final covariate set because the final phenotype had small age association
+after construction and we wanted the GWAS covariate adjustment to remain
+focused on sex plus ancestry PCs.
+
+The final GWAS writes lightweight summary files here:
+
+```text
+regenie_output/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas/lightweight/
+```
+
+The EA and income GWAS commands use:
+
+```text
+Samples:
+  our classified European IIDs
+  AND confident genetic sex in genetic_sex/sex_covar.txt
+  AND not in the Step 12 identical-component size >=3 exclusion list
+  AND has a codeable trait response
+  AND age at the relevant The Basics survey response >= 26 years
+
+Genotypes:
+  Step 1: gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1
+  Step 2: gwas_genotypes/step2_wgs_pfiles/chr{1..22}
+
+REGENIE:
+  quantitative trait
+  rank-inverse normal transform enabled by default
+  lightweight per-chromosome outputs created by default
+```
+
+The shared REGENIE runner names Step 1 and Step 2 output files with the GWAS
+output name as the prefix. For example, EA outputs are
+`step1/ea_gwas_step1_pred.list` and
+`step2/chr1/chr1_ea_gwas.regenie.gz`; income outputs are
+`step1/income_gwas_step1_pred.list` and
+`step2/chr1/chr1_income_gwas.regenie.gz`.
+
+Future runs also write compact outputs:
+
+```text
+regenie_output/<trait>/lightweight/chr1.<trait>.regenie_lite.tsv.gz
+regenie_output/<trait>/lightweight/regenie_lite.summary.tsv
+```
+
+The lightweight columns are `rsid`, `allele1`, `a1freq`, `n`, `beta`, `se`,
+and `log10p`.
+
+The educational-attainment phenotype is AoU The Basics question `1585940`,
+"Education Level: Highest Grade." `PMI: Skip` and `PMI: Prefer Not To Answer`
+are treated as missing. Samples younger than `GWAS_MIN_AGE_AT_SURVEY=26` at
+the selected survey response are excluded so participants who may not have
+completed education yet are not included.
+
+| AoU answer concept | AoU answer | EA years |
+|---:|---|---:|
+| `1585941` | Highest Grade: Never Attended | 9.0 |
+| `1585942` | Highest Grade: One Through Four | 9.0 |
+| `1585943` | Highest Grade: Five Through Eight | 9.0 |
+| `1585944` | Highest Grade: Nine Through Eleven | 10.0 |
+| `1585945` | Highest Grade: Twelve Or GED | 13.0 |
+| `1585946` | Highest Grade: College One to Three | 15.0 |
+| `1585947` | Highest Grade: College Graduate | 18.0 |
+| `1585948` | Highest Grade: Advanced Degree | 20.0 |
+
+EA covariates:
+
+```text
+yob_c                  = fractional_year_of_birth - mean(fractional_year_of_birth)
+sex_c                  = sex_01 - 0.5
+yob_c_sex_c_inter      = yob_c * sex_c
+PC1_AVG ... PC10_AVG
+```
+
+Fractional year of birth is computed from `person.birth_datetime`; for example
+July 1, 1950 is approximately `1950.5`.
+
+The household-income phenotype is AoU The Basics question `1585375`, "Income:
+Annual Income." `PMI: Skip` and `PMI: Prefer Not To Answer` are treated as
+missing. Samples younger than `GWAS_MIN_AGE_AT_SURVEY=26` at the selected
+survey response are excluded so early-career participants are not included.
+Values are annual household income in thousands of dollars.
+
+| AoU answer concept | AoU answer | income_k |
+|---:|---|---:|
+| `1585376` | Annual Income: less 10k | 5.0 |
+| `1585377` | Annual Income: 10k 25k | 17.5 |
+| `1585378` | Annual Income: 25k 35k | 30.0 |
+| `1585379` | Annual Income: 35k 50k | 42.5 |
+| `1585380` | Annual Income: 50k 75k | 62.5 |
+| `1585381` | Annual Income: 75k 100k | 87.5 |
+| `1585382` | Annual Income: 100k 150k | 125.0 |
+| `1585383` | Annual Income: 150k 200k | 175.0 |
+| `1585384` | Annual Income: more 200k | 250.0 |
+
+Income covariates:
+
+```text
+age_c                  = age_at_income_survey - mean(age_at_income_survey)
+age_c_sq               = age_c^2
+sex_c                  = sex_01 - 0.5
+age_c_sex_c_inter      = age_c * sex_c
+PC1_AVG ... PC10_AVG
+```
+
+The setup scripts write the current workspace-specific sample counts and answer
+counts to `{ea,income}_gwas.summary.tsv` and `{ea,income}_answer_counts.tsv`.
+
+### ses_ea_proxy primary setup and scoring
+
+`run_ses_ea_proxy_gwas.sh` builds the primary SES-EA proxy scores and the
+matching REGENIE input files. Setup/scoring is the default behavior; it does
+not submit REGENIE unless `--run-gwas` is passed explicitly.
+
+Recommended run order for the final selected phenotype:
+
+```bash
+# 1. Build genotype/sample-QC/PCA/sex/genotype inputs.
+nohup bash get_genotypes.sh > logs/run.log 2>&1 &
+
+# 2. Build the revised SES-EA proxy scores and REGENIE input files.
+# The sixth/applied model excludes fit_pca relatives of the applied cohort.
+SES_EA_PROXY_GWAS_INPUT_NAME=ses_ea_proxy_v2_kinholdout \
+SES_EA_PROXY_GWAS_OUTPUT_NAME=ses_ea_proxy_v2_kinholdout \
+bash run_ses_ea_proxy_gwas.sh --setup-only
+
+# 3. Build ETM cognitive task scores from the revised proxy-score outputs.
+SES_EA_PROXY_GWAS_INPUT_NAME=ses_ea_proxy_v2_kinholdout \
+bash run_etm_cog_task_factors.sh --stage-aggregate
+
+# 4. Fine-tune the saved SES-EA proxy boosters toward GradCPT+Flanker.
+SES_EA_PROXY_GWAS_INPUT_NAME=ses_ea_proxy_v2_kinholdout \
+bash run_gradcpt_flanker_finetuned_ea_proxy.sh --stage-aggregate
+
+# 5. Train the direct scratch XGBoost GradCPT/Flanker survey proxy.
+SES_EA_PROXY_GWAS_INPUT_NAME=ses_ea_proxy_v2_kinholdout \
+bash run_gradcpt_flanker_direct_xgb_proxy.sh --stage-aggregate
+
+# 6. Build and run the final 18k no-teacher calibrated proxy GWAS.
+bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --chroms 1-22
+```
+
+The optional ETM general-factor command can still be run as a diagnostic, but
+it is not required for the final selected phenotype:
+
+```bash
+SES_EA_PROXY_GWAS_INPUT_NAME=ses_ea_proxy_v2_kinholdout \
+bash run_etm_g_from_task_scores.sh --stage-aggregate
+```
+
+During development we backfilled kinship holdout into an existing
+`ses_ea_proxy_v2` output by refitting only the sixth/final applied model and
+copying the five OOF fold models unchanged. That repair path was a one-off
+workspace acceleration and is not part of the reproducible public pipeline. A
+fresh run uses `run_ses_ea_proxy_gwas.sh --setup-only`, which now applies the
+same kinship holdout inside the normal setup path.
+
+```bash
+bash run_ses_ea_proxy_gwas.sh --setup-only
+```
+
+This command is downstream of the genotype/sample-prep pipeline. Run
+`get_genotypes.sh` first and let it complete through the European ancestry,
+PCA, confirmed genetic sex, identical-component sample-QC, and final REGENIE
+genotype-input steps. The proxy setup consumes these outputs:
+
+```text
+sbayesrc_genotypes/europeans/classified_european_iids.txt
+sbayesrc_genotypes/pca_eur/fit_pca_iids.txt
+sbayesrc_genotypes/pca_eur/aou_projected.sscore
+sbayesrc_genotypes/genetic_sex/sex_covar.txt
+sbayesrc_genotypes/sample_qc/exclude_identical_component_size_ge3_iids.txt
+sbayesrc_genotypes/gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1.fam
+```
+
+The goal is to produce a non-genetic proxy for the education-attainment
+teacher label, then review out-of-sample model performance and covariate
+correlations before deciding whether to run GWAS. The setup therefore stops
+after score generation by default. REGENIE is only an opt-in follow-up.
+
+Samples are restricted to classified European IIDs, confirmed genetic sex in
+`genetic_sex/sex_covar.txt`, samples not in the identical-component size `>=3`
+sample-QC exclusion list, codeable EA from The Basics question `1585940`, and
+age at that The Basics response `>=26`. Confirmed genetic sex is also included
+as an XGBoost model feature.
+
+The score uses a cross-fit design:
+
+```text
+1. Split eligible fit_pca_iids into 5 seeded folds.
+2. For each fold, fit the EA residualization OLS and XGBoost model on the
+   other four folds only, then predict the held-out fold.
+3. Fit a sixth model for the applied cohort. This model starts from eligible
+   `fit_pca_iids`, but excludes any fit-PCA sample with a direct KING edge to
+   the applied cohort at `KINSHIP >= 0.0441941`.
+4. Apply the sixth model to eligible classified-European samples that were not
+   in fit_pca_iids. Those applied samples are never used to train or tune the
+   sixth model.
+```
+
+The EA teacher label is mapped to years from answers `1585941` through
+`1585948`. The finalized mapping deliberately clamps the sparse lowest
+education bins to 9 years and uses a slightly less compressed college scale:
+
+| AoU answer concept | AoU answer | EA years |
+|---:|---|---:|
+| `1585941` | Highest Grade: Never Attended | 9.0 |
+| `1585942` | Highest Grade: One Through Four | 9.0 |
+| `1585943` | Highest Grade: Five Through Eight | 9.0 |
+| `1585944` | Highest Grade: Nine Through Eleven | 10.0 |
+| `1585945` | Highest Grade: Twelve Or GED | 13.0 |
+| `1585946` | Highest Grade: College One to Three | 15.0 |
+| `1585947` | Highest Grade: College Graduate | 18.0 |
+| `1585948` | Highest Grade: Advanced Degree | 20.0 |
+
+This mapping was chosen after inspecting categorical proxy and ETM
+GradCPT+Flanker diagnostics anchored to Twelve/GED = 13 and Advanced Degree =
+20. Those diagnostics suggested that the very low education bins are too small
+and compressed to justify extreme year values in this cohort, while College
+Graduate is closer to 18 than 17. In each cross-fit fold, EA years are
+residualized on
+`yob_c`, `sex_c`, and `yob_c * sex_c` using only the four-fifths training
+pool, then z-scored using that training-pool residual mean and SD. The sixth
+model uses the same residualization procedure fit on the kinship-clean final
+model training subset.
+
+The current `ses_ea_proxy_v2_kinholdout` setup run produced:
+
+```text
+Final eligible proxy cohort: 216,482
+OOF / fit_pca samples:       198,266
+Applied samples:              18,216
+Feature columns:                 711
+Feature hash: 8f98285d19579996606c03a91749620e92bf7c4777385bb120b38ffc3121fc9b
+```
+
+The final applied-model kinship holdout used the same KING threshold as the
+third-degree PCA pruning step:
+
+```text
+KING threshold:                              0.0441941
+Applied seed samples:                          18,216
+Candidate fit_pca samples:                    198,266
+KING edges at or above threshold:              60,895
+Excluded fit_pca relatives of applied samples:  9,847
+Final model training samples:                 188,419
+```
+
+This affects only the sixth/final model used for the applied cohort. The OOF
+fold models still train on the other four folds of `fit_pca_iids`, so their
+out-of-fold validation remains directly comparable to earlier runs.
+
+OOF correlations with the revised `teacher_z`, by fold:
+
+| Model | Test N | Train N | Best rounds | Pearson r vs teacher_z | Spearman r |
+|---|---:|---:|---:|---:|---:|
+| fold 0 | 39,882 | 158,384 | 1300 | 0.6817 | 0.6464 |
+| fold 1 | 39,478 | 158,788 | 1024 | 0.6758 | 0.6392 |
+| fold 2 | 39,835 | 158,431 | 1290 | 0.6795 | 0.6434 |
+| fold 3 | 39,607 | 158,659 | 1166 | 0.6828 | 0.6442 |
+| fold 4 | 39,464 | 158,802 | 1367 | 0.6740 | 0.6410 |
+
+Overall:
+
+```text
+OOF Pearson r vs teacher_z:      0.6788
+OOF Spearman r vs teacher_z:     0.6429
+Applied Pearson r vs teacher_z:  0.6901
+Applied Spearman r vs teacher_z: 0.6648
+```
+
+Survey features come from The Basics, Lifestyle, Overall Health, Healthcare
+Access & Utilization, Personal and Family Health History, Social Determinants
+of Health, and Behavioral Health & Personality. BHP is read from the
+off-cycle Mental Health / Well-Being CDR dataset; override
+`WORKSPACE_MHWB_CDR` if the dataset name differs. The Washington Group
+disability items are sourced from The Basics. ZIP3-derived socioeconomic
+features come from `ds_zip_code_socioeconomic`; raw ZIP codes are not used.
+The highest-grade education item itself is excluded from the XGBoost feature
+matrix because it defines the teacher label. Personal and Family Health History
+now includes allowlisted mental-health/substance-use family-history indicators:
+the family-condition question keeps None, ADHD, alcohol use disorder, drug use
+disorder, and autism spectrum disorder, and the alcohol/drug relative-specific
+questions keep self, parent, sibling, grandparent, son, and daughter indicators.
+PMI missing answers such as Skip, Prefer Not, and Don't Know are treated as
+missing/nonresponse, not as negative family history.
+
+Feature extraction is multi-select safe. For each person/question, the setup
+selects the latest survey timestamp, keeps all answer rows from that timestamp,
+and one-hot encodes every retained `answer_concept_id` for nominal and
+multi-select fields. Ordered Likert-style fields are encoded as one ordinal
+numeric feature; continuous survey values are parsed as numeric features.
+
+Missing-data handling is explicit:
+
+```text
+Did not take survey:
+  Survey item features remain NaN, took_<survey>=0, age_at_<survey>=NaN.
+
+Took survey:
+  took_<survey>=1 and age_at_<survey> is included as a model feature.
+
+PMI: Skip (903096):
+  Value remains NaN for native XGBoost missing routing and is counted
+  separately; no nonresponse indicator is set.
+
+PMI: Prefer Not To Answer (903079) / PMI: Don't Know (903087):
+  Value remains NaN. Curated high-value fields also get a *_nonresponse
+  indicator where valid answers are 0 and Prefer Not/Don't Know are 1.
+  Not asked or did not take the survey remains NaN.
+
+Lifestyle branching:
+  Never/no parent answers set not-applicable downstream smoking, alcohol, and
+  substance-use count/frequency fields to 0 rather than NaN.
+```
+
+XGBoost receives `DMatrix(missing=np.nan)`, so survey nonparticipation and
+unanswered fields route through missing-native tree splits. The setup writes
+audit tables for these choices:
+
+```text
+feature_manifest.resolved.tsv
+missing_data_handling.tsv
+pmi_missingness_counts.tsv
+branch_recoding_summary.tsv
+feature_missingness.tsv
+feature_counts.tsv
+```
+
+#### Resolved SES-EA survey feature contract
+
+The resolved `ses_ea_proxy_v2_kinholdout` feature manifest contains 213
+included survey/area items before expansion into 711 XGBoost columns:
+
+| Encoding | Included items | Meaning |
+|---|---:|---|
+| `one_hot` | 100 | Nominal or multi-select answers become one binary column per retained answer. |
+| `ordinal` | 98 | Ordered answer concepts become one numeric ordered feature. |
+| `numeric` | 12 | Free numeric responses, survey ages, sex, and area-SES values remain numeric. |
+| `allowlisted_one_hot` | 3 | Curated PFHH multi-select items use a fixed answer allowlist. |
+
+The table below is generated from `feature_manifest.resolved.tsv` and records
+the included survey item/source and how it is encoded before XGBoost sees it.
+The direct GradCPT/Flanker scratch-XGBoost benchmark uses this same contract,
+then additionally adds education item `1585940` as revised numeric EA years and
+one-hot education-response features.
+
+| Question concept/code | Survey/source | Encoding | Item |
+|---|---|---|---|
+| `1703874` | Behavioral Health and Personality | `ordinal` | During the past 6 months How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done? |
+| `1703875` | Behavioral Health and Personality | `ordinal` | I am someone who has difficulty getting started on tasks. |
+| `1703878` | Behavioral Health and Personality | `ordinal` | During the past 6 months How often do you have problems remembering appointments or obligations? |
+| `1703881` | Behavioral Health and Personality | `ordinal` | I am someone who is original, comes up with new ideas. |
+| `1703892` | Behavioral Health and Personality | `ordinal` | I am someone who tends to be disorganized. |
+| `1703893` | Behavioral Health and Personality | `ordinal` | I am someone who worries a lot. |
+| `1703896` | Behavioral Health and Personality | `ordinal` | I am someone who is emotionally stable, not easily upset. |
+| `1703903` | Behavioral Health and Personality | `ordinal` | I am someone who is full of energy. |
+| `1703904` | Behavioral Health and Personality | `ordinal` | I am someone who is compassionate, has a soft heart. |
+| `1703911` | Behavioral Health and Personality | `ordinal` | I am someone who is sometimes rude to others. |
+| `1703912` | Behavioral Health and Personality | `ordinal` | I am someone who is reliable, can always be counted on. |
+| `1703913` | Behavioral Health and Personality | `ordinal` | During the past 6 months How often do you fidget or squirm with your hands or feet when you have to sit down for a long time? |
+| `1703914` | Behavioral Health and Personality | `ordinal` | During the past 6 months How often do you have difficulty getting things in order when you have to do a task that requires organization? |
+| `1703916` | Behavioral Health and Personality | `ordinal` | During the past 6 months When you have a task that requires a lot of thought, how often do you avoid or delay getting started? |
+| `1703918` | Behavioral Health and Personality | `ordinal` | I am someone who is dominant, acts as a leader. |
+| `1703919` | Behavioral Health and Personality | `ordinal` | I am someone who has little interest in abstract ideas. |
+| `1703925` | Behavioral Health and Personality | `ordinal` | During the past 6 months How often do you feel overly active and compelled to do things, like you were driven by a motor? |
+| `1703926` | Behavioral Health and Personality | `ordinal` | I am someone who tends to be quiet. |
+| `1703929` | Behavioral Health and Personality | `ordinal` | I am someone who tends to feel depressed, blue. |
+| `1703930` | Behavioral Health and Personality | `ordinal` | I am someone who is fascinated by art, music, or literature. |
+| `1703932` | Behavioral Health and Personality | `ordinal` | I am someone who assumes the best about people. |
+| `43528660` | Healthcare Access & Utilization | `ordinal` | Health Advice: Spoken To General Doctor |
+| `43528661` | Healthcare Access & Utilization | `ordinal` | Health Advice: Spoken To Medical Specialist |
+| `43528662` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Dental Care |
+| `43528663` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Emergency Care |
+| `43528664` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Healthcare Provider |
+| `43528665` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Bought Rx From Other Country |
+| `43528666` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Alternative Therapies |
+| `43529903` | Healthcare Access & Utilization | `ordinal` | Delayed Medical Care: Child Care |
+| `43529904` | Healthcare Access & Utilization | `ordinal` | Delayed Medical Care: Elderly Care |
+| `43529905` | Healthcare Access & Utilization | `ordinal` | Delayed Medical Care: Time Off Work |
+| `43529906` | Healthcare Access & Utilization | `ordinal` | Delayed Medical Care: Transportation |
+| `43529973` | Healthcare Access & Utilization | `one_hot` | Health Advice: Nurse Practitioner, Physician Assistant, or Midwife Visits |
+| `43529974` | Healthcare Access & Utilization | `one_hot` | Health Advice: Dentist or Orthodontist Visits |
+| `43529975` | Healthcare Access & Utilization | `one_hot` | Health Advice: OB/GYN Visits |
+| `43529976` | Healthcare Access & Utilization | `one_hot` | Health Advice: Medical Specialist Visits |
+| `43529977` | Healthcare Access & Utilization | `one_hot` | Health Advice: Mental Health Professional Visits |
+| `43529978` | Healthcare Access & Utilization | `one_hot` | Health Advice: Traditional Healer Visits |
+| `43530268` | Healthcare Access & Utilization | `ordinal` | Delayed Medical Care: Rural Area |
+| `43530399` | Healthcare Access & Utilization | `ordinal` | Health Advice: Spoken To Chiropractor |
+| `43530400` | Healthcare Access & Utilization | `ordinal` | Health Advice: Spoken To Dentist or Orthodontist |
+| `43530401` | Healthcare Access & Utilization | `ordinal` | Health Advice: Spoken To OB/GYN |
+| `43530402` | Healthcare Access & Utilization | `ordinal` | Health Advice: Spoken To Mental Health Professional |
+| `43530403` | Healthcare Access & Utilization | `ordinal` | Health Advice: Spoken To Eye Doctor |
+| `43530404` | Healthcare Access & Utilization | `ordinal` | Health Advice: Spoken To Nurse Practitioner |
+| `43530405` | Healthcare Access & Utilization | `ordinal` | Health Advice: Spoken To Physical Therapist, Speech Therapist, Respiratory Therapist, Audiologist, or Occupational Therapist |
+| `43530406` | Healthcare Access & Utilization | `ordinal` | Health Advice: Spoken To Podiatrist |
+| `43530407` | Healthcare Access & Utilization | `ordinal` | Health Advice: Spoken To Traditional Healer |
+| `43530408` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Eyeglasses |
+| `43530409` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Follow-up Care |
+| `43530410` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Mental Health Counseling |
+| `43530411` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Prescription Medicines |
+| `43530412` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Specialist |
+| `43530413` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Lower Cost Rx To Save Money |
+| `43530415` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Delayed Filling Rx To Save Money |
+| `43530416` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Skipped Med To Save Money |
+| `43530417` | Healthcare Access & Utilization | `ordinal` | Can't Afford Care: Took Less Med To Save Money |
+| `43530418` | Healthcare Access & Utilization | `ordinal` | Insurance: Insurance Accepted |
+| `43530437` | Healthcare Access & Utilization | `one_hot` | Health Advice: Asked For Opinion |
+| `43530438` | Healthcare Access & Utilization | `one_hot` | Health Advice: Ease of Understanding |
+| `43530439` | Healthcare Access & Utilization | `one_hot` | Health Advice: Respected By Provider |
+| `43530557` | Healthcare Access & Utilization | `one_hot` | Can't Afford Care: Worried About Paying |
+| `43530559` | Healthcare Access & Utilization | `one_hot` | Insurance: Healthcare Coverage |
+| `43530562` | Healthcare Access & Utilization | `one_hot` | Health Advice: Place for Health Advice |
+| `43530583` | Healthcare Access & Utilization | `ordinal` | Delayed Medical Care: Can't Afford Co-pay |
+| `43530584` | Healthcare Access & Utilization | `ordinal` | Delayed Medical Care: Had To Pay Out Of Pocket |
+| `43530585` | Healthcare Access & Utilization | `ordinal` | Delayed Medical Care: Deductible Too High |
+| `43530588` | Healthcare Access & Utilization | `one_hot` | Health Advice: General Doctor Visits |
+| `43530589` | Healthcare Access & Utilization | `one_hot` | Health Advice: Chiropractor Visits |
+| `43530590` | Healthcare Access & Utilization | `one_hot` | Health Advice: Podiatrist Visits |
+| `43530591` | Healthcare Access & Utilization | `one_hot` | Health Advice: Eye Doctor Visits |
+| `43530592` | Healthcare Access & Utilization | `one_hot` | Health Advice: Physical Therapist, Speech Therapist, Respiratory Therapist, Audiologist, or Occupational Therapist Visits |
+| `43530593` | Healthcare Access & Utilization | `one_hot` | Health Advice: What Kind Of Place |
+| `43530594` | Healthcare Access & Utilization | `ordinal` | Delayed Medical Care: Nervous |
+| `43530595` | Healthcare Access & Utilization | `one_hot` | Health Advice: Spoken To Professional |
+| `1585636` | Lifestyle | `one_hot` | Recreational Drug Use: Which Drugs Used |
+| `1585650` | Lifestyle | `one_hot` | Past 3 Month Use Frequency: Marijuana 3 Month Use |
+| `1585656` | Lifestyle | `one_hot` | Past 3 Month Use Frequency: Cocaine 3 Month Use |
+| `1585668` | Lifestyle | `one_hot` | Past 3 Month Use Frequency: Other Stimulant 3 Month Use |
+| `1585674` | Lifestyle | `one_hot` | Past 3 Month Use Frequency: Inhalant 3 Month Use |
+| `1585680` | Lifestyle | `one_hot` | Past 3 Month Use Frequency: Sedative 3 Month Use |
+| `1585686` | Lifestyle | `one_hot` | Past 3 Month Use Frequency: Hallucinogen 3 Month Use |
+| `1585692` | Lifestyle | `one_hot` | Past 3 Month Use Frequency: Street Opioid 3 Month Use |
+| `1585698` | Lifestyle | `one_hot` | Past 3 Month Use Frequency: Prescription Opioid 3 Month Use |
+| `1585704` | Lifestyle | `one_hot` | Past 3 Month Use Frequency: Other 3 Month Use |
+| `1585857` | Lifestyle | `ordinal` | Smoking: 100 Cigs Lifetime |
+| `1585860` | Lifestyle | `ordinal` | Smoking: Smoke Frequency |
+| `1585864` | Lifestyle | `numeric` | Smoking: Daily Smoke Starting Age |
+| `1585867` | Lifestyle | `one_hot` | Smoking: Serious Quit Attempt |
+| `1585870` | Lifestyle | `numeric` | Attempt Quit Smoking: Completely Quit Age |
+| `1585873` | Lifestyle | `numeric` | Smoking: Number Of Years |
+| `1586159` | Lifestyle | `numeric` | Smoking: Current Daily Cigarette Number |
+| `1586162` | Lifestyle | `numeric` | Smoking: Average Daily Cigarette Number |
+| `1586166` | Lifestyle | `ordinal` | Electronic Smoking: Electric Smoke Participant |
+| `1586169` | Lifestyle | `ordinal` | Electronic Smoking: Electric Smoke Frequency |
+| `1586174` | Lifestyle | `ordinal` | Cigar Smoking: Cigar Smoke Participant |
+| `1586177` | Lifestyle | `ordinal` | Cigar Smoking: Current Cigar Frequency |
+| `1586182` | Lifestyle | `ordinal` | Hookah Smoking: Hookah Smoke Participant |
+| `1586185` | Lifestyle | `ordinal` | Hookah Smoking: Current Hookah Frequency |
+| `1586190` | Lifestyle | `ordinal` | Smokeless Tobacco: Smokeless Tobacco Participant |
+| `1586193` | Lifestyle | `ordinal` | Smokeless Tobacco: Smokeless Tobacco Frequency |
+| `1586198` | Lifestyle | `ordinal` | Alcohol: Alcohol Participant |
+| `1586201` | Lifestyle | `ordinal` | Alcohol: Drink Frequency Past Year |
+| `1586207` | Lifestyle | `one_hot` | Alcohol: Average Daily Drink Count |
+| `1586213` | Lifestyle | `ordinal` | Alcohol: 6 or More Drinks Occurrence |
+| `903058` | Lifestyle | `one_hot` | Past 3 Month Use Frequency: Prescription Stimulant 3 Month Use |
+| `1585711` | Overall Health | `ordinal` | Overall Health: General Health |
+| `1585717` | Overall Health | `ordinal` | Overall Health: General Quality |
+| `1585723` | Overall Health | `ordinal` | Overall Health: General Physical Health |
+| `1585729` | Overall Health | `one_hot` | Overall Health: General Mental Health |
+| `1585735` | Overall Health | `ordinal` | Overall Health: Social Satisfaction |
+| `1585741` | Overall Health | `one_hot` | Overall Health: Everyday Activities |
+| `1585748` | Overall Health | `one_hot` | Overall Health: Average Fatigue 7 Days |
+| `1585754` | Overall Health | `ordinal` | Overall Health: General Social |
+| `1585760` | Overall Health | `one_hot` | Overall Health: Emotional Problem 7 Days |
+| `1585766` | Overall Health | `one_hot` | Overall Health: Medical Form Confidence |
+| `1585772` | Overall Health | `one_hot` | Overall Health: Health Material Assistance |
+| `1585778` | Overall Health | `one_hot` | Overall Health: Difficult Understand Info |
+| `1585815` | Overall Health | `one_hot` | Overall Health: Outside Travel 6 Month |
+| `1740660` | Personal and Family Health History | `one_hot` | Including yourself, who in your family has had attention-deficit/hyperactivity disorder (ADHD)? Select all that apply. |
+| `43529217` | Personal and Family Health History | `allowlisted_one_hot` | Have you or anyone in your family ever been diagnosed with the following mental health or substance use conditions? Think only of the people you are related to by blood. Select all that apply. |
+| `836827` | Personal and Family Health History | `allowlisted_one_hot` | Including yourself, who in your family has had alcohol use disorder? Select all that apply. |
+| `836851` | Personal and Family Health History | `allowlisted_one_hot` | Including yourself, who in your family has had a drug use disorder? Select all that apply. |
+| `40192381` | Social Determinants of Health | `one_hot` | In the last month, how often have you felt that you were unable to control the important things in your life? |
+| `40192384` | Social Determinants of Health | `ordinal` | How much you agree or disagree that your neighborhood is safe? |
+| `40192386` | Social Determinants of Health | `ordinal` | How much you agree or disagree that people in your neighborhood take good care of their houses and apartments? |
+| `40192388` | Social Determinants of Health | `one_hot` | How often do you have someone to prepare your meals if you were unable to do it yourself? |
+| `40192390` | Social Determinants of Health | `ordinal` | How often do you feel that you are unhappy being so withdrawn? |
+| `40192396` | Social Determinants of Health | `one_hot` | In the last month, how often have you been angered because of things that were outside of your control? |
+| `40192397` | Social Determinants of Health | `ordinal` | How often do you feel that there is no one you can turn to? |
+| `40192398` | Social Determinants of Health | `ordinal` | How often do you feel left out? |
+| `40192399` | Social Determinants of Health | `one_hot` | How often do you have someone who understands your problems? |
+| `40192400` | Social Determinants of Health | `ordinal` | How much you agree or disagree that in your neighborhood people watch out for each other? |
+| `40192401` | Social Determinants of Health | `one_hot` | How often do you feel deep inner peace or harmony? |
+| `40192402` | Social Determinants of Health | `one_hot` | Think about the place you live. Do you have problems with any of the following? Select all that apply. |
+| `40192404` | Social Determinants of Health | `ordinal` | How much you agree or disagree that you are always having trouble with your neighbors? |
+| `40192410` | Social Determinants of Health | `one_hot` | My neighborhood has several free or low-cost recreation facilities, such as parks, walking trails, bike paths, recreation centers, playgrounds, public swimming pools, etc. Would you say that you... |
+| `40192411` | Social Determinants of Health | `one_hot` | How much you agree or disagree that people in your neighborhood generally get along with each other? |
+| `40192412` | Social Determinants of Health | `ordinal` | How much you agree or disagree that vandalism is common in your neighborhood? |
+| `40192414` | Social Determinants of Health | `one_hot` | The crime rate in my neighborhood makes it unsafe to go on walks during the day. Would you say that you... |
+| `40192415` | Social Determinants of Health | `one_hot` | How often do you feel that you are spiritually touched by the beauty of creation? |
+| `40192417` | Social Determinants of Health | `one_hot` | How much you agree or disagree that people in your neighborhood share the same values? |
+| `40192419` | Social Determinants of Health | `one_hot` | In the last month, how often have you felt confident about your ability to handle your personal problems? |
+| `40192420` | Social Determinants of Health | `ordinal` | How much you agree or disagree that there is a lot of graffiti in your neighborhood? |
+| `40192426` | Social Determinants of Health | `one_hot` | Within the past 12 months, were you worried whether the food you had bought just didn't last and you didn't have money to get more? |
+| `40192431` | Social Determinants of Health | `one_hot` | There are facilities to bicycle in or near my neighborhood, such as special lanes, separate paths or trails, or shared use paths for cycles and pedestrians. Would you say that you... |
+| `40192436` | Social Determinants of Health | `one_hot` | Many shops, stores, markets or other places to buy things I need are within easy walking distance of my home. Would you say that you... |
+| `40192437` | Social Determinants of Health | `one_hot` | There are sidewalks on most of the streets in my neighborhood. Would you say that you... |
+| `40192439` | Social Determinants of Health | `one_hot` | How often do you have someone to have a good time with? |
+| `40192440` | Social Determinants of Health | `one_hot` | It is within a 10-15 minute walk to a transit stop (such as bus, train, trolley, or tram) from my home. Would you say that you... |
+| `40192441` | Social Determinants of Health | `numeric` | In the last 12 months, how many times have you or your family moved from one home to another? Number of moves in past 12 months: |
+| `40192442` | Social Determinants of Health | `one_hot` | How often do you have someone to help you if you were confined to bed? |
+| `40192443` | Social Determinants of Health | `one_hot` | How often do you desire to be closer to or in union with God (or a higher power)? |
+| `40192445` | Social Determinants of Health | `one_hot` | In the last month, how often have you felt that you were on top of things? |
+| `40192446` | Social Determinants of Health | `one_hot` | How often do you have someone to love and make you feel wanted? |
+| `40192449` | Social Determinants of Health | `one_hot` | In the last month, how often have you been able to control irritations in your life? |
+| `40192452` | Social Determinants of Health | `one_hot` | In the last month, how often have you been upset because of something that happened unexpectedly? |
+| `40192456` | Social Determinants of Health | `ordinal` | How much you agree or disagree that your neighborhood is clean? |
+| `40192457` | Social Determinants of Health | `ordinal` | How much you agree or disagree that there is too much drug use in your neighborhood? |
+| `40192458` | Social Determinants of Health | `one_hot` | What is the main type of housing in your neighborhood? |
+| `40192462` | Social Determinants of Health | `one_hot` | In the last month, how often have you felt difficulties were piling up so high that you could not overcome them? |
+| `40192463` | Social Determinants of Health | `one_hot` | How much you agree or disagree that people around here are willing to help their neighbor? |
+| `40192469` | Social Determinants of Health | `ordinal` | How much you agree or disagree that there are lot of abandoned buildings in your neighborhood? |
+| `40192470` | Social Determinants of Health | `one_hot` | How often do you go to religious meetings or services? |
+| `40192471` | Social Determinants of Health | `one_hot` | How often do you feel God's (or a higher power's) love for you, directly or through others? |
+| `40192475` | Social Determinants of Health | `one_hot` | How often do you find strength and comfort in your religion? |
+| `40192476` | Social Determinants of Health | `ordinal` | How much you agree or disagree that there is too much alcohol use in your neighborhood? |
+| `40192480` | Social Determinants of Health | `one_hot` | How often do you have someone to take you to the doctor if you need it? |
+| `40192491` | Social Determinants of Health | `one_hot` | In the last month, how often have you felt nervous and "stressed"? |
+| `40192492` | Social Determinants of Health | `one_hot` | The crime rate in my neighborhood makes it unsafe to go on walks at night. Would you say that you... |
+| `40192493` | Social Determinants of Health | `ordinal` | How much you agree or disagree that there is a lot of crime in your neighborhood? |
+| `40192494` | Social Determinants of Health | `ordinal` | How often do you feel that people are around you but not with you? |
+| `40192498` | Social Determinants of Health | `one_hot` | How often do you feel God's (or a higher power's) presence? |
+| `40192499` | Social Determinants of Health | `one_hot` | How much you agree or disagree that people in your neighborhood can be trusted? |
+| `40192500` | Social Determinants of Health | `ordinal` | How much you agree or disagree that there are too many people hanging around on the streets near your home? |
+| `40192501` | Social Determinants of Health | `ordinal` | How often do you feel isolated from others? |
+| `40192504` | Social Determinants of Health | `ordinal` | How often do you feel that you are an outgoing person? |
+| `40192506` | Social Determinants of Health | `one_hot` | In the last month, how often have you found that you could not cope with all the things that you had to do? |
+| `40192507` | Social Determinants of Health | `ordinal` | How often do you feel lack companionship? |
+| `40192511` | Social Determinants of Health | `one_hot` | How often do you have someone to help you with daily chores if you were sick? |
+| `40192516` | Social Determinants of Health | `ordinal` | How often do you fell that you can find companionship when you want it? |
+| `40192517` | Social Determinants of Health | `one_hot` | Within the past 12 months, were you worried whether your food would run out before you got money to buy more? |
+| `40192522` | Social Determinants of Health | `ordinal` | How much you agree or disagree that your neighborhood is noisy? |
+| `40192525` | Social Determinants of Health | `one_hot` | In the last month, how often have you felt that things were going your way? |
+| `40192528` | Social Determinants of Health | `one_hot` | How often do you have someone to turn to for suggestions about how to deal with a personal problem? |
+| `1585357` | The Basics | `one_hot` | Gender Identity: Sexuality Closer Description |
+| `1585370` | The Basics | `one_hot` | Home Own: Current Home Own |
+| `1585375` | The Basics | `one_hot` | Income: Annual Income |
+| `1585386` | The Basics | `ordinal` | Insurance: Health Insurance |
+| `1585389` | The Basics | `one_hot` | Health Insurance: Health Insurance Type |
+| `1585402` | The Basics | `one_hot` | Living Situation: Current Living |
+| `1585852` | The Basics | `ordinal` | Active Duty: Active Duty Serve Status |
+| `1585879` | The Basics | `one_hot` | Living Situation: How Many Living Years |
+| `1585886` | The Basics | `ordinal` | Living Situation: Stable House Concern |
+| `1585889` | The Basics | `one_hot` | Living Situation: How Many People |
+| `1585890` | The Basics | `one_hot` | Living Situation: People Under 18 |
+| `1585892` | The Basics | `one_hot` | Marital Status: Current Marital Status |
+| `1585899` | The Basics | `one_hot` | The Basics: Sexual Orientation |
+| `1585952` | The Basics | `one_hot` | Employment: Employment Status |
+| `1586135` | The Basics | `one_hot` | The Basics: Birthplace |
+| `43528428` | The Basics | `one_hot` | Health Insurance: Insurance Type Update |
+| `903573` | The Basics | `one_hot` | Disability: Deaf |
+| `903574` | The Basics | `one_hot` | Disability: Blind |
+| `903575` | The Basics | `one_hot` | Disability: Difficulty Concentrating |
+| `903576` | The Basics | `one_hot` | Disability: Walking Climbing |
+| `903577` | The Basics | `one_hot` | Disability: Dressing Bathing |
+| `903578` | The Basics | `one_hot` | Disability: Errands Alone |
+| `zip3_ses` | zip3_ses_map | `numeric` | deprivation_index |
+| `zip3_ses` | zip3_ses_map | `numeric` | median_income |
+| `zip3_ses` | zip3_ses_map | `numeric` | fraction_poverty |
+| `zip3_ses` | zip3_ses_map | `numeric` | fraction_assisted_income |
+| `zip3_ses` | zip3_ses_map | `numeric` | fraction_no_health_ins |
+| `zip3_ses` | zip3_ses_map | `numeric` | fraction_vacant_housing |
+
+The main scoring outputs are:
+
+```text
+regenie_input/ses_ea_proxy/oof_scores.tsv
+regenie_input/ses_ea_proxy/applied_scores.tsv
+regenie_input/ses_ea_proxy/all_scores.tsv
+regenie_input/ses_ea_proxy/fold_metrics.tsv
+regenie_input/ses_ea_proxy/applied_metrics.tsv
+regenie_input/ses_ea_proxy/proxy_covariate_correlations.tsv
+regenie_input/ses_ea_proxy/xgboost_model_manifest.tsv
+regenie_input/ses_ea_proxy/xgboost_feature_columns.json
+regenie_input/ses_ea_proxy/xgboost_models/fold_0.json
+regenie_input/ses_ea_proxy/xgboost_models/fold_1.json
+regenie_input/ses_ea_proxy/xgboost_models/fold_2.json
+regenie_input/ses_ea_proxy/xgboost_models/fold_3.json
+regenie_input/ses_ea_proxy/xgboost_models/fold_4.json
+regenie_input/ses_ea_proxy/xgboost_models/final_model.json
+regenie_input/ses_ea_proxy/phen.txt
+regenie_input/ses_ea_proxy/covar.txt
+regenie_input/ses_ea_proxy/ses_ea_proxy_gwas.summary.tsv
+```
+
+`fold_metrics.tsv` reports the correlation of each held-out fold's OOF score
+with the fold-safe teacher label. `applied_metrics.tsv` reports the same
+correlation for the sixth-model applied samples. `proxy_covariate_correlations.tsv`
+reports correlations with `teacher_z`, EA years, `yob_c`, `sex_c`, and
+PC1 through PC10 by fold, OOF overall, sixth-model applied samples, and the
+combined scored set. The XGBoost model JSON files are saved with the feature
+column hash recorded in `xgboost_model_manifest.tsv`; reload them with the
+same feature order in `xgboost_feature_columns.json` if continuing training or
+auditing predictions.
+
+The generated result files should be read as follows:
+
+```text
+ses_ea_proxy_gwas.summary.tsv
+  One-row-per-metric setup summary: sample filters, final scored sample
+  counts, feature counts, model score scale, OOF performance, and applied-set
+  performance.
+
+fold_metrics.tsv
+  One row for each OOF fold. These are the primary performance checks because
+  every sample in a fold was predicted by a model that did not train on it.
+
+applied_metrics.tsv
+  Performance for the sixth model applied to classified-European samples that
+  were outside fit_pca_iids.
+
+proxy_covariate_correlations.tsv
+  Pearson and Spearman correlations between the proxy score and teacher_z,
+  EA years, yob_c, sex_c, and PC1 through PC10, split by fold, OOF overall,
+  applied samples, and combined scored samples.
+
+feature_importance.tsv
+  Gain/cover importance from the sixth model fit on all eligible fit_pca_iids.
+
+feature_manifest.resolved.tsv
+  Per-question manifest with question_concept_id, survey, item name, resolved
+  encoding, include/exclude status, analog notes, and implementation notes.
+
+xgboost_model_manifest.tsv
+  Saved booster inventory. It records each model file, role, fold id, feature
+  column hash, boost rounds, prediction sample count, and the teacher
+  residualization parameters used by that model.
+```
+
+The saved Booster files can be loaded later with XGBoost for auditing or
+continued training:
+
+```python
+import json
+import xgboost as xgb
+
+with open("xgboost_feature_columns.json") as f:
+    feature_columns = json.load(f)
+
+booster = xgb.Booster()
+booster.load_model("xgboost_models/final_model.json")
+```
+
+If continuing training, rebuild the feature matrix with the same column order
+from `xgboost_feature_columns.json` and pass the loaded booster as
+`xgb_model=` to `xgb.train`.
+
+The cognitive-score command is downstream of this proxy setup: it reads
+`regenie_input/ses_ea_proxy/all_scores.tsv` and
+`regenie_input/ses_ea_proxy/base_covar.txt`.
+
+### ETM cognitive task factor scoring
+
+`run_etm_cog_task_factors.sh` builds task-specific Exploring the Mind cognitive
+scores for the already-defined `ses_ea_proxy` phenotype cohort. It consumes
+`regenie_input/ses_ea_proxy/all_scores.tsv`, so both out-of-fold proxy scores
+and sixth-model applied proxy scores are included. This command does not run a
+GWAS.
+
+```bash
+bash run_etm_cog_task_factors.sh --stage-aggregate
+```
+
+The scorer reads Flanker, GradCPT, Delay Discounting, and Emotional Recognition
+from the ETM off-cycle dataset. Set `WORKSPACE_ETM_CDR` or pass
+`--etm-dataset PROJECT.DATASET` if the dataset name differs. It computes age at
+each task from ETM
+`test_start_date_time` and the main CDR `person.birth_datetime`, and it uses the
+confirmed genetic-sex `sex_c` already present in
+`regenie_input/ses_ea_proxy/base_covar.txt`.
+
+For each task, the scoring order is deliberately fixed:
+
+```text
+1. Apply task-specific invalid-performance QC flags.
+2. Exclude restarted tests when test_restarted is available.
+3. Keep the first valid sitting per person/task by test_start_date_time,
+   then sitting_id.
+4. Build transformed indicators, winsorize them, and z-score them.
+5. Fit the task-specific FA/PCA/simple score on those transformed indicators.
+6. Only after the raw task score is formed, residualize:
+     raw_task_score ~ sex_c + age_at_test + age_at_test^2
+   then z-score the residual.
+```
+
+The individual measurement indicators are not residualized for age or sex
+before FA/PCA. Age and confirmed genetic sex are removed only from the final
+task score, so the factor/PCA loadings are learned from the task measurements
+themselves rather than from age/sex-residualized inputs.
+
+The primary valid-sitting filters are:
+
+| Task | Excluded when any primary condition is true |
+|---|---|
+| Delay Discounting | `flag_median_rt != 0`, `flag_catch_trials != 0`, or `test_restarted` is true |
+| GradCPT | `flag_trial_flags != 0`, `flag_non_response != 0`, `flag_omission_error_rate != 0`, or `test_restarted` is true |
+| Flanker | `flag_accuracy != 0`, `flag_trial_flags != 0`, or `test_restarted` is true |
+| Emotional Recognition | `flag_median_rtc != 0`, `flag_same_response != 0`, `flag_trial_flags != 0`, or `test_restarted` is true |
+
+`any_timeouts` is retained as a diagnostic rather than an exclusion by default.
+
+The command writes a long diagnostic score table plus a one-row-per-sample
+recommended-score table. The recommended scores are:
+
+```text
+dd_patience_z_age_sex          # sourced from official -lnk
+gradcpt_perf_z_age_sex         # PC1 of dprime + RT consistency/speed
+flanker_efficiency_z_age_sex   # Flanker efficiency source selected by diagnostics
+emorecog_perf_z_age_sex        # Emotional Recognition PC1 of score + RT consistency/speed
+```
+
+The current rationale is:
+
+```text
+Delay Discounting:
+  Use official -lnk. It summarizes all four delay-specific log-k fields as
+  log(mean(k)), where k = exp(delay_lnk). The four-delay factor is still
+  computed for diagnostics, but -lnk was stronger against both the SES-EA proxy
+  and teacher-label diagnostics and is the cleaner official aggregate.
+
+GradCPT:
+  Use the PC1 fallback from dprime, -log(cv_rtc), and -log(median_rtc). The
+  one-factor FA optimizer did not converge cleanly because the three-indicator
+  correlation pattern sits on an invalid common-factor boundary, but PC1 was
+  coherent and stable. The component-accuracy sensitivity score is computed but
+  not recommended because no-go accuracy had a weak loading.
+
+Flanker:
+  Use the official AoU Flanker score after age/sex/age^2 norming. The broader
+  one-factor efficiency/interference blend failed the loading rule. The
+  predeclared split-efficiency composite was coherent, but it correlated
+  >=0.95 with the official AoU score, so the simple official score wins by the
+  predeclared simple-score rule.
+
+Emotional Recognition:
+  Score the task with the GradCPT-analog PC1 of score, -log(cv_rtc), and
+  -log(median_rtc), after fixed transforms, winsorization, and z-scoring. The
+  combined PC1 is then residualized on sex_c + age_at_test + age_at_test^2 and
+  z-scored. The older per-emotion rate-correct efficiency factor, per-emotion
+  accuracy factor, and simple score are still written as diagnostics.
+```
+
+The exact GradCPT and Flanker construction used for the final phenotype is:
+
+```text
+GradCPT:
+  valid sitting:
+    flag_trial_flags == 0
+    flag_non_response == 0
+    flag_omission_error_rate == 0
+    test_restarted is false when available
+
+  indicators:
+    dprime
+    -log(cv_rtc)
+    -log(median_rtc)
+
+  preprocessing:
+    require positive cv_rtc and median_rtc before log transforms
+    winsorize each transformed indicator at 0.5th / 99.5th percentiles
+    z-score transformed indicators
+
+  score:
+    attempt one-factor FA
+    use PC1 because FA fell onto an unstable/common-factor boundary
+    orient PC1 so higher means better sustained attention/performance
+
+  final norming:
+    residualize raw PC1 on sex_c + age_at_test + age_at_test^2
+    z-score the residual to write gradcpt_perf_z_age_sex
+
+Flanker:
+  valid sitting:
+    flag_accuracy == 0
+    flag_trial_flags == 0
+    test_restarted is false when available
+
+  broader candidate:
+    log(rcs_incongruent + eps)
+    log(rcs_congruent + eps)
+    -accuracy_interference
+    -median_rt_interference
+
+  predeclared split-efficiency candidate:
+    log(rcs_incongruent + eps)
+    log(rcs_congruent + eps)
+    unit mean of the two transformed, winsorized, z-scored indicators
+
+  selected source:
+    official AoU outcomes.score, named flanker_score in the code
+    the score is "Overall rate correct score transformed to a 0-100 scale"
+    this official score correlated 0.979 with the split-efficiency composite
+    so it won by the simple-score >=0.95 rule
+
+  final norming:
+    residualize official Flanker score on sex_c + age_at_test + age_at_test^2
+    z-score the residual to write flanker_efficiency_z_age_sex
+```
+
+Current aggregate diagnostics from the scored cohort are below. These are not
+pipeline constants; they are regenerated into the diagnostic TSVs whenever the
+command is run on a new cohort/CDR.
+
+| Recommended score | Source used by the pipeline | Scored N | Pearson r with `ses_ea_proxy_z` | Spearman r |
+|---|---|---:|---:|---:|
+| `dd_patience_z_age_sex` | official `-lnk` | 15,148 | 0.281 | 0.266 |
+| `gradcpt_perf_z_age_sex` | PC1 of `dprime`, `-log(cv_rtc)`, `-log(median_rtc)` | 15,195 | 0.260 | 0.247 |
+| `flanker_efficiency_z_age_sex` | selected Flanker efficiency/simple score | 14,629 | 0.250 | 0.240 |
+| `emorecog_perf_z_age_sex` | PC1 of `score`, `-log(cv_rtc)`, `-log(median_rtc)` | 18,486 | 0.116 | 0.108 |
+
+The main PC1 loadings used in the current run were:
+
+| Score | Indicator | PC1 loading |
+|---|---|---:|
+| GradCPT | `dprime` | 0.661 |
+| GradCPT | `-log(cv_rtc)` | 0.614 |
+| GradCPT | `-log(median_rtc)` | 0.432 |
+| Emotional Recognition | `score` | 0.649 |
+| Emotional Recognition | `-log(cv_rtc)` | -0.423 |
+| Emotional Recognition | `-log(median_rtc)` | 0.633 |
+
+The negative Emotional Recognition `cv_rtc` loading is kept intentionally in
+the recommended PC1 because flipping a single indicator after PCA would define a
+different construct. It means this empirical score/RT PC is mostly accuracy plus
+speed, with RT variability entering in the opposite direction for this task.
+
+Repeat valid sittings are uncommon, but they provide a useful test-retest
+diagnostic. The diagnostic fits the production scoring recipe on first valid
+sittings, applies those same transforms/loadings/age-sex residualization
+parameters unchanged to each person's second valid sitting, and then correlates
+first-vs-second task scores.
+
+| Task score | Repeat pairs | Pearson r | Spearman r | Mean second - first z |
+|---|---:|---:|---:|---:|
+| `dd_patience_z_age_sex` | 223 | 0.781 | 0.771 | 0.036 |
+| `gradcpt_perf_z_age_sex` | 64 | 0.892 | 0.904 | 0.150 |
+| `flanker_efficiency_z_age_sex` | 173 | 0.776 | 0.772 | 0.121 |
+| `emorecog_perf_z_age_sex` | 209 | 0.802 | 0.758 | 0.070 |
+
+The repeat gaps are mostly same-day retries rather than year-scale retests:
+65.0% for DD, 84.4% for GradCPT, 57.2% for Flanker, and 69.4% for Emotional
+Recognition. These correlations are encouraging, but they should be read as
+short-interval repeatability more than long-term stability.
+
+Individual-level cognitive score files stay in:
+
+```text
+data/regenie/ses_ea_proxy_scrap/etm_cog_task_factors/
+```
+
+Aggregate diagnostics can be staged to:
+
+```text
+regenie_input/ses_ea_proxy/scrap/etm_cog_task_factors/
+```
+
+Diagnostics include factor loadings, indicator correlation matrices, dropped
+redundant indicators, factor-vs-simple-score correlations, SES-EA/teacher
+correlations, repeat-sitting counts, and age/sex plus administration-metadata
+sensitivity checks.
+
+The most useful output files are:
+
+```text
+etm_cog_task_factors_recommended_wide.tsv
+  One row per SES-EA proxy-cohort sample, with the four recommended
+  age/sex-normalized cognitive scores and task-specific sitting metadata.
+
+etm_cog_task_factors_recommended_sources.tsv
+  The exact source score used for each recommended score.
+
+etm_cog_task_factors_correlations.tsv
+  Proxy, teacher, EA-years, and proxy-plus-teacher correlations for all
+  candidate and recommended scores, split by combined/oof/applied role.
+
+etm_cog_task_factors_recommended_cross_task_correlations.tsv
+  Pairwise correlations among the recommended task scores and the existing
+  three-domain ETM-g score when that output is present.
+
+etm_cog_task_factors_emorecog_*.tsv
+  Emotional Recognition-specific indicator, loading, simple-score, QC,
+  timeout, age/sex, administration-metadata, and cross-task diagnostics.
+```
+
+### ETM general cognitive/performance factor scoring
+
+`run_etm_g_from_task_scores.sh` builds downstream ETM general
+cognitive/performance factor scores from the recommended task scores. It reads
+the task-score output and the SES-EA proxy cohort files only; it does not query
+ETM tables again and does not run GWAS.
+
+```bash
+bash run_etm_g_from_task_scores.sh --stage-aggregate
+```
+
+The primary three-domain score is retained for continuity:
+
+```text
+dd_patience_z_age_sex          # official -lnk, age/sex-normalized upstream
+gradcpt_perf_z_age_sex         # GradCPT PC1 score, age/sex-normalized upstream
+flanker_efficiency_z_age_sex   # Flanker efficiency score, age/sex-normalized upstream
+```
+
+When `emorecog_perf_z_age_sex` is present, the same command also writes a
+four-domain score:
+
+```text
+etm_g4_z                       # DD + GradCPT + Flanker + Emotional Recognition
+```
+
+The ETM-g command fits a one-factor Gaussian factor model only in participants
+with all selected task scores observed. Before model fitting, the selected task
+scores are re-centered and re-scaled using the all-task complete-case reference
+sample:
+
+```text
+x_ij = (task_ij - mean_j_complete_case) / sd_j_complete_case
+
+x_DD       = lambda_DD       * g + error_DD
+x_GradCPT  = lambda_GradCPT  * g + error_GradCPT
+x_Flanker  = lambda_Flanker  * g + error_Flanker
+x_EmoRecog = lambda_EmoRecog * g + error_EmoRecog   # four-domain model only
+```
+
+The learned loadings and uniquenesses are then applied to everyone with at
+least one observed selected task score. Missing tasks are not imputed. For each
+observed task pattern, the score is the regression factor-score point estimate:
+
+```text
+g_hat_i = lambda_O' * Sigma_O^{-1} * x_iO
+Sigma_O = lambda_O lambda_O' + diag(psi_O)
+```
+
+One-task scores are therefore intentionally shrunk toward zero; the command does
+not divide by the sum of available weights or z-score within missingness
+pattern. The final ETM-g score is z-scored using the complete-case `g_hat`
+distribution. It is not residualized again for age or sex because the task
+inputs were already age/sex-normalized upstream. Age/sex correlations and
+regressions are written as validation diagnostics only.
+
+Current complete-case FA loadings and external-validity diagnostics:
+
+| Model | Complete-case N | Scored N | DD loading | GradCPT loading | Flanker loading | EmoRecog loading | Pearson r with proxy | Pearson r with teacher |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Three-domain `etm_g_z` | 11,165 | 19,613 | 0.170 | 0.658 | 0.706 | NA | 0.290 | 0.202 |
+| Four-domain `etm_g4_z` | 11,077 | 22,121 | 0.154 | 0.789 | 0.588 | 0.321 | 0.274 | 0.188 |
+
+Among complete cases only, the proxy correlations were:
+
+| Model | Complete-case definition | N | Pearson r with proxy | Spearman r with proxy |
+|---|---|---:|---:|---:|
+| `etm_g_z` | DD + GradCPT + Flanker observed | 11,165 | 0.306 | 0.291 |
+| `etm_g4_z` | DD + GradCPT + Flanker + EmoRecog observed | 11,077 | 0.298 | 0.282 |
+
+The four-domain score is accepted by the loading checks and adds coverage for
+people with only Emotional Recognition observed, but in the current run it is
+slightly weaker against the SES-EA proxy than the three-domain score. The
+three-domain score is therefore kept as the continuity/primary ETM-g phenotype,
+with `etm_g4_z` available as the four-domain coverage/sensitivity score.
+
+The current four-task positive-manifold check was:
+
+| Pair | Pair-available N | Pearson r |
+|---|---:|---:|
+| DD vs GradCPT | 12,487 | 0.114 |
+| DD vs Flanker | 12,271 | 0.128 |
+| DD vs Emotional Recognition | 13,887 | 0.057 |
+| GradCPT vs Flanker | 11,766 | 0.466 |
+| GradCPT vs Emotional Recognition | 13,459 | 0.270 |
+| Flanker vs Emotional Recognition | 13,148 | 0.182 |
+
+The age/sex validation checks on the final ETM-g scores were small:
+
+| Score | N | Pearson r with `sex_c` | Pearson r with `yob_c` | Linear age/sex R^2 | Quadratic age/sex R^2 |
+|---|---:|---:|---:|---:|---:|
+| `etm_g_z` | 19,613 | -0.002 | 0.002 | 0.000006 | 0.000011 |
+| `etm_g4_z` | 22,121 | -0.001 | 0.003 | 0.000011 | 0.000011 |
+
+Local individual-level outputs stay in:
+
+```text
+data/regenie/ses_ea_proxy_scrap/etm_cog_task_factors/etm_general_factor/
+```
+
+The main files are:
+
+```text
+etm_general_factor_scores_wide.tsv
+  One row per SES-EA proxy-cohort sample. `etm_g_z` is the three-domain score.
+  `etm_g4_z` is present when the four-domain model passes the loading/positive-
+  manifold checks and the person has at least one observed task score among the
+  four domains.
+
+etm_general_factor_scores_scored_only.tsv
+  Convenience subset with only participants who have at least one observed ETM
+  task score.
+```
+
+Aggregate diagnostics are written locally under:
+
+```text
+data/regenie/ses_ea_proxy_scrap/etm_cog_task_factors/etm_general_factor/diagnostics/
+```
+
+With `--stage-aggregate`, only diagnostic tables are staged to:
+
+```text
+regenie_input/ses_ea_proxy/scrap/etm_cog_task_factors/etm_general_factor/
+```
+
+Diagnostics include complete-case and pair-available task correlations, FA
+loadings and uniquenesses, model-implied and residual correlations,
+pattern-specific scoring weights, score distributions by missingness pattern,
+age/sex validation, SES-EA/teacher/EA-years correlations, comparison scores,
+the three-vs-four ETM-g comparison, and the GradCPT/Flanker
+`etm_attention_exec_z` diagnostic score. These diagnostics do not choose or
+alter the phenotype.
+
+### G4-finetuned SES-EA proxy scoring
+
+`run_g4_finetuned_ea_proxy.sh` is an optional downstream command that starts
+from the six saved SES-EA proxy XGBoost boosters and continues training them
+toward the four-domain ETM general cognitive/performance target, `etm_g4_z`.
+It does not run GWAS, re-query BigQuery, retrain the original SES-EA proxy from
+scratch, or overwrite the base booster JSON files.
+
+```bash
+bash run_g4_finetuned_ea_proxy.sh --stage-aggregate
+```
+
+The output score is:
+
+```text
+g4_finetuned_ea_proxy_z
+```
+
+This is a G4-targeted survey proxy initialized from the SES-EA proxy booster.
+It should be interpreted as a cognitive-function-enriched predictive score, not
+as an observed cognitive score or as a causal mediation estimate.
+
+The command consumes:
+
+```text
+regenie_input/ses_ea_proxy/all_scores.tsv
+regenie_input/ses_ea_proxy/xgboost_feature_columns.json
+regenie_input/ses_ea_proxy/xgboost_model_manifest.tsv
+regenie_input/ses_ea_proxy/xgboost_models/fold_0.json ... fold_4.json
+regenie_input/ses_ea_proxy/xgboost_models/final_model.json
+data/regenie/ses_ea_proxy_scrap/etm_cog_task_factors/etm_cog_task_factors_recommended_wide.tsv
+data/regenie/ses_ea_proxy_scrap/etm_cog_task_factors/etm_general_factor/etm_general_factor_scores_wide.tsv
+```
+
+It rebuilds the SES-EA survey feature matrix by reusing the same feature helper
+code as `setup_ses_ea_proxy_gwas.py`, then requires the ordered feature list to
+match `xgboost_feature_columns.json` exactly. The SHA-256 hash must match both
+`xgboost_model_manifest.tsv` and the saved booster attributes. ETM task scores
+and ETM-g values are labels and diagnostics only; they are never used as model
+features.
+
+The primary fine-tuning labels are participants with finite `etm_g4_z` who also
+completed at least one of the two strongest ETM domains:
+
+```text
+finite(etm_g4_z)
+AND (
+  finite(gradcpt_perf_z_age_sex)
+  OR finite(flanker_efficiency_z_age_sex)
+)
+```
+
+Samples with ETM-g4 but neither GradCPT nor Flanker are retained for prediction
+and diagnostics, but not used as primary fine-tuning labels. A sensitivity mode
+can use all finite ETM-g4 labels:
+
+```bash
+bash run_g4_finetuned_ea_proxy.sh --target all-etm-g4 --stage-aggregate
+```
+
+The fine-tuning keeps the original cross-fit design. For OOF fold `k`, the
+command loads `xgboost_models/fold_k.json`, fine-tunes only on target-eligible
+`role=oof` samples with `fold_id != k`, and predicts the original held-out
+`fold_id == k` samples. The final applied model loads `final_model.json`,
+fine-tunes on all target-eligible OOF samples, and predicts only
+`role=applied` samples. Thus target-labeled samples are predicted by models
+that did not fine-tune on them.
+
+Because continued XGBoost training appends trees to boosters whose raw outputs
+are on the original SES-EA proxy raw-score scale, the ETM-g4 label is aligned
+within each fold's allowed fine-tuning rows before training:
+
+```text
+y_g4_aligned =
+  mean(base_score_raw_train)
+  + sd(base_score_raw_train)
+    * ((etm_g4_z - mean(etm_g4_z_train)) / sd(etm_g4_z_train))
+```
+
+The model trains on `y_g4_aligned`, but validation diagnostics still correlate
+against the original `etm_g4_z`. The final phenotype is then standardized over
+the full SES-EA proxy cohort:
+
+```text
+g4_finetuned_ea_proxy_z =
+  zscore(g4_finetuned_ea_proxy_raw over all scored cohort rows)
+```
+
+Fine-tuned outputs are written locally under:
+
+```text
+data/regenie/ses_ea_proxy_scrap/g4_finetuned_ea_proxy/
+```
+
+and copied to the workspace bucket under:
+
+```text
+regenie_input/g4_finetuned_ea_proxy/
+```
+
+The main files are:
+
+```text
+g4_finetuned_ea_proxy_scores_wide.tsv
+g4_finetuned_ea_proxy_oof_scores.tsv
+g4_finetuned_ea_proxy_applied_scores.tsv
+phen.txt
+base_covar.txt
+covar.txt
+training_iids.txt
+g4_finetuned_model_manifest.tsv
+g4_finetuned_params.tsv
+g4_finetuned_runtime_manifest.json
+xgboost_models/fold_0_g4_finetuned.json
+xgboost_models/fold_1_g4_finetuned.json
+xgboost_models/fold_2_g4_finetuned.json
+xgboost_models/fold_3_g4_finetuned.json
+xgboost_models/fold_4_g4_finetuned.json
+xgboost_models/final_model_g4_finetuned.json
+```
+
+With `--stage-aggregate`, aggregate diagnostic tables are also staged to:
+
+```text
+regenie_input/ses_ea_proxy/scrap/g4_finetuned_ea_proxy/
+```
+
+Those diagnostics include target-overlap counts, label-alignment means and SDs,
+selected appended-tree rounds, before/after correlations with `etm_g4_z`,
+teacher and EA-years retention, covariate correlations with YOB/sex/PCs, score
+distributions in ETM and non-ETM samples, feature-importance comparisons, and
+task-pattern validation. These diagnostics should be reviewed before using
+`g4_finetuned_ea_proxy_z` as a downstream phenotype.
+
+### GradCPT/Flanker fine-tuned SES-EA proxy scoring
+
+`run_gradcpt_flanker_finetuned_ea_proxy.sh` uses the same continued-training
+machinery as the G4 fine-tune, but it targets only the two strongest ETM task
+domains:
+
+```bash
+bash run_gradcpt_flanker_finetuned_ea_proxy.sh --stage-aggregate
+```
+
+The fine-tuning label is defined only for samples with both task scores:
+
+```text
+gradcpt_flanker_mean_z = zscore(mean(gradcpt_perf_z_age_sex,
+                                     flanker_efficiency_z_age_sex))
+```
+
+For each fold, the command excludes the held-out fold from fine-tuning, aligns
+the GradCPT and Flanker component scores to that fold booster's raw prediction
+mean and SD, averages the aligned components, and z-matches that combined label
+to the same booster raw scale before appending trees. Validation diagnostics
+are reported against the unaligned `gradcpt_flanker_mean_z`, plus `teacher_z`
+and EA years.
+
+The first-stage fine-tuned booster score is:
+
+```text
+gradcpt_flanker_finetuned_ea_proxy_z
+```
+
+The output needed by the final selected phenotype is the first-stage
+fine-tuned booster score:
+
+```text
+gradcpt_flanker_finetuned_ea_proxy_z
+```
+
+Earlier runs also wrote a teacher-including linear calibration as a diagnostic
+branch. That branch is retained in some output tables for audit/history, but it
+is not the final selected phenotype. The final selected phenotype is built later
+by `run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh`, using
+this fine-tuned booster score together with the original SES-EA proxy and the
+direct scratch-XGBoost score.
+
+Outputs are written locally under:
+
+```text
+data/regenie/ses_ea_proxy_scrap/gradcpt_flanker_finetuned_ea_proxy/
+```
+
+and copied to:
+
+```text
+regenie_input/gradcpt_flanker_finetuned_ea_proxy/
+```
+
+If `SES_EA_PROXY_GWAS_INPUT_NAME` is not the legacy `ses_ea_proxy`, the wrapper
+automatically suffixes the output name to avoid overwriting earlier runs. For
+example, rebuilding from `ses_ea_proxy_v2_kinholdout` writes to:
+
+```text
+data/regenie/ses_ea_proxy_scrap/gradcpt_flanker_finetuned_ea_proxy_ses_ea_proxy_v2_kinholdout/
+regenie_input/gradcpt_flanker_finetuned_ea_proxy_ses_ea_proxy_v2_kinholdout/
+regenie_input/ses_ea_proxy_v2_kinholdout/scrap/gradcpt_flanker_finetuned_ea_proxy_ses_ea_proxy_v2_kinholdout/
+```
+
+The selected fine-tuning defaults for this two-domain target are:
+
+```text
+eta = 0.03
+max_depth = 4
+min_child_weight = 20
+lambda = 2
+max_rounds = 1000
+early_stopping_rounds = 50
+valid_fraction = 0.20
+```
+
+These settings append new trees to the saved SES-EA boosters; the original
+booster trees are reused as a fixed initialization and are not modified. The
+wrapper sets these defaults, but the `G4_FINETUNE_*` environment variables can
+still override them for sensitivity runs.
+
+During development, this target mode also wrote a teacher-including
+second-stage linear calibration as a diagnostic branch:
+
+```text
+gradcpt_flanker_mean_z
+  ~ teacher_z
+  + ses_ea_proxy_z
+  + gradcpt_flanker_finetuned_ea_proxy_z
+```
+
+That branch was useful for checking how much direct teacher-label information
+changed GradCPT/Flanker prediction, but it is not the selected phenotype. The
+selected phenotype uses the fine-tuned booster score as one of three inputs in
+the final no-teacher 18k calibration.
+
+### Direct GradCPT/Flanker scratch XGBoost proxy
+
+`run_gradcpt_flanker_direct_xgb_proxy.sh` is a downstream benchmark/candidate
+that trains survey-to-cognition boosters from scratch rather than appending
+trees to the SES-EA proxy boosters:
+
+```bash
+bash run_gradcpt_flanker_direct_xgb_proxy.sh --stage-aggregate
+```
+
+The command uses the same outer fold structure as the SES-EA proxy. OOF fold
+`k` is trained on fit-PCA samples from folds other than `k` and predicts fold
+`k`. The final applied model is trained only on fit-PCA samples with
+`final_model_train_allowed == 1`, which excludes fit-PCA samples related to the
+applied cohort at KING kinship `>= 0.0441941`, then predicts all applied
+samples.
+
+The scratch XGBoost model uses the original SES-EA proxy training procedure and
+hyperparameters:
+
+```text
+eta = 0.05
+max_depth = 6
+min_child_weight = 20
+lambda = 1
+subsample = 0.8
+colsample_bytree = 0.8
+num_boost_round = 2000
+early_stopping_rounds = 50
+internal validation = 4-fold xgb.cv within the allowed training pool
+```
+
+The feature matrix starts with the exact SES-EA proxy feature contract, then
+adds The Basics education item `1585940` as both a revised numeric years feature
+and one-hot response indicators. This is intentional for this direct cognitive
+proxy benchmark: unlike the original EA proxy, this model is not being trained
+to predict the education item itself.
+
+The training target uses all samples with at least one of the two strongest ETM
+task scores, not just people who completed both:
+
+```text
+gradcpt_perf_z_age_sex
+flanker_efficiency_z_age_sex
+```
+
+Among complete cases, the current GradCPT-Flanker correlation is about `0.466`,
+so the equal-loading two-indicator model uses loading `sqrt(0.466) ~= 0.683`.
+People with both tests receive the two-test regression factor score. People
+with only one test receive a shrunken one-test estimate, approximately
+`0.683 * observed_task_z`, instead of treating a single task as full-strength
+general cognition. The resulting `gradcpt_flanker_factor_z` is z-scored using
+the both-test complete-case reference.
+
+For each scratch XGBoost fit, the training labels are rescaled to match the
+mean and SD of `ses_ea_proxy_z` in that model's allowed target-labeled training
+samples. This keeps the direct target on the same broad scale as the proxy
+scores while preserving fold safety.
+
+The direct score needed by the final selected phenotype is:
+
+```text
+gradcpt_flanker_direct_xgb_proxy_z
+```
+
+Earlier scratch-XGBoost runs also evaluated teacher-including three- and
+four-variable calibrations as diagnostics. Those comparisons are useful history,
+but the final selected phenotype uses the no-teacher 18k calibration described
+below.
+
+## Final Selected Phenotype: 18k No-Teacher GradCPT/Flanker Calibration
+
+The final selected phenotype is:
+
+```text
+gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z
+```
+
+It is built from three fold-safe survey-derived predictors:
+
+```text
+ses_ea_proxy_z
+gradcpt_flanker_finetuned_ea_proxy_z
+gradcpt_flanker_direct_xgb_proxy_z
+```
+
+The calibration target is `gradcpt_flanker_factor_z`, a missing-pattern-aware
+GradCPT/Flanker factor target for everyone with at least one of the two task
+scores. Participants with both tests contribute the two-test score; one-test
+participants contribute a shrunken one-test factor estimate based on the
+GradCPT-Flanker complete-case correlation. The final linear calibration excludes
+`teacher_z` by design, so the selected phenotype is not a direct linear blend
+with the education teacher label.
+
+The calibration is fold-safe. For OOF fold `k`, the linear model is fit on
+target-labeled OOF samples from the other four folds and predicts all samples in
+fold `k`. The applied model is fit on target-labeled OOF samples allowed by the
+kinship holdout and predicts the applied cohort. The resulting raw prediction is
+z-scored over all 216,482 SES-EA proxy cohort rows.
+
+### Fold-safe prediction and kinship safety
+
+The final phenotype is designed so that each participant's score is produced by
+models that did not train on that participant's own row. In other words, the
+participant's own survey responses, area-SES features, genetic sex feature, and
+education-response feature where applicable are used as predictors when scoring
+that participant, but those same feature values and that participant's own
+teacher/cognitive outcome labels are not part of the training data for the
+model that generates that participant's prediction.
+
+This rule is applied at every predictive layer:
+
+```text
+Original SES-EA proxy:
+  OOF fold k is predicted by an XGBoost model trained on the other four
+  fit_pca folds. The applied cohort is predicted by a sixth model trained on
+  fit_pca samples after excluding fit-PCA relatives of applied samples at
+  KING kinship >= 0.0441941.
+
+GradCPT/Flanker fine-tuned EA proxy:
+  OOF fold k is predicted by the corresponding fine-tuned fold model. Its
+  cognitive fine-tuning labels come only from the other four OOF folds. The
+  applied model is fine-tuned only on final_model_train_allowed OOF samples.
+
+Direct GradCPT/Flanker scratch XGBoost proxy:
+  OOF fold k is predicted by a scratch XGBoost model trained on GradCPT/Flanker
+  labels from the other four OOF folds. The applied model is trained only on
+  final_model_train_allowed OOF samples.
+
+Final 3-variable linear calibration:
+  OOF fold k is predicted by a linear model fit on target-labeled OOF samples
+  from the other four folds. The applied cohort is predicted by a linear model
+  fit only on target-labeled final_model_train_allowed OOF samples.
+```
+
+The OOF rows are members of the PCA-fit sample set, which was selected using
+the third-degree KING relatedness cutoff. Thus, for OOF predictions, the other
+fit-PCA folds should not contain relatives of the held-out sample at
+`KINSHIP >= 0.0441941`, the cutoff used here for first-cousin/third-degree-or-
+closer relatedness. For the applied rows, the `final_model_train_allowed` flag
+additionally removes fit-PCA samples related to any applied sample at the same
+`0.0441941` threshold before fitting the sixth/final models. In that practical
+sense, the final phenotype for a sample comes from survey-based predictions
+made by models trained on held-out and threshold-based kinship-clean training
+samples.
+
+The selected run produced a finite phenotype for every row in the SES-EA proxy
+cohort and used the same sample count as the completed GWAS:
+
+```text
+Total rows:                               216,482
+OOF / fit_pca rows:                       198,266
+Applied rows:                              18,216
+Calibration target labels, either task:    18,058
+OOF target labels:                         16,439
+Applied target labels:                      1,619
+Final-model kinholdout target labels:      15,659
+```
+
+Primary validation correlations were:
+
+| Group | Target | N | Pearson r | Spearman r |
+|---|---|---:|---:|---:|
+| Full cohort | `teacher_z` | 216,482 | 0.657842 | 0.635796 |
+| OOF | `teacher_z` | 198,266 | 0.656777 | 0.633453 |
+| Applied | `teacher_z` | 18,216 | 0.664210 | 0.648930 |
+| Either GradCPT or Flanker | `gradcpt_flanker_factor_z` | 18,058 | 0.364319 | 0.348736 |
+| Both GradCPT and Flanker | `gradcpt_flanker_factor_z` | 11,766 | 0.375980 | 0.361088 |
+| Both GradCPT and Flanker | `gradcpt_flanker_mean_z` | 11,766 | 0.376075 | 0.361160 |
+
+The 18k calibration-cohort scale check was:
+
+| Variable | N | Mean | SD | Skew |
+|---|---:|---:|---:|---:|
+| `ses_ea_proxy_z` | 18,058 | 0.408 | 0.779 | -0.692 |
+| `gradcpt_flanker_finetuned_ea_proxy_z` | 18,058 | 0.385 | 0.666 | -0.677 |
+| `gradcpt_flanker_direct_xgb_proxy_z` | 18,058 | 0.354 | 0.910 | -0.706 |
+| `gradcpt_flanker_factor_z` | 18,058 | -0.058 | 0.961 | -0.132 |
+| Final no-teacher calibrated phenotype | 18,058 | 0.392 | 0.823 | -0.704 |
+
+The full-cohort phenotype distribution was standardized after prediction:
+
+| Variable | N | Mean | SD | Skew |
+|---|---:|---:|---:|---:|
+| `gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z` | 216,482 | 0.000 | 1.000 | -0.595 |
+
+The six fold-safe linear calibration coefficients were:
+
+| Fit | Train N | Predict N | Intercept | `ses_ea_proxy_z` | Fine-tuned XGB | Direct XGB |
+|---|---:|---:|---:|---:|---:|---:|
+| OOF fold 0 | 13,101 | 39,882 | -0.224622 | 0.031262 | 0.126141 | 0.295115 |
+| OOF fold 1 | 13,177 | 39,478 | -0.233044 | 0.026372 | 0.154263 | 0.275717 |
+| OOF fold 2 | 13,092 | 39,835 | -0.232062 | 0.046002 | 0.122295 | 0.284922 |
+| OOF fold 3 | 13,177 | 39,607 | -0.217658 | 0.041932 | 0.140779 | 0.274664 |
+| OOF fold 4 | 13,209 | 39,464 | -0.224152 | 0.036025 | 0.136518 | 0.275071 |
+| Applied kinholdout | 15,659 | 18,216 | -0.226704 | 0.031893 | 0.142250 | 0.281050 |
+
+The final GWAS used:
+
+```text
+Phenotype:  gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z
+Samples:    216,482
+Covariates: sex_c + PC1_AVG ... PC10_AVG
+RINT:       enabled
+Step 1:     494,984 direct variants
+Step 2:     7,251,393 WGS variants across 22 chromosomes
+```
+
+The completed lightweight GWAS outputs are written under:
+
+```text
+regenie_output/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas/lightweight/
+```
+
+Diagnostic files for the final calibration are written under:
+
+```text
+regenie_input/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_ses_ea_proxy_v2_kinholdout/diagnostics/
+
+factor18_no_teacher_calibration_coefficients.tsv
+factor18_no_teacher_calibration_correlations.tsv
+factor18_no_teacher_calibration_distributions.tsv
+```
