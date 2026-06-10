@@ -10,13 +10,13 @@ from collections import Counter
 
 
 EA_MAPPING = {
-    1585941: 1.0,    # Never attended
-    1585942: 2.5,    # Grades 1-4 midpoint
-    1585943: 6.5,    # Grades 5-8 midpoint
+    1585941: 9.0,    # Never attended, clamped with sparse low-education bins
+    1585942: 9.0,    # Grades 1-4, clamped with sparse low-education bins
+    1585943: 9.0,    # Grades 5-8, clamped with sparse low-education bins
     1585944: 10.0,   # Some high school
     1585945: 13.0,   # Twelve or GED
     1585946: 15.0,   # College one to three
-    1585947: 17.0,   # College graduate
+    1585947: 18.0,   # College graduate
     1585948: 20.0,   # Advanced degree
 }
 

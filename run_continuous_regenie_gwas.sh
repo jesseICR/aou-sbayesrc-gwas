@@ -520,11 +520,13 @@ done
 
 lightweight_dir="${output_dir}/lightweight"
 lightweight_summary="${lightweight_dir}/regenie_lite.summary.tsv"
+lightweight_params="${lightweight_dir}/regenie_lite.params.tsv"
 lightweight_columns="rsid,allele1,a1freq,n,beta,se,log10p"
 lightweight_total_rows="NA"
 if [[ "${MAKE_LIGHTWEIGHT_OUTPUTS}" == "1" ]]; then
     lightweight_valid=0
-    if [[ -s "${lightweight_summary}" ]]; then
+    if [[ -s "${lightweight_summary}" && -s "${lightweight_params}" ]] &&
+       diff -q "${desired_params}" "${lightweight_params}" >/dev/null 2>&1; then
         lightweight_total_rows=$(awk -F'\t' -v cols="${lightweight_columns}" '
             NR > 1 {
                 s += $5
@@ -557,6 +559,7 @@ if [[ "${MAKE_LIGHTWEIGHT_OUTPUTS}" == "1" ]]; then
             echo "ERROR: missing lightweight summary ${lightweight_summary}" >&2
             exit 1
         fi
+        cp "${desired_params}" "${lightweight_params}"
         lightweight_total_rows=$(awk -F'\t' 'NR > 1 {s += $5} END {print s + 0}' "${lightweight_summary}")
         if [[ "${lightweight_total_rows}" != "${total_tested}" ]]; then
             echo "ERROR: lightweight rows ${lightweight_total_rows} do not match tested variants ${total_tested}" >&2

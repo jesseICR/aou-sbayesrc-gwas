@@ -71,7 +71,7 @@ desired_params="${LOCAL_REGENIE_DIR}/ea_gwas.desired_params.tsv"
     printf 'parameter\tvalue\n'
     printf 'workspace_cdr\t%s\n' "${WORKSPACE_CDR}"
     printf 'ea_question_concept_id\t%s\n' "${EA_QUESTION_CONCEPT_ID}"
-    printf 'ea_mapping\t%s\n' "1585941=1;1585942=2.5;1585943=6.5;1585944=10;1585945=13;1585946=15;1585947=17;1585948=20"
+    printf 'ea_mapping\t%s\n' "1585941=9;1585942=9;1585943=9;1585944=10;1585945=13;1585946=15;1585947=18;1585948=20"
     printf 'ea_n_pcs\t%s\n' "${EA_N_PCS}"
     printf 'gwas_min_age_at_survey\t%s\n' "${GWAS_MIN_AGE_AT_SURVEY}"
     printf 'europeans_size\t%s\n' "$(stat -c%s "${europeans}")"
@@ -139,13 +139,13 @@ WITH codeable AS (
   SELECT
     CAST(s.person_id AS STRING) AS IID,
     CAST(CASE s.answer_concept_id
-      WHEN 1585941 THEN 1.0
-      WHEN 1585942 THEN 2.5
-      WHEN 1585943 THEN 6.5
+      WHEN 1585941 THEN 9.0
+      WHEN 1585942 THEN 9.0
+      WHEN 1585943 THEN 9.0
       WHEN 1585944 THEN 10.0
       WHEN 1585945 THEN 13.0
       WHEN 1585946 THEN 15.0
-      WHEN 1585947 THEN 17.0
+      WHEN 1585947 THEN 18.0
       WHEN 1585948 THEN 20.0
       ELSE NULL
     END AS FLOAT64) AS ea_years,
