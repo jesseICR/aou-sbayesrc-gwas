@@ -19,6 +19,15 @@ DX_GENETIC_SEX_URI="${DX_GENETIC_SEX_URI:-${WORKSPACE_BUCKET_URI}/sbayesrc_genot
 local_scrap="${LOCAL_REGENIE_DIR}/genetic_sex_scrap"
 mkdir -p "${DX_GENETIC_SEX_DIR}/scrap" "${LOCAL_REGENIE_DIR}" "${local_scrap}"
 
+run_wb() {
+    local timeout_seconds="${WB_RESOURCE_TIMEOUT_SECONDS:-300}"
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "${timeout_seconds}" wb "$@"
+    else
+        wb "$@"
+    fi
+}
+
 choose_bq_tmp_dataset() {
     local requested="${1:-}" candidate
     if [[ -n "${requested}" ]]; then
@@ -37,8 +46,30 @@ choose_bq_tmp_dataset() {
         printf '%s\n' "${candidate}"
         return 0
     fi
-    echo "ERROR: no existing BigQuery dataset found in ${GOOGLE_PROJECT} for temporary tables." >&2
-    echo "  Set SBAYESRC_BQ_TMP_DATASET or GENETIC_SEX_BQ_TMP_DATASET to an existing writable dataset." >&2
+
+    candidate="sbayesrc_tmp"
+    echo "  No existing BigQuery dataset found in ${GOOGLE_PROJECT}; attempting to create ${candidate} ..." >&2
+    if command -v wb >/dev/null 2>&1; then
+        if run_wb resource create bq-dataset \
+            --id="${candidate}" \
+            --dataset-id="${candidate}" \
+            --location=us-central1 >/dev/null 2>&1; then
+            if bq --project_id="${GOOGLE_PROJECT}" show "${GOOGLE_PROJECT}:${candidate}" >/dev/null 2>&1; then
+                printf '%s\n' "${candidate}"
+                return 0
+            fi
+        fi
+    fi
+
+    if bq --project_id="${GOOGLE_PROJECT}" mk --dataset "${GOOGLE_PROJECT}:${candidate}" >/dev/null 2>&1; then
+        if bq --project_id="${GOOGLE_PROJECT}" show "${GOOGLE_PROJECT}:${candidate}" >/dev/null 2>&1; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    fi
+
+    echo "ERROR: no existing BigQuery dataset found in ${GOOGLE_PROJECT}, and automatic creation of ${candidate} failed." >&2
+    echo "  Create a writable BigQuery dataset in this AoU workspace or set SBAYESRC_BQ_TMP_DATASET/GENETIC_SEX_BQ_TMP_DATASET." >&2
     return 1
 }
 

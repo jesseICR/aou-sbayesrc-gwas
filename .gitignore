@@ -4,7 +4,8 @@ data/*
 !data/aou_metadata/
 data/aou_metadata/*
 !data/aou_metadata/aou_ds_survey_question_concepts.tsv
-logs/
+logs/*
+!logs/.gitkeep
 scrap/
 tools/
 __pycache__/

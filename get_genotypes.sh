@@ -70,6 +70,74 @@ export AOU_PGEN_DIR="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/acaf_threshold
 
 # Workspace bucket (rw). All durable pipeline output lives under here.
 export WORKSPACE_BUCKET_MOUNT="/home/jupyter/workspace/workspace-bucket"
+
+is_workspace_bucket_fuse_mounted() {
+    mount | awk -v target="${WORKSPACE_BUCKET_MOUNT}" '
+        $2 == "on" && $3 == target && $4 == "type" && $5 == "fuse.gcsfuse" {
+            found = 1
+        }
+        END { exit found ? 0 : 1 }
+    '
+}
+
+run_wb() {
+    local timeout_seconds="${WB_RESOURCE_TIMEOUT_SECONDS:-300}"
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "${timeout_seconds}" wb "$@"
+    else
+        wb "$@"
+    fi
+}
+
+ensure_workspace_bucket_mount() {
+    if is_workspace_bucket_fuse_mounted && [[ -w "${WORKSPACE_BUCKET_MOUNT}" ]]; then
+        return 0
+    fi
+
+    echo "Workspace bucket is not currently mounted at ${WORKSPACE_BUCKET_MOUNT}; attempting Workbench setup ..."
+    if ! command -v wb >/dev/null 2>&1; then
+        echo "ERROR: ${WORKSPACE_BUCKET_MOUNT} is not a writable gcsfuse mount, and 'wb' is unavailable." >&2
+        echo "  This pipeline needs the AoU/Verily workspace bucket mounted as durable GCS-backed storage." >&2
+        exit 1
+    fi
+
+    echo "  Mounting existing Workbench bucket resources ..."
+    if run_wb resource mount --allow-other &&
+       is_workspace_bucket_fuse_mounted && [[ -w "${WORKSPACE_BUCKET_MOUNT}" ]]; then
+        return 0
+    fi
+
+    if run_wb resource resolve --id=workspace-bucket >/dev/null 2>&1; then
+        echo "  Found Workbench resource workspace-bucket."
+    else
+        echo "  Workbench resource workspace-bucket not found; attempting to create it ..."
+        if ! run_wb resource create gcs-bucket --id=workspace-bucket --location=US-CENTRAL1; then
+            if run_wb resource resolve --id=workspace-bucket >/dev/null 2>&1; then
+                echo "  Workbench resource workspace-bucket is now available after create returned nonzero; continuing."
+            else
+                echo "ERROR: could not create Workbench GCS resource workspace-bucket." >&2
+                echo "  Create or attach a writable workspace bucket resource in AoU Workbench, then restart/remount the session." >&2
+                exit 1
+            fi
+        fi
+    fi
+
+    echo "  Mounting Workbench bucket resources ..."
+    if ! run_wb resource mount --allow-other; then
+        echo "ERROR: 'wb resource mount' failed." >&2
+        echo "  The pipeline cannot safely continue without a real gcsfuse workspace bucket mount." >&2
+        exit 1
+    fi
+
+    if ! is_workspace_bucket_fuse_mounted || [[ ! -w "${WORKSPACE_BUCKET_MOUNT}" ]]; then
+        echo "ERROR: ${WORKSPACE_BUCKET_MOUNT} is still not a writable gcsfuse mount after Workbench setup." >&2
+        echo "  Do not create this path manually with mkdir; that would write outputs to local ephemeral disk." >&2
+        echo "  Check 'mount | grep workspace-bucket' or recreate/restart the AoU Jupyter environment." >&2
+        exit 1
+    fi
+}
+
+ensure_workspace_bucket_mount
 WORKSPACE_BUCKET_URI="gs://$(mount | awk '/ on \/home\/jupyter\/workspace\/workspace-bucket /{print $1; exit}')"
 if [[ "${WORKSPACE_BUCKET_URI}" == "gs://" ]]; then
     echo "ERROR: could not derive workspace bucket URI from mount table." >&2

@@ -1024,7 +1024,29 @@ completed through the final REGENIE genotype-input step.
 
 You are inside an AoU Verily Jupyter session terminal (the standard
 interactive analysis environment for the All of Us Researcher Workbench).
-The session provides everything the pipeline needs:
+The desired clean-workspace workflow is:
+
+```bash
+git clone https://github.com/jesseICR/aou-sbayesrc-gwas.git
+cd aou-sbayesrc-gwas
+bash get_genotypes.sh
+```
+
+or, to include the optional height GWAS:
+
+```bash
+RUN_HEIGHT_GWAS=1 nohup bash get_genotypes.sh > logs/run_height_gwas.log 2>&1 &
+```
+
+`get_genotypes.sh` handles first-run setup that can safely be automated from
+inside the AoU session: local output directories, Python dependencies, public
+reference downloads, the Workbench workspace-bucket resource/mount when
+possible, and the temporary BigQuery dataset used by CDR-querying steps. If
+AoU or Workbench permissions prevent creating/mounting those managed
+resources, the script fails before doing pipeline work and prints the missing
+prerequisite.
+
+The session must provide:
 
 - **Env vars** set automatically by the Workbench: `GOOGLE_PROJECT`,
   `CDR_STORAGE_PATH`. (`$WORKSPACE_BUCKET` is unreliable on some pods —
@@ -1033,7 +1055,12 @@ The session provides everything the pipeline needs:
 - **Controlled-tier dataset bucket** FUSE-mounted (read-only) at
   `/home/jupyter/workspace/data_controlled/vwb-aou-datasets-controlled/`.
 - **Workspace bucket** FUSE-mounted (read-write) at
-  `/home/jupyter/workspace/workspace-bucket/`.
+  `/home/jupyter/workspace/workspace-bucket/`. If it is absent,
+  `get_genotypes.sh` attempts to create the Workbench-controlled
+  `workspace-bucket` GCS resource and run `wb resource mount`, then verifies
+  that the path is a real writable `gcsfuse` mount. It intentionally does not
+  create this path as a local directory, because that would write large
+  pipeline outputs to ephemeral disk instead of durable workspace storage.
 - **`plink2`** preinstalled at `/opt/workbench-tools/binaries/bin/plink2`.
   The orchestrator stages this binary to the workspace bucket once, and each
   Batch worker `--input`s it back.
@@ -1051,7 +1078,9 @@ The session provides everything the pipeline needs:
 
 Python dependencies for the local helper scripts are listed in
 `requirements.txt` and auto-installed by `get_genotypes.sh`. `dsub` is provided
-by the Workbench image.
+by the Workbench image. CDR-querying steps use `SBAYESRC_BQ_TMP_DATASET` or
+their step-specific override if set; otherwise they reuse an existing dataset
+or attempt to create `sbayesrc_tmp`.
 
 ## Usage
 
@@ -1083,10 +1112,12 @@ to `${WORKSPACE_BUCKET}/sbayesrc_genotypes/logs/dsub/`.
 Steps that query the AoU CDR use a temporary BigQuery dataset in the user's
 workspace project. The pipeline uses `SBAYESRC_BQ_TMP_DATASET` if set;
 otherwise it chooses an existing dataset in this order: `sbayesrc_tmp`,
-`high_quality_cohort`, then the first dataset returned by `bq ls`. The AoU
-pet service account may not be allowed to create new BigQuery datasets, so set
-`SBAYESRC_BQ_TMP_DATASET` to an existing writable dataset if auto-selection is
-not appropriate for your workspace.
+`high_quality_cohort`, then the first dataset returned by `bq ls`. If no
+dataset exists, CDR-querying setup steps attempt to create `sbayesrc_tmp`
+through Workbench and then through `bq`. The AoU pet service account may not be
+allowed to create new BigQuery datasets, so set `SBAYESRC_BQ_TMP_DATASET` to
+an existing writable dataset if automatic creation is blocked or
+auto-selection is not appropriate for your workspace.
 
 ## Portability
 
