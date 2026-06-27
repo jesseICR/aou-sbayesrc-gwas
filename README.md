@@ -894,6 +894,70 @@ Observed Step 13 accounting from the current v8 run:
 The drop counts are ordered/conditional: a variant removed by an earlier rule is
 not counted again by later rules.
 
+### Optional — HapMap3 HQ bfile
+
+`make_hapmap3_bfile_hq.sh` is an optional post-pipeline helper. It builds a
+European-sample HapMap3 bfile from the WGS pfiles using the existing Step 13
+WGS allele-frequency and missingness metrics; it does not recompute those
+metrics and it does not use the direct bfile as the variant source.
+
+Run after Step 13 has completed:
+
+```bash
+bash make_hapmap3_bfile_hq.sh
+```
+
+Input HapMap3 rsids are tracked at the repo root:
+
+```text
+hapmap3_rsids.txt
+```
+
+The tracked file was downloaded from:
+
+```text
+https://elvehoj.s3.us-east-1.amazonaws.com/hapmap3_rsids.txt
+```
+
+Expected file properties:
+
+```text
+rows = 1,154,522
+duplicates = 0
+sha256 = 508e1b1739484b52af24b51f58aea833cf01f186b17696f0683ecd2abc687087
+```
+
+Variant filters are applied to HapMap3 rsids present in
+`wgs_pfiles/chr{1..22}`:
+
+```text
+liftover allele/frequency available
+alleles match liftover
+abs(fit_pca ALT frequency - SBayesRC/snp.info ALT frequency) <= 0.03
+MAF >= 0.007 in fit_pca_iids
+variant missingness <= 0.01 in classified European samples
+```
+
+The final sample set is exactly:
+
+```text
+europeans/classified_european_iids.txt
+```
+
+No height phenotype, sex-covariate, or sample-QC exclusion filters are applied
+to this optional bfile.
+
+Outputs:
+
+```text
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/hapmap3_bfile_hq/hapmap3_bfile_hq.{bed,bim,fam}
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/hapmap3_bfile_hq/hapmap3_bfile_hq.filter_summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/hapmap3_bfile_hq/hapmap3_bfile_hq.variant_qc.tsv.gz
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/hapmap3_bfile_hq/hapmap3_bfile_hq.params.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/hapmap3_bfile_hq/hapmap3_bfile_hq.summary.tsv
+${WORKSPACE_BUCKET}/sbayesrc_genotypes/hapmap3_bfile_hq/hapmap3_bfile_hq.sample_missingness_eur.smiss
+```
+
 ### Step 14 — Height GWAS input setup
 
 `setup_height_gwas.sh` builds the phenotype, covariate, and keep files for a
@@ -1100,6 +1164,11 @@ Run the optional height GWAS example as well:
 RUN_HEIGHT_GWAS=1 nohup bash get_genotypes.sh > logs/run_height_gwas.log 2>&1 &
 ```
 
+Build the optional HapMap3 HQ bfile after Step 13 has completed:
+```bash
+bash make_hapmap3_bfile_hq.sh
+```
+
 The default `bash get_genotypes.sh` command is designed to run the full
 pipeline end to end. Expensive steps, including KING and the optional REGENIE
 height GWAS, have parameter/count-based idempotency checks so later runs skip
@@ -1238,6 +1307,10 @@ and submit zero dsub tasks.
 | `dsub_gwas_wgs_metrics_worker.sh` | Step 13 worker — computes fit-pca allele counts and classified-EUR missingness for one WGS pfile chromosome. |
 | `dsub_gwas_step1_direct_worker.sh` | Step 13 worker — extracts the final REGENIE Step 1 bfile from `direct_bfile_hq`. |
 | `dsub_gwas_step2_wgs_worker.sh` | Step 13 worker — extracts one final REGENIE Step 2 WGS pfile chromosome. |
+| `make_hapmap3_bfile_hq.sh` | Optional helper — builds a classified-European HapMap3 bfile from WGS pfiles using existing Step 13 WGS QC metrics. |
+| `filter_hapmap3_wgs_hq_snps.py` | Optional helper — filters tracked HapMap3 rsids by liftover allele match, fit-pca frequency/MAF, and classified-European missingness. |
+| `dsub_hapmap3_wgs_extract_worker.sh` | Optional worker — extracts one HapMap3 HQ chromosome pfile from WGS pfiles and keeps classified-European samples. |
+| `dsub_hapmap3_bfile_merge_worker.sh` | Optional worker — merges HapMap3 HQ chromosome pfiles and converts them to a single PLINK bfile. |
 | `setup_height_gwas.sh` | Step 14 — queries program-collected AoU height, exports the result inside the workspace bucket, and builds REGENIE phenotype/covariate/keep files after sample-QC exclusions. |
 | `setup_height_gwas.py` | Step 14 helper — intersects Europeans, sample-QC exclusions, height, confident sex, genotype IDs, and projected PCs; centers covariates; writes summaries and verification checks. |
 | `run_continuous_regenie_gwas.sh` | Step 15 — optional continuous-trait REGENIE runner using the final Step 13 genotype inputs. |
