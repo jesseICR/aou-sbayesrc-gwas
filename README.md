@@ -1,14 +1,16 @@
 # AoU SBayesRC GWAS pipeline
 
 A reproducible, idempotent pipeline that builds per-chromosome PLINK2 pfiles
-holding the ~7.35 M SBayesRC SNPs from the All of Us v8 ACAF WGS callset, with
-the variant `ID` column populated with SBayesRC rsids. It also builds the
+holding the ~7.35 M SBayesRC SNPs from the selected All of Us ACAF WGS callset
+(`v9` by default), with the variant `ID` column populated with SBayesRC rsids.
+It also builds the
 ~501k direct-SNP bfile, plus a higher-quality direct-SNP bfile filtered with
 AoU EUR frequency/missingness metrics. It runs ADMIXTURE K=6 ancestry
-projection, compares the resulting ancestry fractions to AoU-provided ancestry
-calls/fractions, runs KING kinship from the high-quality direct bfile, compares
-those estimates to AoU's provided relatedness table, classifies close
-relationships, and selects the unrelated European sample set used to fit PCA.
+projection, writes a European ancestry keep-list, compares against
+AoU-provided ancestry calls/fractions when the selected release includes those
+inputs, runs KING kinship from the high-quality direct bfile, compares those
+estimates to AoU's provided relatedness table, classifies close relationships,
+and selects the unrelated European sample set used to fit PCA.
 It then builds the PCA-ready SNP bfile from that sample set, fits 20 European
 ancestry PCs, and projects those PCs onto all samples in the high-quality
 direct bfile. Before GWAS setup, it builds a conservative sample-QC exclusion
@@ -46,6 +48,12 @@ plink2 work happens on Batch worker VMs we provision in `us-central1`, each
 with `--min-cores 4 --min-ram 32 --disk-size 300` by default. You can leave
 the Jupyter session open or close the browser (background the run with
 `nohup`); the Batch jobs run independently.
+
+By default `get_genotypes.sh` runs against AoU Controlled Tier v9
+(`C2025Q4R6`) and writes durable outputs under
+`${WORKSPACE_BUCKET}/sbayesrc_genotypes/`, the same output layout used by the
+original pipeline. To reproduce the older v8 validation run, set
+`AOU_DATA_VERSION=v8` in a clean workspace.
 
 ## What this pipeline produces
 
@@ -279,8 +287,10 @@ FID IID European East_Asian American African South_Asian Oceanian
 
 ### Step 6 — AoU-vs-ours ancestry comparison and European classifier
 
-`compare_aou_ancestry.sh` compares this pipeline's ADMIXTURE K=6 fractions to
-AoU's v8 auxiliary ancestry outputs:
+`compare_aou_ancestry.sh` always writes the European keep-list from this
+pipeline's ADMIXTURE K=6 fractions. When an AoU RYE admixture-fraction file is
+available, it also compares this pipeline's fractions to AoU's v8 auxiliary
+ancestry outputs:
 
 ```text
 aux/ancestry/echo_v4_r2.ancestry_preds.tsv
@@ -315,7 +325,7 @@ The AoU-vs-ours comparison directory is:
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/statgen/aou_vs_ours/
 ```
 
-Key summary outputs include:
+Full AoU RYE comparison summary outputs include:
 
 ```text
 aou_vs_ours.summary.tsv
@@ -334,10 +344,73 @@ aou_mid_bin_counts.tsv
 aou_mid_bin_component_summary.tsv
 ```
 
-The comparison also writes plots under `aou_vs_ours/plots/`, including
+When AoU RYE fractions are unavailable, Step 6 writes the European keep-list
+plus classification-only summary tables:
+
+```text
+aou_vs_ours.summary.tsv
+aou_pred_counts.tsv
+aou_pred_vs_ours_european_summary.tsv
+european_set_overlap_summary.tsv
+```
+
+The full comparison also writes plots under `aou_vs_ours/plots/`, including
 component scatter plots, ancestry-fraction distributions, a hard-call vs
 dominant-component heatmap, European set-overlap counts, discordant European
 call composition plots, and AoU MID-threshold composition plots.
+
+#### v8 validation summary: AoU ancestry calls vs this pipeline's ADMIXTURE classifier
+
+For v9, AoU provides an updated ancestry prediction file, but we did not find a
+v9 equivalent of the AoU RYE admixture-fraction file. Therefore the full
+AoU-vs-ours fraction comparison described here is a v8 validation analysis, not
+a v9 pipeline requirement.
+
+The v8 comparison included all 414,830 WGS samples present in the AoU v8 ACAF
+files, the AoU RYE fraction file, and this pipeline's ADMIXTURE K=6 projection.
+Our European classifier used:
+
+```text
+European >= 0.8
+African <= 0.1
+American <= 0.1
+East_Asian <= 0.1
+Oceanian <= 0.1
+South_Asian: no cap
+```
+
+Key v8 European-set overlap results:
+
+| Metric | Count |
+|---|---:|
+| AoU hard-predicted EUR | 234,353 |
+| Classified European by this pipeline | 234,889 |
+| European by both methods | 230,635 |
+| AoU EUR only | 3,718 |
+| This pipeline EUR only | 4,254 |
+| Neither European | 176,223 |
+| European union | 238,607 |
+
+The overlap was high: Jaccard index `0.9666`. Treating AoU's hard EUR call as a
+reference label for validation only, this pipeline's European classifier had
+precision `0.9819` and recall `0.9841`.
+
+Component-level correlations between AoU RYE fractions and this pipeline's
+ADMIXTURE fractions were also high for the directly comparable components:
+
+| Component | Pearson r |
+|---|---:|
+| European | 0.9105 |
+| East Asian | 0.9961 |
+| American | 0.9495 |
+| African | 0.9977 |
+| South Asian | 0.9627 |
+
+The European component has the lowest direct correlation because AoU RYE
+includes a Middle Eastern (`mid`) component, while this pipeline's
+public-statgen K=6 projection uses an Oceanian component instead. Step 6
+therefore treats AoU MID as AoU-specific rather than forcing a one-to-one
+component mapping.
 
 ### Step 7 — KING kinship and close relationship classification
 
@@ -1110,6 +1183,11 @@ AoU or Workbench permissions prevent creating/mounting those managed
 resources, the script fails before doing pipeline work and prints the missing
 prerequisite.
 
+The script selects the AoU release explicitly with `AOU_DATA_VERSION` (`v9` by
+default). For v9 it sets `WORKSPACE_CDR` to `C2025Q4R6` internally, even if the
+Workbench session exported an older default CDR. Set `AOU_STRICT_WORKSPACE_CDR=1`
+to fail instead of overriding a mismatched `WORKSPACE_CDR`.
+
 The session must provide:
 
 - **Env vars** set automatically by the Workbench: `GOOGLE_PROJECT`,
@@ -1217,9 +1295,10 @@ repo and run it as-is.
 - Step 5 skips ADMIXTURE prep, split, projection batches, and final concat
   independently when their parameter files and expected row counts match.
   Projection only submits missing or stale batch `.Q` files.
-- Step 6 skips the AoU-vs-ours ancestry comparison when its parameter file,
-  summary tables, key plots, and European keep-list already exist with matching
-  input sizes and thresholds.
+- Step 6 skips ancestry classification/comparison when its parameter file,
+  required summary tables, required plots (for full AoU RYE comparison mode),
+  and European keep-list already exist with matching input sizes and
+  thresholds.
 - Step 7 skips the kinship SNP subset, KING run, AoU comparison, and close
   relationship classifier independently when their parameter files, thresholds,
   and expected counts match.
@@ -1283,6 +1362,7 @@ and submit zero dsub tasks.
 | `dsub_admixture_concat_worker.sh` | Step 5c worker — concatenates batch Q files and writes `aou_admixture_k6.tsv`. |
 | `compare_aou_ancestry.sh` | Step 6 — idempotent wrapper for the AoU-vs-ours ancestry comparison and European keep-list. |
 | `compare_aou_ancestry.py` | Step 6 helper — joins AoU hard ancestry calls, AoU RYE fractions, and our ADMIXTURE fractions; writes aggregate tables and plots. |
+| `classify_admixture_europeans.py` | Step 6 fallback helper — writes the European keep-list and hard-call overlap summaries when AoU RYE fractions are unavailable. |
 | `subset_kinship_snps.sh` | Step 7a — intersects UKBB `in_Relatedness == 1` SNPs with the HQ direct bfile and applies all-sample missingness `< KINSHIP_MISSING_MAX`. |
 | `dsub_kinship_subset_worker.sh` | Step 7a worker — computes variant missingness and writes the final KING SNP extract list plus count summary. |
 | `run_king_kinship.sh` | Step 7b — submits/verifies the PLINK2 KING run from the HQ direct SNP subset. |

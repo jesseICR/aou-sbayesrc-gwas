@@ -55,7 +55,7 @@ def load_genomic_metrics(path):
     out = {}
     with open(path, newline="") as f:
         reader = csv.DictReader(f, delimiter="\t")
-        required = {"research_id", "sex_at_birth", "dragen_sex_ploidy"}
+        required = {"research_id", "dragen_sex_ploidy"}
         missing = required - set(reader.fieldnames or [])
         if missing:
             raise ValueError(f"{path} missing columns: {sorted(missing)}")

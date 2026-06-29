@@ -19,8 +19,8 @@
 #      EUR-only ALT-frequency concordance, EUR MAF, and EUR missingness.
 #   5. Run ADMIXTURE K=6 projection from the HQ direct bfile, with an
 #      ADMIXTURE-specific all-sample missingness filter and allele alignment.
-#   6. Compare our ADMIXTURE fractions to AoU-provided ancestry fractions and
-#      write the European keep-list used by downstream REGENIE steps.
+#   6. Classify European samples from our ADMIXTURE fractions and, when AoU RYE
+#      fractions are available, compare our fractions to AoU-provided fractions.
 #   7. Run KING kinship from HQ direct SNPs, compare to AoU's provided
 #      relatedness table, and classify close relationships.
 #   8. Select unrelated European IIDs for fitting PCA.
@@ -61,12 +61,71 @@ export SCRIPT_DIR
 # ---------------------------------------------------------------------------
 # Controlled-tier dataset bucket (ro).
 export AOU_DATA_MOUNT="/home/jupyter/workspace/data_controlled/vwb-aou-datasets-controlled"
-# We use the pgen variant of the AoU acaf_threshold callset (not plink_bed):
-# pgen is ~10× smaller than the equivalent bed (chr22 18 GB vs 168 GB), making
-# gcsfuse-backed reads tractable. Pgen is multi-allelic with ID=".", so we
-# split + assign IDs in pass 1 before extracting in pass 2 (see
-# wgs_extract_variants.sh).
-export AOU_PGEN_DIR="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/acaf_threshold/pgen"
+
+# AoU release selection. v9 is the default current release. The pipeline
+# overrides WORKSPACE_CDR to the matching CDR because some Workbench sessions
+# still export older CDR env vars even when newer CDRs are visible in the
+# catalog and controlled-data mount.
+export AOU_DATA_VERSION="${AOU_DATA_VERSION:-v9}"
+case "${AOU_DATA_VERSION}" in
+    v8|v9) ;;
+    *)
+        echo "ERROR: AOU_DATA_VERSION must be v8 or v9; got '${AOU_DATA_VERSION}'." >&2
+        exit 1
+        ;;
+esac
+
+infer_cdr_project() {
+    if [[ -n "${WORKSPACE_CDR:-}" && "${WORKSPACE_CDR}" == *.* ]]; then
+        printf '%s\n' "${WORKSPACE_CDR%%.*}"
+    else
+        printf '%s\n' "wb-silky-artichoke-2408"
+    fi
+}
+
+export AOU_CDR_PROJECT="${AOU_CDR_PROJECT:-$(infer_cdr_project)}"
+case "${AOU_DATA_VERSION}" in
+    v9)
+        export AOU_CDR_DATASET="${AOU_CDR_DATASET:-C2025Q4R6}"
+        export AOU_WGS_RELEASE_ROOT="${AOU_DATA_MOUNT}/v9/wgs/short_read/snpindel"
+        export AOU_WGS_GS_ROOT="gs://vwb-aou-datasets-controlled/v9/wgs/short_read/snpindel"
+        export AOU_PGEN_DIR="${AOU_WGS_RELEASE_ROOT}/acaf/pgen"
+        export AOU_PGEN_GS_DIR="${AOU_WGS_GS_ROOT}/acaf/pgen"
+        export AOU_ANCESTRY_PRED_FILE="${AOU_WGS_RELEASE_ROOT}/aux/ancestry/ancestry_preds.tsv"
+        export AOU_ADMIXTURE_Q_FILE="${AOU_ADMIXTURE_Q_FILE:-}"
+        export AOU_RYE_COMPARISON_MODE="${AOU_RYE_COMPARISON_MODE:-skip}"
+        export AOU_RELATEDNESS_FILE="${AOU_WGS_RELEASE_ROOT}/aux/relatedness/samples_relatedness.tsv"
+        export AOU_GENOMIC_METRICS_FILE="${AOU_WGS_RELEASE_ROOT}/aux/qc/genomics_metrics_May042026_1724_12_tz0000.tsv"
+        export SBAYESRC_OUTPUT_PREFIX="${SBAYESRC_OUTPUT_PREFIX:-sbayesrc_genotypes}"
+        ;;
+    v8)
+        if [[ -z "${AOU_CDR_DATASET:-}" && -n "${WORKSPACE_CDR:-}" && "${WORKSPACE_CDR}" == *.* ]]; then
+            export AOU_CDR_DATASET="${WORKSPACE_CDR##*.}"
+        fi
+        if [[ -z "${AOU_CDR_DATASET:-}" ]]; then
+            export AOU_CDR_DATASET="C2024Q3R9"
+        fi
+        export AOU_WGS_RELEASE_ROOT="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel"
+        export AOU_WGS_GS_ROOT="gs://vwb-aou-datasets-controlled/v8/wgs/short_read/snpindel"
+        export AOU_PGEN_DIR="${AOU_WGS_RELEASE_ROOT}/acaf_threshold/pgen"
+        export AOU_PGEN_GS_DIR="${AOU_WGS_GS_ROOT}/acaf_threshold/pgen"
+        export AOU_ANCESTRY_PRED_FILE="${AOU_WGS_RELEASE_ROOT}/aux/ancestry/echo_v4_r2.ancestry_preds.tsv"
+        export AOU_ADMIXTURE_Q_FILE="${AOU_ADMIXTURE_Q_FILE:-${AOU_WGS_RELEASE_ROOT}/aux/admixture_estimates/aou_admixture_estimates_rye_v8.Q}"
+        export AOU_RYE_COMPARISON_MODE="${AOU_RYE_COMPARISON_MODE:-auto}"
+        export AOU_RELATEDNESS_FILE="${AOU_WGS_RELEASE_ROOT}/aux/relatedness/samples_relatedness.tsv"
+        export AOU_GENOMIC_METRICS_FILE="${AOU_WGS_RELEASE_ROOT}/aux/qc/genomics_metrics_Dec142023_1859_02_tz0000.tsv"
+        export SBAYESRC_OUTPUT_PREFIX="${SBAYESRC_OUTPUT_PREFIX:-sbayesrc_genotypes}"
+        ;;
+esac
+
+export AOU_TARGET_WORKSPACE_CDR="${AOU_CDR_PROJECT}.${AOU_CDR_DATASET}"
+if [[ "${AOU_STRICT_WORKSPACE_CDR:-0}" == "1" && -n "${WORKSPACE_CDR:-}" && "${WORKSPACE_CDR}" != "${AOU_TARGET_WORKSPACE_CDR}" ]]; then
+    echo "ERROR: WORKSPACE_CDR=${WORKSPACE_CDR}, but AOU_DATA_VERSION=${AOU_DATA_VERSION} expects ${AOU_TARGET_WORKSPACE_CDR}." >&2
+    echo "  Unset AOU_STRICT_WORKSPACE_CDR or set AOU_CDR_DATASET/AOU_DATA_VERSION consistently." >&2
+    exit 1
+fi
+export WORKSPACE_CDR_ORIGINAL="${WORKSPACE_CDR:-}"
+export WORKSPACE_CDR="${AOU_TARGET_WORKSPACE_CDR}"
 
 # Workspace bucket (rw). All durable pipeline output lives under here.
 export WORKSPACE_BUCKET_MOUNT="/home/jupyter/workspace/workspace-bucket"
@@ -146,7 +205,7 @@ if [[ "${WORKSPACE_BUCKET_URI}" == "gs://" ]]; then
 fi
 export WORKSPACE_BUCKET_URI
 # Mount-side paths (used for idempotency checks + small text writes).
-export DX_OUTPUT_DIR="${WORKSPACE_BUCKET_MOUNT}/sbayesrc_genotypes"
+export DX_OUTPUT_DIR="${WORKSPACE_BUCKET_MOUNT}/${SBAYESRC_OUTPUT_PREFIX}"
 export DX_SBAYESRC_ID_DIR="${DX_OUTPUT_DIR}/sbayesrc_ids"
 export DX_WGS_PFILE_DIR="${DX_OUTPUT_DIR}/wgs_pfiles"
 export DX_DIRECT_PFILE_DIR="${DX_OUTPUT_DIR}/direct_pfiles"
@@ -170,25 +229,26 @@ export DX_HEIGHT_REGENIE_INPUT_DIR="${DX_REGENIE_INPUT_DIR}/height_example"
 export DX_REGENIE_OUTPUT_DIR="${DX_OUTPUT_DIR}/regenie_output"
 export DX_LOGS_DIR="${DX_OUTPUT_DIR}/logs"
 # gs:// path for `gcloud storage cp` (large-pfile uploads — bypasses gcsfuse).
-export DX_WGS_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/wgs_pfiles"
-export DX_DIRECT_PFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/direct_pfiles"
-export DX_DIRECT_BFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/direct_bfile"
-export DX_HQ_DIRECT_BFILE_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/direct_bfile_hq"
-export DX_STATGEN_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen"
-export DX_ADMIXTURE_SCRAP_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap"
-export DX_ADMIXTURE_BATCH_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap/batches"
-export DX_ADMIXTURE_Q_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/statgen/scrap/q"
-export DX_KINSHIP_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/kinship"
-export DX_PCA_EUR_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/pca_eur"
-export DX_GENETIC_SEX_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/genetic_sex"
-export DX_SAMPLE_QC_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/sample_qc"
-export DX_EUROPEANS_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/europeans"
-export DX_GWAS_GENOTYPES_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/gwas_genotypes"
+export DX_OUTPUT_URI="${WORKSPACE_BUCKET_URI}/${SBAYESRC_OUTPUT_PREFIX}"
+export DX_WGS_PFILE_URI="${DX_OUTPUT_URI}/wgs_pfiles"
+export DX_DIRECT_PFILE_URI="${DX_OUTPUT_URI}/direct_pfiles"
+export DX_DIRECT_BFILE_URI="${DX_OUTPUT_URI}/direct_bfile"
+export DX_HQ_DIRECT_BFILE_URI="${DX_OUTPUT_URI}/direct_bfile_hq"
+export DX_STATGEN_URI="${DX_OUTPUT_URI}/statgen"
+export DX_ADMIXTURE_SCRAP_URI="${DX_OUTPUT_URI}/statgen/scrap"
+export DX_ADMIXTURE_BATCH_URI="${DX_OUTPUT_URI}/statgen/scrap/batches"
+export DX_ADMIXTURE_Q_URI="${DX_OUTPUT_URI}/statgen/scrap/q"
+export DX_KINSHIP_URI="${DX_OUTPUT_URI}/kinship"
+export DX_PCA_EUR_URI="${DX_OUTPUT_URI}/pca_eur"
+export DX_GENETIC_SEX_URI="${DX_OUTPUT_URI}/genetic_sex"
+export DX_SAMPLE_QC_URI="${DX_OUTPUT_URI}/sample_qc"
+export DX_EUROPEANS_URI="${DX_OUTPUT_URI}/europeans"
+export DX_GWAS_GENOTYPES_URI="${DX_OUTPUT_URI}/gwas_genotypes"
 export DX_GWAS_STEP1_BFILE_URI="${DX_GWAS_GENOTYPES_URI}/step1_direct"
 export DX_GWAS_STEP2_PFILE_URI="${DX_GWAS_GENOTYPES_URI}/step2_wgs_pfiles"
-export DX_REGENIE_INPUT_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/regenie_input"
+export DX_REGENIE_INPUT_URI="${DX_OUTPUT_URI}/regenie_input"
 export DX_HEIGHT_REGENIE_INPUT_URI="${DX_REGENIE_INPUT_URI}/height_example"
-export DX_REGENIE_OUTPUT_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/regenie_output"
+export DX_REGENIE_OUTPUT_URI="${DX_OUTPUT_URI}/regenie_output"
 
 # Local paths
 export LOCAL_SBAYESRC_ID_DIR="${SCRIPT_DIR}/data/sbayesrc_ids"
@@ -212,13 +272,6 @@ export ADMIXTURE_TSV_URL="https://raw.githubusercontent.com/jesseICR/public-stat
 export ADMIXTURE_DOWNLOAD_URL="https://dalexander.github.io/admixture/binaries/admixture_linux-1.3.0.tar.gz"
 export UKB_SNP_QC_URL="https://biobank.ndph.ox.ac.uk/ukb/ukb/auxdata/ukb_snp_qc.txt"
 export PCA_HIGH_LD_URL="https://raw.githubusercontent.com/meyer-lab-cshl/plinkQC/master/inst/extdata/high-LD-regions-hg38-GRCh38.bed"
-
-# AoU computed ancestry predictions; used to make the EUR keep-list for
-# direct-SNP QC metrics. This file stays inside the AoU environment.
-export AOU_ANCESTRY_PRED_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/ancestry/echo_v4_r2.ancestry_preds.tsv"
-export AOU_ADMIXTURE_Q_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/admixture_estimates/aou_admixture_estimates_rye_v8.Q"
-export AOU_RELATEDNESS_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/relatedness/samples_relatedness.tsv"
-export AOU_GENOMIC_METRICS_FILE="${AOU_DATA_MOUNT}/v8/wgs/short_read/snpindel/aux/qc/genomics_metrics_Dec142023_1859_02_tz0000.tsv"
 
 # High-quality direct-bfile thresholds.
 export HQ_AF_DIFF_MAX="${HQ_AF_DIFF_MAX:-0.04}"          # absolute ALT-frequency difference
@@ -417,11 +470,8 @@ export GWAS_WGS_DSUB_DISK_TYPE="${GWAS_WGS_DSUB_DISK_TYPE:-pd-ssd}"
 export DSUB_BIN_URI="${WORKSPACE_BUCKET_URI}/bin"
 export DSUB_PLINK2_GS="${DSUB_BIN_URI}/plink2"
 export DSUB_REGENIE_BUNDLE_URI="${DSUB_BIN_URI}/regenie_bundle"
-export DSUB_SBAYESRC_ID_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/sbayesrc_ids"
-export DSUB_LOG_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/logs/dsub"
-
-# AoU controlled-tier pgen as gs:// (workers can't see the FUSE mount).
-export AOU_PGEN_GS_DIR="gs://vwb-aou-datasets-controlled/v8/wgs/short_read/snpindel/acaf_threshold/pgen"
+export DSUB_SBAYESRC_ID_URI="${DX_OUTPUT_URI}/sbayesrc_ids"
+export DSUB_LOG_URI="${DX_OUTPUT_URI}/logs/dsub"
 
 # ---------------------------------------------------------------------------
 # Sanity checks (cheap, fail fast)
@@ -442,6 +492,17 @@ if [[ ! -x "${PLINK2}" ]]; then
 fi
 if [[ -z "${WORKSPACE_CDR:-}" ]]; then
     echo "ERROR: WORKSPACE_CDR is not set — are you running inside an AoU Verily Jupyter session?" >&2
+    exit 1
+fi
+for required_aou_file in "${AOU_ANCESTRY_PRED_FILE}" "${AOU_RELATEDNESS_FILE}" "${AOU_GENOMIC_METRICS_FILE}"; do
+    if [[ ! -s "${required_aou_file}" ]]; then
+        echo "ERROR: missing AoU ${AOU_DATA_VERSION} auxiliary file ${required_aou_file}" >&2
+        exit 1
+    fi
+done
+if [[ "${AOU_RYE_COMPARISON_MODE}" == "required" && ! -s "${AOU_ADMIXTURE_Q_FILE:-}" ]]; then
+    echo "ERROR: AOU_RYE_COMPARISON_MODE=required but AOU_ADMIXTURE_Q_FILE is missing or empty." >&2
+    echo "  AOU_ADMIXTURE_Q_FILE=${AOU_ADMIXTURE_Q_FILE:-unset}" >&2
     exit 1
 fi
 
@@ -499,9 +560,16 @@ echo "============================================"
 echo "AoU SBayesRC Pipeline — $(date)"
 echo "============================================"
 echo "  GOOGLE_PROJECT       = ${GOOGLE_PROJECT}"
+echo "  AOU_DATA_VERSION     = ${AOU_DATA_VERSION}"
+echo "  AOU_TARGET_CDR       = ${AOU_TARGET_WORKSPACE_CDR}"
+if [[ -n "${WORKSPACE_CDR_ORIGINAL}" && "${WORKSPACE_CDR_ORIGINAL}" != "${WORKSPACE_CDR}" ]]; then
+    echo "  WORKSPACE_CDR_ORIG   = ${WORKSPACE_CDR_ORIGINAL}  (overridden for ${AOU_DATA_VERSION})"
+fi
 echo "  WORKSPACE_BUCKET_URI = ${WORKSPACE_BUCKET_URI}  (from mount table)"
 echo "  WORKSPACE_BUCKET_MNT = ${WORKSPACE_BUCKET_MOUNT}"
+echo "  OUTPUT_PREFIX        = ${SBAYESRC_OUTPUT_PREFIX}"
 echo "  AOU_PGEN_DIR         = ${AOU_PGEN_DIR}"
+echo "  AOU_PGEN_GS_DIR      = ${AOU_PGEN_GS_DIR}"
 echo "  DX_OUTPUT_DIR        = ${DX_OUTPUT_DIR}"
 echo "  WORKSPACE_CDR        = ${WORKSPACE_CDR}"
 echo "  LOCAL_WGS_PFILE_DIR  = ${LOCAL_WGS_PFILE_DIR}"
@@ -531,6 +599,7 @@ echo "  ADMIXTURE settings   = K=${ADMIXTURE_K}, batch_size=${ADMIXTURE_BATCH_SI
 echo "  ADMIXTURE prep/split = ${ADMIXTURE_PREP_DSUB_MIN_CORES}/${ADMIXTURE_SPLIT_DSUB_MIN_CORES} vCPU, ${ADMIXTURE_PREP_DSUB_MIN_RAM}/${ADMIXTURE_SPLIT_DSUB_MIN_RAM} GB RAM, ${ADMIXTURE_PREP_DSUB_DISK_SIZE}/${ADMIXTURE_SPLIT_DSUB_DISK_SIZE} GB disk"
 echo "  ADMIXTURE project    = ${ADMIXTURE_PROJECT_DSUB_MIN_CORES} vCPU, ${ADMIXTURE_PROJECT_DSUB_MIN_RAM} GB RAM, ${ADMIXTURE_PROJECT_DSUB_DISK_SIZE} GB ${ADMIXTURE_PROJECT_DSUB_DISK_TYPE}"
 echo "  European classifier  = European >= ${OURS_EUR_MIN}, African/American/East_Asian/Oceanian <= ${OURS_AFR_MAX}/${OURS_AMR_MAX}/${OURS_EAS_MAX}/${OURS_OCE_MAX}"
+echo "  AoU RYE comparison   = ${AOU_RYE_COMPARISON_MODE}; q=${AOU_ADMIXTURE_Q_FILE:-none}"
 echo "  Kinship settings     = source=direct_bfile_hq, UKB in_Relatedness SNPs, all-sample missingness < ${KINSHIP_MISSING_MAX}, KING filter >= ${KING_TABLE_FILTER}"
 echo "  Kinship resources    = subset ${KINSHIP_SUBSET_DSUB_MIN_CORES} vCPU/${KINSHIP_SUBSET_DSUB_MIN_RAM} GB; KING ${KING_DSUB_MIN_CORES} vCPU/${KING_DSUB_MIN_RAM} GB"
 echo "  PCA EUR selection    = seed relationships ${PCA_SEED_RELATIONSHIPS}, kinship threshold ${PCA_KINSHIP_THRESHOLD}"
@@ -665,7 +734,7 @@ else
     # Step 6: AoU-vs-ours ancestry comparison + European classifier
     # -----------------------------------------------------------------------
     echo ""
-    echo "=== Step 6: Compare AoU ancestry fractions to ours ==="
+    echo "=== Step 6: Classify European ancestry and optional AoU comparison ==="
     bash "${SCRIPT_DIR}/compare_aou_ancestry.sh"
 
     # -----------------------------------------------------------------------

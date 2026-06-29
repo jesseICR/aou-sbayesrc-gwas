@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${LOCAL_REGENIE_DIR:?LOCAL_REGENIE_DIR not set}"
 
 GENETIC_SEX_REQUIRE_PLOIDY_CONCORDANCE="${GENETIC_SEX_REQUIRE_PLOIDY_CONCORDANCE:-1}"
-DX_GENETIC_SEX_URI="${DX_GENETIC_SEX_URI:-${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/genetic_sex}"
+DX_GENETIC_SEX_URI="${DX_GENETIC_SEX_URI:-${WORKSPACE_BUCKET_URI}/${SBAYESRC_OUTPUT_PREFIX:-sbayesrc_genotypes}/genetic_sex}"
 
 local_scrap="${LOCAL_REGENIE_DIR}/genetic_sex_scrap"
 mkdir -p "${DX_GENETIC_SEX_DIR}/scrap" "${LOCAL_REGENIE_DIR}" "${local_scrap}"
@@ -89,7 +89,7 @@ desired_params="${LOCAL_REGENIE_DIR}/genetic_sex.desired_params.tsv"
     printf 'workspace_cdr\t%s\n' "${WORKSPACE_CDR}"
     printf 'sample_universe\t%s\n' "direct_bfile_hq/chr1_22_merged_hq.fam"
     printf 'sample_universe_size\t%s\n' "$(stat -c%s "${fam}")"
-    printf 'genomic_metrics_file\t%s\n' "v8/wgs/short_read/snpindel/aux/qc/genomics_metrics_Dec142023_1859_02_tz0000.tsv"
+    printf 'genomic_metrics_file\t%s\n' "${AOU_GENOMIC_METRICS_FILE}"
     printf 'genomic_metrics_size\t%s\n' "$(stat -c%s "${AOU_GENOMIC_METRICS_FILE}")"
     printf 'require_ploidy_concordance\t%s\n' "${GENETIC_SEX_REQUIRE_PLOIDY_CONCORDANCE}"
     printf 'get_genetic_sex_py_sha256\t%s\n' "$(sha256sum "${SCRIPT_DIR}/get_genetic_sex.py" | awk '{print $1}')"
@@ -127,7 +127,7 @@ tmp_result_table="genetic_sex_result_$(date +%Y%m%d_%H%M%S)_$$"
 tmp_table_ref="${GOOGLE_PROJECT}:${tmp_dataset}.${tmp_table}"
 tmp_result_ref="${GOOGLE_PROJECT}:${tmp_dataset}.${tmp_result_table}"
 tmp_table_sql="${GOOGLE_PROJECT}.${tmp_dataset}.${tmp_table}"
-sex_query_gs="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/genetic_sex/scrap/sex_at_birth_query.csv"
+sex_query_gs="${DX_GENETIC_SEX_URI}/scrap/sex_at_birth_query.csv"
 
 cleanup_tmp_table() {
     bq --project_id="${GOOGLE_PROJECT}" rm -f -t "${tmp_table_ref}" >/dev/null 2>&1 || true
