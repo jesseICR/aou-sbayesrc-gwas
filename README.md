@@ -338,7 +338,7 @@ The final TSV columns are:
 FID IID European East_Asian American African South_Asian Oceanian
 ```
 
-Observed Step 5a/5b accounting from the default cdrv9/v9 run:
+Observed Step 5 accounting from the default cdrv9/v9 run:
 
 | Metric | Value |
 |---|---:|
@@ -355,6 +355,8 @@ Observed Step 5a/5b accounting from the default cdrv9/v9 run:
 | Projection batches | 27 |
 | Full batch size | 20,000 samples |
 | Final batch size | 15,662 samples |
+| Projection Q rows | 535,662 |
+| Final ADMIXTURE TSV samples | 535,662 |
 
 ### Step 6 — AoU-vs-ours ancestry comparison and European classifier
 
@@ -429,6 +431,45 @@ The full comparison also writes plots under `aou_vs_ours/plots/`, including
 component scatter plots, ancestry-fraction distributions, a hard-call vs
 dominant-component heatmap, European set-overlap counts, discordant European
 call composition plots, and AoU MID-threshold composition plots.
+
+#### v9 default-run summary: AoU hard ancestry calls vs this pipeline's ADMIXTURE classifier
+
+For v9, the AoU hard ancestry prediction file was available, but a v9 AoU RYE
+admixture-fraction file was not found. Therefore this is a classification-only
+comparison against AoU hard calls, not a full fraction-correlation validation.
+
+The cdrv9 run included all 535,662 WGS samples present in the v9 ACAF files,
+the AoU hard ancestry prediction file, and this pipeline's ADMIXTURE K=6
+projection. The European classifier used the same fixed thresholds documented
+above.
+
+Key v9 European-set overlap results:
+
+| Metric | Count |
+|---|---:|
+| AoU hard-predicted EUR | 302,714 |
+| Classified European by this pipeline | 303,903 |
+| European by both methods | 298,219 |
+| AoU EUR only | 4,495 |
+| This pipeline EUR only | 5,684 |
+| Neither European | 227,264 |
+| European union | 308,398 |
+
+The v9 overlap was high: Jaccard index `0.966994`. Treating AoU's hard EUR
+call as a reference label for validation only, this pipeline's European
+classifier had precision `0.981297` and recall `0.985151`.
+
+AoU hard-call counts in the v9 ancestry prediction file:
+
+| AoU ancestry_pred | Count |
+|---|---:|
+| afr | 100,800 |
+| amr | 107,928 |
+| eas | 15,893 |
+| eur | 302,714 |
+| mid | 2,151 |
+| sas | 6,176 |
+| missing | 0 |
 
 #### v8 validation summary: AoU ancestry calls vs this pipeline's ADMIXTURE classifier
 
