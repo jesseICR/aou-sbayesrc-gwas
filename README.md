@@ -149,6 +149,21 @@ code can apply additional filters (e.g. `--extract-if-info
 Per-task stdout/stderr lives at
 `${WORKSPACE_BUCKET}/sbayesrc_genotypes/logs/dsub/<job-id>.<task>-{stdout,stderr}.log`.
 
+Observed Step 2 accounting from the default cdrv9/v9 clean-workspace run
+launched on June 30, 2026:
+
+| Metric | Value |
+|---|---:|
+| Autosomes processed | 22 |
+| Samples per chromosome | 535,662 |
+| Requested SBayesRC variants | 7,354,747 |
+| Source variants across chromosome pvars | 60,193,204 |
+| Biallelic rows after splitting | 133,489,424 |
+| Extracted SBayesRC variants | 7,350,153 |
+| Missing requested variants | 4,594 |
+| Remapped variant IDs | 7,350,153 |
+| Unmapped variant IDs | 0 |
+
 ### Step 3 — Direct-SNP bfile for REGENIE step 1
 
 `get_genotypes.sh` downloads the UKBB-derived direct-SNP rsid list to
@@ -170,6 +185,16 @@ the 22 direct pfiles into
 The merged bfile contains the direct SNPs present in the AoU extracted pfiles;
 absent SNPs are not encoded as all-missing variants. The merged bfile is
 intended for REGENIE step 1.
+
+Observed Step 3 accounting from the default cdrv9/v9 run:
+
+| Metric | Value |
+|---|---:|
+| Requested direct SNPs | 501,477 |
+| Present in AoU/SBayesRC WGS pfiles | 501,452 |
+| Absent direct SNPs | 25 |
+| Merged direct-bfile variants | 501,452 |
+| Merged direct-bfile samples | 535,662 |
 
 ### Step 4 — Higher-quality direct-SNP bfile
 
@@ -230,6 +255,30 @@ chr1_22_merged_hq.sample_missingness_eur.smiss
 chr1_22_merged_hq.sample_missingness_summary.tsv
 ```
 
+Observed Step 4 accounting from the default cdrv9/v9 run:
+
+| Metric | Value |
+|---|---:|
+| AoU EUR keep-list samples | 302,714 |
+| Raw direct-bfile variants | 501,452 |
+| Raw direct-bfile samples | 535,662 |
+| Final high-quality direct variants | 498,902 |
+| Final high-quality direct samples | 535,662 |
+| All-sample mean missingness | 0.0004140998315 |
+| EUR-sample mean missingness | 0.0003748639908 |
+| Maximum sample missingness | 0.0725814 |
+
+Ordered v9 high-quality direct-SNP filter counts:
+
+| Filter | Dropped SNPs | Remaining SNPs |
+|---|---:|---:|
+| Original UKBB direct-SNP rsid list | 0 | 501,477 |
+| Present in the AoU direct bfile | 25 | 501,452 |
+| Liftover ALT frequency available and alleles match | 0 | 501,452 |
+| ALT-frequency difference <= 0.04 | 609 | 500,843 |
+| AoU EUR MAF >= 0.007 | 6 | 500,837 |
+| AoU EUR missingness <= 0.05 | 1,935 | 498,902 |
+
 ### Step 5 — ADMIXTURE K=6 projection
 
 ADMIXTURE projection starts from the high-quality direct bfile:
@@ -288,6 +337,24 @@ The final TSV columns are:
 ```text
 FID IID European East_Asian American African South_Asian Oceanian
 ```
+
+Observed Step 5a/5b accounting from the default cdrv9/v9 run:
+
+| Metric | Value |
+|---|---:|
+| Source high-quality direct variants | 498,902 |
+| Source samples | 535,662 |
+| K=6 reference variants | 135,020 |
+| Variants passing all-sample missingness <= 0.05 | 498,721 |
+| Variants dropped by all-sample missingness | 181 |
+| Variants after reference intersection | 134,748 |
+| Variants dropped by allele alignment | 0 |
+| Final aligned ADMIXTURE variants | 134,748 |
+| Final aligned samples | 535,662 |
+| `ref_aligned.P` rows | 134,748 |
+| Projection batches | 27 |
+| Full batch size | 20,000 samples |
+| Final batch size | 15,662 samples |
 
 ### Step 6 — AoU-vs-ours ancestry comparison and European classifier
 
