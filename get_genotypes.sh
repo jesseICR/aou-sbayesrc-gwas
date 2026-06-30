@@ -59,8 +59,10 @@ export SCRIPT_DIR
 # ---------------------------------------------------------------------------
 # Paths — FUSE mount points are stable across all AoU Verily users
 # ---------------------------------------------------------------------------
-# Controlled-tier dataset bucket (ro).
-export AOU_DATA_MOUNT="/home/jupyter/workspace/data_controlled/vwb-aou-datasets-controlled"
+# Controlled-tier dataset bucket (ro). In current AoU Verily workspaces, the
+# catalog resource is mounted directly under /home/jupyter/workspace with a
+# versioned resource name, while the bucket still contains v7/v8/v9 subdirs.
+export AOU_DATA_MOUNT="${AOU_DATA_MOUNT:-/home/jupyter/workspace/vwb-aou-datasets-controlled-v9}"
 
 # AoU release selection. v9 is the default current release. The pipeline
 # overrides WORKSPACE_CDR to the matching CDR because some Workbench sessions
@@ -89,8 +91,8 @@ case "${AOU_DATA_VERSION}" in
         export AOU_CDR_DATASET="${AOU_CDR_DATASET:-C2025Q4R6}"
         export AOU_WGS_RELEASE_ROOT="${AOU_DATA_MOUNT}/v9/wgs/short_read/snpindel"
         export AOU_WGS_GS_ROOT="gs://vwb-aou-datasets-controlled/v9/wgs/short_read/snpindel"
-        export AOU_PGEN_DIR="${AOU_WGS_RELEASE_ROOT}/acaf/pgen"
-        export AOU_PGEN_GS_DIR="${AOU_WGS_GS_ROOT}/acaf/pgen"
+        export AOU_PGEN_DIR="${AOU_WGS_RELEASE_ROOT}/acaf_threshold/pgen"
+        export AOU_PGEN_GS_DIR="${AOU_WGS_GS_ROOT}/acaf_threshold/pgen"
         export AOU_ANCESTRY_PRED_FILE="${AOU_WGS_RELEASE_ROOT}/aux/ancestry/ancestry_preds.tsv"
         export AOU_ADMIXTURE_Q_FILE="${AOU_ADMIXTURE_Q_FILE:-}"
         export AOU_RYE_COMPARISON_MODE="${AOU_RYE_COMPARISON_MODE:-skip}"
@@ -357,7 +359,15 @@ export REGENIE_CHROMS="${REGENIE_CHROMS:-1-22}"
 
 # Tools — plink2 is preinstalled on the AoU Verily Jupyter VM.
 export PLINK2="${PLINK2:-/opt/workbench-tools/binaries/bin/plink2}"
-export REGENIE="${REGENIE:-$(command -v regenie || true)}"
+if [[ -z "${REGENIE:-}" ]]; then
+    if command -v regenie >/dev/null 2>&1; then
+        export REGENIE="$(command -v regenie)"
+    elif [[ -x "/opt/workbench-tools/binaries/bin/regenie" ]]; then
+        export REGENIE="/opt/workbench-tools/binaries/bin/regenie"
+    else
+        export REGENIE=""
+    fi
+fi
 
 # Threading — plink2 is multithreaded; default to all cores.
 export THREADS="${THREADS:-$(nproc)}"
@@ -478,7 +488,7 @@ export DSUB_LOG_URI="${DX_OUTPUT_URI}/logs/dsub"
 # ---------------------------------------------------------------------------
 if [[ ! -d "${AOU_PGEN_DIR}" ]]; then
     echo "ERROR: ${AOU_PGEN_DIR} is not present."
-    echo "  Is the controlled-tier dataset bucket mounted? Check 'mount | grep data_controlled'."
+    echo "  Is the controlled-tier dataset bucket mounted? Check 'mount | grep vwb-aou-datasets-controlled'."
     exit 1
 fi
 if [[ ! -w "${WORKSPACE_BUCKET_MOUNT}" ]]; then

@@ -18,7 +18,9 @@
 # Inputs (env vars set by dsub --input / --env):
 #   CHROM         e.g. "chr3"
 #   PLINK2        local path to statically-linked plink2 binary
-#   PGEN PVAR PSAM   local paths to AoU acaf_threshold.chrN.{pgen,pvar,psam}
+#   PGEN PVAR PSAM   local paths to AoU acaf_threshold inputs. PSAM may be a
+#                     shared autosome sample file when the release omits the
+#                     per-chromosome .psam object.
 #   EXTRACT       local path to chrN.extract.txt (one ID per line)
 #   IDMAP         local path to chrN.idmap.txt (chr:pos:REF:ALT \t rsid)
 #
@@ -43,13 +45,25 @@ log "plink2 = $("${PLINK2}" --version 2>&1 | head -1 || true)"
 
 mkdir -p "${OUTDIR}"
 
-# pgen/pvar/psam all come from the same gs:// dir so they share a local prefix
-# after dsub localization. Derive it from PGEN.
+# pgen/pvar share a local prefix after dsub localization. Some AoU releases
+# omit per-chromosome .psam files for a subset of autosomes; in that case the
+# orchestrator localizes an identical shared .psam from another autosome. Link
+# that shared file to the pgen prefix expected by plink2 --pfile.
 SRC_PREFIX="${PGEN%.pgen}"
-if [[ ! -f "${SRC_PREFIX}.pvar" || ! -f "${SRC_PREFIX}.psam" ]]; then
-    log "ERROR: pgen/pvar/psam don't share local prefix '${SRC_PREFIX}'"
+if [[ ! -f "${SRC_PREFIX}.pvar" ]]; then
+    log "ERROR: localized pgen/pvar don't share local prefix '${SRC_PREFIX}'"
     ls -la "${PGEN}" "${PVAR}" "${PSAM}" 2>&1 | sed "s/^/  /"
     exit 1
+fi
+if [[ ! -f "${SRC_PREFIX}.psam" ]]; then
+    if [[ -f "${PSAM}" ]]; then
+        log "source .psam not present at ${SRC_PREFIX}.psam; using localized shared .psam ${PSAM}"
+        ln -sf "${PSAM}" "${SRC_PREFIX}.psam"
+    else
+        log "ERROR: missing localized psam input '${PSAM}'"
+        ls -la "${PGEN}" "${PVAR}" "${PSAM}" 2>&1 | sed "s/^/  /"
+        exit 1
+    fi
 fi
 
 # Scratch on the data disk (where dsub mounts /mnt/data).

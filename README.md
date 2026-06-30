@@ -122,9 +122,13 @@ the AoU `acaf_threshold/plink_bed/chr{N}.bim` second column exactly, so
 
 Submits **one dsub task per autosome** to Google Batch in `us-central1`.
 Each task runs `dsub_extract_worker.sh` on its own Batch worker, with the
-per-chromosome AoU pgen/pvar/psam staged in via `dsub --input` and the final
+per-chromosome AoU pgen/pvar staged in via `dsub --input` and the final
 extracted pgen/pvar/psam/summary.tsv delocalized via `dsub --output-recursive`
-to `${WORKSPACE_BUCKET}/sbayesrc_genotypes/wgs_pfiles/`.
+to `${WORKSPACE_BUCKET}/sbayesrc_genotypes/wgs_pfiles/`. For cdrv9, several
+autosomes do not publish their own `.psam` object in `acaf_threshold/pgen`;
+the orchestrator verifies that the published autosome `.psam` files are
+byte-identical and uses one as a shared sample-file fallback for those
+chromosomes.
 
 Per-worker pipeline (four passes, same as the previous serial-on-Jupyter
 implementation):
@@ -360,6 +364,9 @@ dominant-component heatmap, European set-overlap counts, discordant European
 call composition plots, and AoU MID-threshold composition plots.
 
 #### v8 validation summary: AoU ancestry calls vs this pipeline's ADMIXTURE classifier
+
+Keep this section as historical v8 validation. Add default v9 run results as a
+separate accounting section when available; do not replace these v8 counts.
 
 For v9, AoU provides an updated ancestry prediction file, but we did not find a
 v9 equivalent of the AoU RYE admixture-fraction file. Therefore the full
@@ -1161,7 +1168,22 @@ completed through the final REGENIE genotype-input step.
 
 You are inside an AoU Verily Jupyter session terminal (the standard
 interactive analysis environment for the All of Us Researcher Workbench).
-The desired clean-workspace workflow is:
+
+Before cloning the repo in a brand-new workspace, add the current Controlled
+Tier data collection from the Workbench catalog:
+
+1. Open **Data from Catalog** with the plus button in the workspace.
+2. Select **All of Us Controlled Tier**.
+3. On **Select resource**, use the recommended active version (`cdrv9`) and
+   choose **Select all resources**.
+4. On **Review policies**, answer the Research Use Statement questions and
+   acknowledge the permanent Controlled Tier workspace policies.
+5. On **Review selection**, add all six selected resources at the workspace
+   root. The selected resources should include the `v9-genomics-folder` object
+   and the `vwb-aou-datasets-controlled-v9` bucket reference.
+
+After the resources are added and the Jupyter environment is running, the
+clean-workspace terminal workflow is:
 
 ```bash
 git clone https://github.com/jesseICR/aou-sbayesrc-gwas.git
@@ -1195,7 +1217,7 @@ The session must provide:
   `get_genotypes.sh` derives the writable bucket URI from the FUSE mount
   table instead, which is portable across users.)
 - **Controlled-tier dataset bucket** FUSE-mounted (read-only) at
-  `/home/jupyter/workspace/data_controlled/vwb-aou-datasets-controlled/`.
+  `/home/jupyter/workspace/vwb-aou-datasets-controlled-v9/`.
 - **Workspace bucket** FUSE-mounted (read-write) at
   `/home/jupyter/workspace/workspace-bucket/`. If it is absent,
   `get_genotypes.sh` attempts to create the Workbench-controlled

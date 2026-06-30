@@ -24,7 +24,8 @@
 #   LOCAL_SBAYESRC_ID_DIR    local dir with chr{N}.{extract,idmap}.txt
 #   DX_WGS_PFILE_DIR         workspace-bucket-mount path (idempotency check)
 #   DX_WGS_PFILE_URI         gs:// destination for delocalized pfiles
-#   AOU_PGEN_GS_DIR          gs://vwb-aou-datasets-controlled/v8/.../pgen
+#   AOU_PGEN_DIR             FUSE-mounted AoU acaf_threshold pgen directory
+#   AOU_PGEN_GS_DIR          gs://vwb-aou-datasets-controlled/.../acaf_threshold/pgen
 #   DSUB_PROVIDER            "google-batch"
 #   DSUB_REGION              "us-central1"
 #   DSUB_NETWORK             projects/$PROJECT/global/networks/network
@@ -71,6 +72,61 @@ if [[ ${#to_submit[@]} -eq 0 ]]; then
     # Still write combined summary below.
 else
     # -----------------------------------------------------------------------
+    # Resolve AoU source inputs.
+    #
+    # AoU cdrv9 publishes the complete autosome pgen/pvar set under
+    # acaf_threshold/pgen, but several autosomes do not have their own .psam
+    # object. The .psam files that are present are byte-identical, so use the
+    # first published autosome .psam as a guarded shared fallback.
+    # -----------------------------------------------------------------------
+    shared_psam_chrom=""
+    shared_psam_local=""
+    for c in $(seq 1 22); do
+        candidate="${AOU_PGEN_DIR}/acaf_threshold.chr${c}.psam"
+        if [[ -s "${candidate}" ]]; then
+            shared_psam_chrom="${c}"
+            shared_psam_local="${candidate}"
+            break
+        fi
+    done
+    if [[ -z "${shared_psam_chrom}" ]]; then
+        echo "ERROR: no non-empty AoU autosome .psam file found under ${AOU_PGEN_DIR}" >&2
+        exit 1
+    fi
+
+    for c in $(seq 1 22); do
+        candidate="${AOU_PGEN_DIR}/acaf_threshold.chr${c}.psam"
+        if [[ -s "${candidate}" ]] && ! cmp -s "${shared_psam_local}" "${candidate}"; then
+            echo "ERROR: published AoU autosome .psam files are not identical." >&2
+            echo "  ${shared_psam_local}" >&2
+            echo "  ${candidate}" >&2
+            echo "  Refusing to use a shared .psam fallback." >&2
+            exit 1
+        fi
+    done
+
+    missing_source=0
+    fallback_psam_chroms=()
+    for c in "${to_submit[@]}"; do
+        for ext in pgen pvar; do
+            f="${AOU_PGEN_DIR}/acaf_threshold.chr${c}.${ext}"
+            if [[ ! -s "${f}" ]]; then
+                echo "ERROR: missing AoU source ${f}" >&2
+                missing_source=1
+            fi
+        done
+        if [[ ! -s "${AOU_PGEN_DIR}/acaf_threshold.chr${c}.psam" ]]; then
+            fallback_psam_chroms+=("chr${c}")
+        fi
+    done
+    if [[ "${missing_source}" -ne 0 ]]; then
+        exit 1
+    fi
+    if [[ ${#fallback_psam_chroms[@]} -gt 0 ]]; then
+        echo "Using shared AoU .psam chr${shared_psam_chrom} for missing per-chrom .psam: ${fallback_psam_chroms[*]}"
+    fi
+
+    # -----------------------------------------------------------------------
     # Stage worker binary + reference files to workspace bucket (idempotent)
     # -----------------------------------------------------------------------
     # The pvar-allele normalization logic from normalize_pvar_alleles.py is
@@ -98,12 +154,16 @@ else
             '--input EXTRACT' '--input IDMAP' \
             '--output-recursive OUTDIR'
         for c in "${to_submit[@]}"; do
+            psam_chrom="${c}"
+            if [[ ! -s "${AOU_PGEN_DIR}/acaf_threshold.chr${c}.psam" ]]; then
+                psam_chrom="${shared_psam_chrom}"
+            fi
             printf 'chr%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
                 "${c}" \
                 "${DSUB_PLINK2_GS}" \
                 "${AOU_PGEN_GS_DIR}/acaf_threshold.chr${c}.pgen" \
                 "${AOU_PGEN_GS_DIR}/acaf_threshold.chr${c}.pvar" \
-                "${AOU_PGEN_GS_DIR}/acaf_threshold.chr${c}.psam" \
+                "${AOU_PGEN_GS_DIR}/acaf_threshold.chr${psam_chrom}.psam" \
                 "${DSUB_SBAYESRC_ID_URI}/chr${c}.extract.txt" \
                 "${DSUB_SBAYESRC_ID_URI}/chr${c}.idmap.txt" \
                 "${DX_WGS_PFILE_URI}/"
