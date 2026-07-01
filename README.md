@@ -887,6 +887,19 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/pca_ld_prune.prune.out
 SNP/sample count, dropped SNP/sample count, and remaining SNP/sample count.
 `pca_snp_qc.summary.tsv` records the thresholds and final `pca_ready` counts.
 
+Observed Step 9 accounting from the default cdrv9/v9 run:
+
+| Filter | Dropped SNPs | Dropped samples | Remaining SNPs | Remaining samples |
+|---|---:|---:|---:|---:|
+| Source high-quality direct bfile | 0 | 0 | 498,902 | 535,662 |
+| Keep Step 8 PCA-fitting IIDs | 0 | 261,946 | 498,902 | 273,716 |
+| ALT-frequency difference <= 0.03 | 536 | 0 | 498,366 | 273,716 |
+| MAF >= 0.01 | 3,482 | 0 | 494,884 | 273,716 |
+| Variant missingness <= 0.01 | 3,561 | 0 | 491,323 | 273,716 |
+| Sample missingness <= 0.01 | 0 | 135 | 491,323 | 273,581 |
+| Exclude hg38 long-range LD regions | 8,029 | 0 | 483,294 | 273,581 |
+| LD prune `1000 80 0.1` | 348,401 | 0 | 134,893 | 273,581 |
+
 Observed Step 9 accounting from the current v8 run:
 
 | Filter | Dropped SNPs | Dropped samples | Remaining SNPs | Remaining samples |
