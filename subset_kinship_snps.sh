@@ -39,7 +39,7 @@ final_extract="${DX_KINSHIP_DIR}/ukbb_relatedness_snps_in_hq_direct_geno_lt_thre
 vmiss="${DX_KINSHIP_DIR}/kinship_snp_subset_all_sample_missingness.vmiss"
 threshold_counts="${DX_KINSHIP_DIR}/kinship_snp_missingness_threshold_counts.tsv"
 
-if [[ -s "${summary}" && -s "${params}" && -s "${final_extract}" && -s "${vmiss}" ]]; then
+if [[ -s "${summary}" && -s "${params}" && -s "${final_extract}" && -s "${vmiss}" && -s "${threshold_counts}" ]]; then
     existing_source=$(awk -F'\t' '$1 == "source_bfile" {print $2; exit}' "${params}")
     existing_missing=$(awk -F'\t' '$1 == "kinship_missing_max_exclusive" {print $2; exit}' "${params}")
     expected=$(awk -F'\t' '$1 == "n_intersection_and_missing_lt_threshold" {print $2; exit}' "${summary}")
@@ -204,7 +204,7 @@ write_subset_from_existing_vmiss() {
     return 0
 }
 
-if [[ -s "${summary}" && -s "${params}" && -s "${final_extract}" && -s "${vmiss}" ]]; then
+if [[ -s "${summary}" && -s "${params}" && -s "${final_extract}" && -s "${vmiss}" && -s "${threshold_counts}" ]]; then
     if diff -q "${desired_params}" "${params}" >/dev/null 2>&1; then
         expected=$(awk -F'\t' '$1 == "n_intersection_and_missing_lt_threshold" {print $2; exit}' "${summary}")
         observed=$(wc -l < "${final_extract}")

@@ -43,6 +43,7 @@ log "computing all-sample variant missingness"
     --out "${out_prefix}"
 
 final_extract="${OUTDIR}/ukbb_relatedness_snps_in_hq_direct_geno_lt_threshold.txt"
+threshold_counts="${OUTDIR}/kinship_snp_missingness_threshold_counts.tsv"
 awk -v max_missing="${KINSHIP_MISSING_MAX}" '
     NR == 1 {
         for (i = 1; i <= NF; i++) {
@@ -65,6 +66,36 @@ awk -v max_missing="${KINSHIP_MISSING_MAX}" '
         }
     }
 ' "${out_prefix}.vmiss" > "${final_extract}"
+
+awk '
+    NR == 1 {
+        for (i = 1; i <= NF; i++) {
+            if ($i == "F_MISS") fmiss_col = i
+        }
+        next
+    }
+    fmiss_col > 0 {
+        total++
+        fmiss = $fmiss_col + 0
+        if (fmiss < 0.05) pass_005++
+        if (fmiss < 0.04) pass_004++
+        if (fmiss < 0.03) pass_003++
+        if (fmiss < 0.02) pass_002++
+        if (fmiss < 0.01) pass_001++
+    }
+    END {
+        if (fmiss_col == 0) {
+            exit 2
+        }
+        print "threshold\tpassing_variants\tfailing_variants"
+        printf "missingness_lt_0.05\t%d\t%d\n", pass_005, total - pass_005
+        printf "missingness_lt_0.04\t%d\t%d\n", pass_004, total - pass_004
+        printf "missingness_lt_0.03\t%d\t%d\n", pass_003, total - pass_003
+        printf "missingness_lt_0.02\t%d\t%d\n", pass_002, total - pass_002
+        printf "missingness_lt_0.01\t%d\t%d\n", pass_001, total - pass_001
+        printf "total_measured\t%d\t0\n", total
+    }
+' "${out_prefix}.vmiss" > "${threshold_counts}"
 
 if [[ ! -s "${final_extract}" ]]; then
     log "ERROR: final kinship SNP extract is empty"
