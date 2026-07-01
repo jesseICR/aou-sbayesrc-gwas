@@ -668,6 +668,12 @@ Close relationships, kinship >=0.1767:            37,342
   sibling:                                        11,119
   parent_child:                                   22,248
   identical/twin/duplicate:                        3,975
+
+Sibling relationship samples:
+  total unique sibling individuals:                19,918
+  pairs with both samples classified European:       4,651
+  unique classified-European individuals in those pairs: 8,642
+  classified-European individuals in any sibling pair:   8,671
 ```
 
 Validation run summary from the first completed AoU v8 run in this workspace
