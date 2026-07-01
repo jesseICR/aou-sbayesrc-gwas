@@ -685,6 +685,15 @@ Classified-European sibling-family components:
   families with 5 sibling individuals:                           1
 ```
 
+The two classified-European sibling-individual counts differ because one is
+restricted to sibling pairs where both samples pass the European classifier,
+whereas the other includes classified-European samples in mixed pairs where
+only one sibling passes the classifier. In cdrv9, those 37 mixed sibling pairs
+are threshold-edge cases: the non-European-classified sibling usually has an
+`American` or `African` fraction just above the `0.1` cap, or a European
+fraction just below `0.8`. The classifier is an operational GWAS keep-list
+rule, not a family-level ancestry label.
+
 Validation run summary from the first completed AoU v8 run in this workspace
 with `KINSHIP_MISSING_MAX=0.01` and `KING_TABLE_FILTER=0.035`:
 
