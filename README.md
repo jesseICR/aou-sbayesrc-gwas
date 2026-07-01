@@ -674,6 +674,8 @@ Sibling relationship samples:
   pairs with both samples classified European:       4,651
   unique classified-European individuals in those pairs: 8,642
   classified-European individuals in any sibling pair:   8,671
+  mixed sibling pairs with exactly one classified-European sample: 37
+  classified-European individuals appearing only in mixed pairs:  29
 
 Classified-European sibling-family components:
   families, defined as connected components of sibling pairs: 4,200
