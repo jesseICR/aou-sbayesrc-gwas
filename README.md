@@ -1106,6 +1106,25 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/fit_pca_af/gwas_
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/gwas_step2_wgs.filter_steps.tsv
 ```
 
+Observed Step 13 accounting from the completed cdrv9 run:
+
+| Metric | Step 1 direct | Step 2 WGS |
+|---|---:|---:|
+| Source variants | 498,902 | 7,350,153 |
+| Dropped: liftover missing / allele mismatch | 0 | 0 |
+| Dropped: ALT-frequency difference above threshold | 500 | 23,135 |
+| Dropped: fit-pca MAF < 0.007 | 0 | 232 |
+| Dropped: classified-European missingness above threshold | 3,586 | 74,453 |
+| Final variants | 494,816 | 7,252,333 |
+| Final samples | 535,662 | 535,662 |
+| Minimum fit-pca MAC among retained variants | 3,835 | 3,773 |
+| Minimum fit-pca MAF among retained variants | 0.00700610 | 0.00700029 |
+| Maximum classified-European missingness among retained variants | 0.0099999 | 0.0299997 |
+| Maximum retained absolute ALT-frequency difference | 0.02999942 | 0.03999878 |
+
+The drop counts are ordered/conditional: a variant removed by an earlier rule is
+not counted again by later rules.
+
 ### Optional — HapMap3 HQ bfile
 
 `make_hapmap3_bfile_hq.sh` is an optional post-pipeline helper. It builds a
@@ -1123,12 +1142,6 @@ Input HapMap3 rsids are tracked at the repo root:
 
 ```text
 hapmap3_rsids.txt
-```
-
-The tracked file was downloaded from:
-
-```text
-https://elvehoj.s3.us-east-1.amazonaws.com/hapmap3_rsids.txt
 ```
 
 Expected file properties:
@@ -1216,6 +1229,29 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/base_covar.t
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas_log.txt
 ```
+
+Observed Step 14 accounting from the completed cdrv9 run:
+
+| Metric | Value |
+|---|---:|
+| Our classified Europeans | 303,903 |
+| Samples in sample-QC exclusion list | 258 |
+| Europeans removed by sample QC | 96 |
+| Europeans after sample QC | 303,807 |
+| Confident sex covariate rows | 527,995 |
+| Height query rows after source/min-height filters | 507,036 |
+| Projected PC rows | 535,662 |
+| Europeans missing a height row | 54,336 |
+| Height candidates missing confident sex | 3,578 |
+| Height+sex candidates missing fam row | 0 |
+| Height+sex+fam candidates missing PCs | 0 |
+| Final GWAS samples | 245,893 |
+| GWAS female | 146,124 |
+| GWAS male | 99,769 |
+| Mean height | 169.193404 cm |
+| Median height | 168.4 cm |
+| Mean age at height measurement | 55.7595201 years |
+| PCs included | 10 |
 
 ### Step 15 — Height GWAS with REGENIE
 
