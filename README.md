@@ -954,6 +954,26 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/sex_ploidy_crosstab.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/genetic_sex_log.txt
 ```
 
+Observed Step 11 accounting from the default cdrv9/v9 run:
+
+| Metric | Value |
+|---|---:|
+| Sample universe | 535,662 |
+| Sex-at-birth query rows | 535,662 |
+| Genomic metrics rows | 535,662 |
+| Binary sex at birth | 530,385 |
+| Missing sex-at-birth rows | 0 |
+| Missing/non-binary sex at birth | 5,277 |
+| Missing genomic metrics rows | 0 |
+| Concordant confident binary samples | 527,995 |
+| Confident female | 324,194 |
+| Confident male | 203,801 |
+| Binary sex/ploidy discordances | 493 |
+| Non-canonical WGS sex ploidy | 1,896 |
+| Confident sample percent | 98.568687% |
+
+The cdrv9 run required concordance between sex at birth and WGS sex ploidy.
+
 ### Step 12 — Sample-QC exclusions for anomalous identical components
 
 `build_identical_component_sample_qc.sh` builds a conservative GWAS exclusion
@@ -984,6 +1004,24 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/exclude_identical_component_siz
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_component_sample_qc.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_component_sample_qc.log
 ```
+
+Observed Step 12 accounting from the default cdrv9/v9 run:
+
+| Metric | Value |
+|---|---:|
+| Close relationship rows | 37,342 |
+| Identical KING pairs | 3,975 |
+| Unique samples in identical graph | 6,434 |
+| Identical components | 3,158 |
+| Size-2 components | 3,088 |
+| Size-3 components | 58 |
+| Components size >=3 | 70 |
+| Samples excluded | 258 |
+| Complete-clique components | 3,158 |
+| Non-complete components | 0 |
+| Excluded samples missing from `.fam` | 0 |
+
+Additional detailed component-size cells are suppressed in the README.
 
 ### Step 13 — Final GWAS genotype inputs
 
