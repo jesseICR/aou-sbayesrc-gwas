@@ -666,9 +666,8 @@ Sibling relationship samples:
 
 Classified-European sibling-family components:
   families, defined as connected components of sibling pairs: 4,200
-  families with 2 sibling individuals:                       3,978
-  families with 3 sibling individuals:                         203
-  additional family-size cells with small participant counts: suppressed
+  exact family-size cells with 1-20 sibling individuals: suppressed
+  non-suppressed exact family-size cells: 0
 ```
 
 The two classified-European sibling-individual counts differ because one is
@@ -1183,6 +1182,19 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/hapmap3_bfile_hq/hapmap3_bfile_hq.summary
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/hapmap3_bfile_hq/hapmap3_bfile_hq.sample_missingness_eur.smiss
 ```
 
+Observed optional HapMap3 HQ accounting from the completed cdrv9 run:
+
+| Metric | Value |
+|---|---:|
+| Requested HapMap3 rsids | 1,154,522 |
+| HapMap3 rsids present in WGS metrics | 1,154,381 |
+| HapMap3 rsids absent from WGS metrics | 141 |
+| Classified-European samples in final bfile | 303,903 |
+| Fit-PCA samples used for frequency/MAF filters | 273,716 |
+| Final HapMap3 HQ variants | 1,140,557 |
+| Final HapMap3 HQ samples | 303,903 |
+| Final `.bed` size | 81 GB |
+
 ### Step 14 — Height GWAS input setup
 
 `setup_height_gwas.sh` builds the phenotype, covariate, and keep files for a
@@ -1297,9 +1309,18 @@ association summaries with columns `rsid`, `allele1`, `a1freq`, `n`, `beta`,
 `se`, and `log10p`. Set `REGENIE_MAKE_LIGHTWEIGHT_OUTPUTS=0` or pass
 `--no-lightweight` to skip these compact files.
 
-The previous full height GWAS output predates Step 13 final genotype
-filtering. Re-run with `RUN_HEIGHT_GWAS=1` after Step 13 completes to generate
-current REGENIE counts for the stricter final genotype inputs.
+Observed Step 15 accounting from the completed cdrv9 run with
+`RUN_HEIGHT_GWAS=1`:
+
+| Metric | Value |
+|---|---:|
+| Step 1 analysis samples | 245,893 |
+| Step 1 direct-SNP variants | 494,816 |
+| Step 2 WGS chromosomes | 22 |
+| Step 2 tested WGS variants | 7,252,333 |
+| Lightweight association rows | 7,252,333 |
+| Rank-inverse normal transform applied | yes |
+| PCs included as covariates | 10 |
 
 ## Downstream Phenotype Workflows
 

@@ -5,6 +5,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+if [[ -z "${GOOGLE_PROJECT:-}" ]]; then
+    GOOGLE_PROJECT="$(gcloud config get-value project 2>/dev/null || true)"
+    if [[ "${GOOGLE_PROJECT}" == "(unset)" ]]; then
+        GOOGLE_PROJECT=""
+    fi
+    export GOOGLE_PROJECT
+fi
 : "${GOOGLE_PROJECT:?GOOGLE_PROJECT not set — are you running inside an AoU Verily Jupyter session?}"
 
 WORKSPACE_BUCKET_MOUNT="${WORKSPACE_BUCKET_MOUNT:-/home/jupyter/workspace/workspace-bucket}"
