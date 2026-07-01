@@ -674,6 +674,13 @@ Sibling relationship samples:
   pairs with both samples classified European:       4,651
   unique classified-European individuals in those pairs: 8,642
   classified-European individuals in any sibling pair:   8,671
+
+Classified-European sibling-family components:
+  families, defined as connected components of sibling pairs: 4,200
+  families with 2 sibling individuals:                       3,978
+  families with 3 sibling individuals:                         203
+  families with 4 sibling individuals:                          18
+  families with 5 sibling individuals:                           1
 ```
 
 Validation run summary from the first completed AoU v8 run in this workspace
