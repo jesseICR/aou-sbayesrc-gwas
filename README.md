@@ -107,6 +107,13 @@ biallelic_total / extracted / out_samples / missing / remapped / unmapped`
 for that chromosome. A combined summary across all processed chromosomes is
 also written to `logs/sbayesrc_extract_summary.tsv` at the end of each run.
 
+## Reporting suppression
+
+README accounting tables suppress exact AoU participant/sample/person-level
+counts in the range 1 through 20. Exact zero counts may be reported. This
+suppression rule does not apply to thresholds, chromosome numbers, PC counts,
+variant/SNP counts, runtime/resource sizing, or other non-participant values.
+
 ## Pipeline steps
 
 ### Step 1 — `store_sbayesrc_ids.py` (local)
@@ -681,8 +688,7 @@ Classified-European sibling-family components:
   families, defined as connected components of sibling pairs: 4,200
   families with 2 sibling individuals:                       3,978
   families with 3 sibling individuals:                         203
-  families with 4 sibling individuals:                          18
-  families with 5 sibling individuals:                           1
+  additional family-size cells with small participant counts: suppressed
 ```
 
 The two classified-European sibling-individual counts differ because one is
@@ -1019,7 +1025,6 @@ Observed Step 11 accounting from the current v8 run:
 | Sample universe | 414,830 |
 | Binary sex at birth | 410,445 |
 | Missing/non-binary sex at birth | 4,385 |
-| Missing WGS sex ploidy | 1 |
 | Non-canonical WGS sex ploidy | 1,451 |
 | Concordant confident binary samples | 408,993 |
 | Confident female | 249,842 |
@@ -1067,9 +1072,7 @@ Observed Step 12 accounting from the current v8 run:
 | Identical components | 1,896 |
 | Size-2 components | 1,854 |
 | Size-3 components | 36 |
-| Size-4 components | 4 |
-| Size-5 components | 1 |
-| Size-23 components | 1 |
+| Additional component-size cells with small participant counts | suppressed |
 | Components size >=3 | 42 |
 | Samples excluded | 152 |
 
