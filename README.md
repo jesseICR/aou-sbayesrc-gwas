@@ -647,6 +647,29 @@ The AoU version deliberately does not apply a birth-year/month sibling age-gap
 filter because no portable AoU phenotype dependency is part of this genotype
 pipeline.
 
+Observed Step 7b-7d accounting from the default cdrv9/v9 run with
+`KINSHIP_MISSING_MAX=0.01` and `KING_TABLE_FILTER=0.035`:
+
+```text
+UKBB in_Relatedness SNPs:                         93,511
+Intersection with HQ direct bfile:                85,222
+Final KING SNPs after all-sample missingness <1%: 84,510
+
+KING pairs reported at kinship >=0.035:          116,490
+AoU provided relatedness pairs:                   55,907
+Overlapping pair set:                             55,744
+Ours-only pair set:                               60,746
+AoU-only pair set:                                   163
+Pearson r vs AoU kinship:                         0.9896
+Mean absolute kinship difference:                 0.00900
+Median absolute kinship difference:               0.00599
+
+Close relationships, kinship >=0.1767:            37,342
+  sibling:                                        11,119
+  parent_child:                                   22,248
+  identical/twin/duplicate:                        3,975
+```
+
 Validation run summary from the first completed AoU v8 run in this workspace
 with `KINSHIP_MISSING_MAX=0.01` and `KING_TABLE_FILTER=0.035`:
 
@@ -730,6 +753,30 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/pca_eur/candidate_pca_europeans_iids.txt
 The summary reports the number of classified Europeans, seed samples,
 expanded exclusions, candidate PCA Europeans before the final KING cutoff,
 samples removed by the final cutoff, and final `fit_pca_iids`.
+
+Observed Step 8 accounting from the default cdrv9/v9 run with
+`PCA_KINSHIP_THRESHOLD=0.0441941` and
+`PCA_SEED_RELATIONSHIPS=sibling,identical`:
+
+```text
+Classified Europeans:                         303,903
+Seed sibling/identical relationship rows:      15,094
+Samples in seed relationship rows:             26,076
+European seed samples:                         12,103
+KING graph edges at kinship >=0.0441941:       87,885
+KING graph nodes:                             116,528
+
+Expanded exclusions total:                     13,971
+Expanded exclusions in Europeans:              13,866
+Expanded exclusions not in Europeans:             105
+Candidate PCA Europeans before KING cutoff:   290,037
+Removed by final KING cutoff:                  16,321
+Final PCA fitting IIDs:                       273,716
+
+Verification non-European retained:                 0
+Verification expanded exclusions retained:          0
+Verification related pairs retained:                0
+```
 
 Validation run summary from the first completed AoU v8 run in this workspace
 with `PCA_KINSHIP_THRESHOLD=0.0441941` and
