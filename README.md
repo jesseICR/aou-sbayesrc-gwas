@@ -619,9 +619,10 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/kinship/aou_hq_direct_rel.kin0
 ```
 
 `kinship_qc.sh` compares our KING kinship coefficients against AoU's provided
-KING-style relatedness table:
+KING-style relatedness table for the selected release:
 
 ```text
+v9/wgs/short_read/snpindel/aux/relatedness/samples_relatedness.tsv
 v8/wgs/short_read/snpindel/aux/relatedness/samples_relatedness.tsv
 ```
 
