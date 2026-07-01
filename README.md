@@ -571,6 +571,27 @@ If the `.vmiss` file already exists and only `KINSHIP_MISSING_MAX` changes,
 `subset_kinship_snps.sh` re-filters locally instead of re-submitting the dsub
 job and re-localizing the large HQ direct bfile.
 
+Observed Step 7a SNP-subset accounting from the default cdrv9/v9 run:
+
+| Metric | Value |
+|---|---:|
+| Source high-quality direct variants | 498,902 |
+| Source samples | 535,662 |
+| UKBB `in_Relatedness` SNPs | 93,511 |
+| Intersection with HQ direct bfile | 85,222 |
+| Variants with all-sample missingness measured | 85,222 |
+| Final KING SNPs after all-sample missingness <1% | 84,510 |
+
+Common missingness-threshold counts from the same v9 `.vmiss` file:
+
+| Threshold | Passing SNPs | Failing SNPs |
+|---|---:|---:|
+| missingness < 0.05 | 85,184 | 38 |
+| missingness < 0.04 | 85,123 | 99 |
+| missingness < 0.03 | 85,041 | 181 |
+| missingness < 0.02 | 84,878 | 344 |
+| missingness < 0.01 | 84,510 | 712 |
+
 `get_genotypes.sh` proceeds directly from the SNP subset to the KING run. KING
 is the largest single compute step in the pipeline, but it is idempotent: once
 matching KING outputs exist, later runs skip it. To tighten the all-sample SNP
