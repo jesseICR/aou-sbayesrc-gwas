@@ -478,19 +478,15 @@ AoU hard-call counts in the v9 ancestry prediction file:
 | sas | 6,176 |
 | missing | 0 |
 
-#### v8 validation summary: AoU ancestry calls vs this pipeline's ADMIXTURE classifier
-
-Keep this section as historical v8 validation. Add default v9 run results as a
-separate accounting section when available; do not replace these v8 counts.
+#### v8-only AoU RYE fraction-correlation validation
 
 For v9, AoU provides an updated ancestry prediction file, but we did not find a
 v9 equivalent of the AoU RYE admixture-fraction file. Therefore the full
 AoU-vs-ours fraction comparison described here is a v8 validation analysis, not
 a v9 pipeline requirement.
 
-The v8 comparison included all 414,830 WGS samples present in the AoU v8 ACAF
-files, the AoU RYE fraction file, and this pipeline's ADMIXTURE K=6 projection.
-Our European classifier used:
+A historical v8 comparison used the AoU RYE fraction file and this pipeline's
+ADMIXTURE K=6 projection. The European classifier used:
 
 ```text
 European >= 0.8
@@ -501,24 +497,8 @@ Oceanian <= 0.1
 South_Asian: no cap
 ```
 
-Key v8 European-set overlap results:
-
-| Metric | Count |
-|---|---:|
-| AoU hard-predicted EUR | 234,353 |
-| Classified European by this pipeline | 234,889 |
-| European by both methods | 230,635 |
-| AoU EUR only | 3,718 |
-| This pipeline EUR only | 4,254 |
-| Neither European | 176,223 |
-| European union | 238,607 |
-
-The overlap was high: Jaccard index `0.9666`. Treating AoU's hard EUR call as a
-reference label for validation only, this pipeline's European classifier had
-precision `0.9819` and recall `0.9841`.
-
 Component-level correlations between AoU RYE fractions and this pipeline's
-ADMIXTURE fractions were also high for the directly comparable components:
+ADMIXTURE fractions were high for the directly comparable components:
 
 | Component | Pearson r |
 |---|---:|
@@ -700,29 +680,9 @@ are threshold-edge cases: the non-European-classified sibling usually has an
 fraction just below `0.8`. The classifier is an operational GWAS keep-list
 rule, not a family-level ancestry label.
 
-Validation run summary from the first completed AoU v8 run in this workspace
-with `KINSHIP_MISSING_MAX=0.01` and `KING_TABLE_FILTER=0.035`:
-
-```text
-UKBB in_Relatedness SNPs:                         93,511
-Intersection with HQ direct bfile:                85,223
-Final KING SNPs after all-sample missingness <1%: 84,550
-
-KING pairs reported at kinship >=0.035:           78,142
-AoU provided relatedness pairs:                   39,681
-Overlapping pair set:                             39,575
-Pearson r vs AoU kinship:                         0.9894
-Mean absolute kinship difference:                 0.00893
-
-Close relationships, kinship >=0.1767:            26,215
-  sibling:                                         7,826
-  parent_child:                                   16,140
-  identical/twin/duplicate:                        2,249
-```
-
-These numbers are a validation/accounting record for that run; they are not
-hardcoded into the pipeline. New AoU releases or changed thresholds should be
-summarized from the files in `sbayesrc_genotypes/kinship/`.
+These numbers are run accounting, not hardcoded expectations. New AoU releases
+or changed thresholds should be summarized from the files in
+`sbayesrc_genotypes/kinship/`.
 
 ### Step 8 — Select unrelated European IIDs for PCA fitting
 
@@ -808,33 +768,9 @@ Verification expanded exclusions retained:          0
 Verification related pairs retained:                0
 ```
 
-Validation run summary from the first completed AoU v8 run in this workspace
-with `PCA_KINSHIP_THRESHOLD=0.0441941` and
-`PCA_SEED_RELATIONSHIPS=sibling,identical`:
-
-```text
-Classified Europeans:                         234,889
-Seed sibling/identical relationship rows:      10,075
-Samples in seed relationship rows:             17,788
-European seed samples:                          7,771
-KING graph edges at kinship >=0.0441941:       60,895
-KING graph nodes:                              82,914
-
-Expanded exclusions total:                      8,941
-Expanded exclusions in Europeans:               8,886
-Expanded exclusions not in Europeans:              55
-Candidate PCA Europeans before KING cutoff:   226,003
-Removed by final KING cutoff:                  11,339
-Final PCA fitting IIDs:                       214,664
-
-Verification non-European retained:                 0
-Verification expanded exclusions retained:          0
-Verification related pairs retained:                0
-```
-
-As with the kinship validation counts, these are accounting numbers from that
-run, not hardcoded expectations. New AoU releases or changed thresholds should
-be summarized from `pca_eur/select_pca_europeans.summary.tsv`.
+These are accounting numbers from the cdrv9/v9 run, not hardcoded
+expectations. New AoU releases or changed thresholds should be summarized from
+`pca_eur/select_pca_europeans.summary.tsv`.
 
 ### Step 9 — QC SNPs for PCA
 
@@ -900,19 +836,6 @@ Observed Step 9 accounting from the default cdrv9/v9 run:
 | Exclude hg38 long-range LD regions | 8,029 | 0 | 483,294 | 273,581 |
 | LD prune `1000 80 0.1` | 348,401 | 0 | 134,893 | 273,581 |
 
-Observed Step 9 accounting from the current v8 run:
-
-| Filter | Dropped SNPs | Dropped samples | Remaining SNPs | Remaining samples |
-|---|---:|---:|---:|---:|
-| Source high-quality direct bfile | 0 | 0 | 498,890 | 414,830 |
-| Keep Step 8 PCA-fitting IIDs | 0 | 200,166 | 498,890 | 214,664 |
-| ALT-frequency difference <= 0.03 | 622 | 0 | 498,268 | 214,664 |
-| MAF >= 0.01 | 3,579 | 0 | 494,689 | 214,664 |
-| Variant missingness <= 0.01 | 3,313 | 0 | 491,376 | 214,664 |
-| Sample missingness <= 0.01 | 0 | 83 | 491,376 | 214,581 |
-| Exclude hg38 long-range LD regions | 8,026 | 0 | 483,350 | 214,581 |
-| LD prune `1000 80 0.1` | 348,370 | 0 | 134,980 | 214,581 |
-
 These numbers are run accounting, not hardcoded expectations. Recompute them
 from `pca_snp_qc.filter_steps.tsv` after changing thresholds or moving to a
 new AoU release.
@@ -968,43 +891,6 @@ seed, score-file columns, and PCA SNPs missing from the projection bfile.
 Missing projection SNPs should be zero because Step 9 starts from
 `direct_bfile_hq`.
 
-Observed Step 10 accounting from the current v8 run:
-
-| Metric | Value |
-|---|---:|
-| PCA SNPs used for fitting/projection | 134,980 |
-| PCA-fitting samples | 214,581 |
-| Allele-weight rows | 269,960 |
-| Unique allele-weight SNP IDs | 134,980 |
-| Projected samples | 414,830 |
-| Missing PCA SNPs in projection bfile | 0 |
-| PCs | 20 |
-
-Eigenvalues from that run:
-
-```text
-437.348
-89.0169
-70.7415
-30.5331
-24.0492
-14.2525
-10.5199
-8.24073
-8.02872
-7.47943
-7.19182
-6.86026
-6.7948
-6.75767
-6.74678
-6.71023
-6.69641
-6.68407
-6.6745
-6.66575
-```
-
 ### Step 11 — Sex covariate and sex/ploidy QC
 
 `get_genetic_sex.sh` builds the binary sex covariate used by the height GWAS
@@ -1030,20 +916,6 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/genetic_sex_summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/sex_ploidy_crosstab.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/genetic_sex/genetic_sex_log.txt
 ```
-
-Observed Step 11 accounting from the current v8 run:
-
-| Metric | Value |
-|---|---:|
-| Sample universe | 414,830 |
-| Binary sex at birth | 410,445 |
-| Missing/non-binary sex at birth | 4,385 |
-| Non-canonical WGS sex ploidy | 1,451 |
-| Concordant confident binary samples | 408,993 |
-| Confident female | 249,842 |
-| Confident male | 159,151 |
-| Binary sex/ploidy discordances | 0 |
-| Confident sample percent | 98.592918% |
 
 ### Step 12 — Sample-QC exclusions for anomalous identical components
 
@@ -1075,19 +947,6 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/exclude_identical_component_siz
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_component_sample_qc.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/sample_qc/identical_component_sample_qc.log
 ```
-
-Observed Step 12 accounting from the current v8 run:
-
-| Metric | Value |
-|---|---:|
-| Identical KING pairs | 2,249 |
-| Unique samples in identical graph | 3,860 |
-| Identical components | 1,896 |
-| Size-2 components | 1,854 |
-| Size-3 components | 36 |
-| Additional component-size cells with small participant counts | suppressed |
-| Components size >=3 | 42 |
-| Samples excluded | 152 |
 
 ### Step 13 — Final GWAS genotype inputs
 
@@ -1171,25 +1030,6 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/fit_pca_af/chr{1
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/fit_pca_af/gwas_step2_fit_pca_alt_freqs_passing.tsv.gz
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/gwas_genotypes/step2_wgs/gwas_step2_wgs.filter_steps.tsv
 ```
-
-Observed Step 13 accounting from the current v8 run:
-
-| Metric | Step 1 direct | Step 2 WGS |
-|---|---:|---:|
-| Source variants | 498,890 | 7,349,435 |
-| Dropped: liftover missing / allele mismatch | 0 | 0 |
-| Dropped: ALT-frequency difference above threshold | 567 | 24,009 |
-| Dropped: fit-pca MAF < 0.007 | 1 | 246 |
-| Dropped: classified-European missingness above threshold | 3,338 | 73,787 |
-| Final variants | 494,984 | 7,251,393 |
-| Final samples | 414,830 | 414,830 |
-| Minimum fit-pca MAC among retained variants | 3,027 | 2,991 |
-| Minimum fit-pca MAF among retained variants | 0.00705088 | 0.00700198 |
-| Maximum classified-European missingness among retained variants | 0.00999621 | 0.0299971 |
-| Maximum retained absolute ALT-frequency difference | 0.02998992 | 0.03999598 |
-
-The drop counts are ordered/conditional: a variant removed by an earlier rule is
-not counted again by later rules.
 
 ### Optional — HapMap3 HQ bfile
 
@@ -1301,29 +1141,6 @@ ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/base_covar.t
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas.summary.tsv
 ${WORKSPACE_BUCKET}/sbayesrc_genotypes/regenie_input/height_example/height_gwas_log.txt
 ```
-
-Observed Step 14 accounting from the current v8 run:
-
-| Metric | Value |
-|---|---:|
-| Our classified Europeans | 234,889 |
-| Samples in sample-QC exclusion list | 152 |
-| Europeans removed by sample QC | 37 |
-| Europeans after sample QC | 234,852 |
-| Confident sex covariate rows | 408,993 |
-| Height query rows after source/min-height filters | 439,858 |
-| Projected PC rows | 414,830 |
-| Europeans missing a height row | 33,090 |
-| Height candidates missing confident sex | 2,819 |
-| Height+sex candidates missing fam row | 0 |
-| Height+sex+fam candidates missing PCs | 0 |
-| Final GWAS samples | 198,943 |
-| GWAS female | 118,723 |
-| GWAS male | 80,220 |
-| Mean height | 169.1081199 cm |
-| Median height | 168.3 cm |
-| Mean age at height measurement | 55.65723437 years |
-| PCs included | 10 |
 
 ### Step 15 — Height GWAS with REGENIE
 
