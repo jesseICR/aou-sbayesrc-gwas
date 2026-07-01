@@ -891,6 +891,43 @@ seed, score-file columns, and PCA SNPs missing from the projection bfile.
 Missing projection SNPs should be zero because Step 9 starts from
 `direct_bfile_hq`.
 
+Observed Step 10 accounting from the default cdrv9/v9 run:
+
+| Metric | Value |
+|---|---:|
+| PCA SNPs used for fitting/projection | 134,893 |
+| PCA-fitting samples | 273,581 |
+| Allele-weight rows | 269,786 |
+| Unique allele-weight SNP IDs | 134,893 |
+| Projected samples | 535,662 |
+| Missing PCA SNPs in projection bfile | 0 |
+| PCs | 20 |
+
+Eigenvalues from the cdrv9/v9 run:
+
+```text
+539.662
+110.526
+87.4797
+37.8953
+30.6338
+17.8471
+13.1962
+10.1802
+9.91557
+9.02512
+8.94123
+8.28208
+8.17351
+8.12065
+8.08675
+8.06028
+8.02625
+8.01715
+7.99255
+7.97727
+```
+
 ### Step 11 — Sex covariate and sex/ploidy QC
 
 `get_genetic_sex.sh` builds the binary sex covariate used by the height GWAS
