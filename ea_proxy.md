@@ -1684,6 +1684,10 @@ exactly-two-sittings reliability instead gives `0.445769` for GradCPT and
 `0.452643` for Flanker; shifting the primary reliability by +/-0.03 keeps the
 EA-weighted lower bounds in the same range (`0.435477` to `0.453383` for
 GradCPT, `0.441053` to `0.461289` for Flanker).
+Taken together, the final no-teacher GWAS phenotype has an estimated
+lower-bound correlation of about `0.44` to `0.45` with latent cognitive ability
+from these GradCPT/Flanker validation checks, with bootstrap uncertainty
+roughly spanning `0.43` to `0.46`.
 
 The local analysis outputs are in:
 
