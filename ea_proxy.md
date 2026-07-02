@@ -26,18 +26,18 @@ bash run_ea_gwas.sh
 bash run_income_gwas.sh
 ```
 
-Final selected GradCPT/Flanker-enriched proxy GWAS:
+Final selected v9 g-EA proxy GWAS:
 
 ```bash
-bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --preflight-only
-bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --smoke
-bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --chroms 1-22
+bash run_g_ea_proxy_v9_pipeline.sh --preflight-only --force-final
+bash run_g_ea_proxy_v9_pipeline.sh --smoke --force-final
+bash run_g_ea_proxy_v9_pipeline.sh --skip-setup --chroms 1-22 --force-final
 ```
 
 This command uses the final fold-safe no-teacher phenotype:
 
 ```text
-regenie_input/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_ses_ea_proxy_v2_kinholdout/phen.txt
+regenie_input/g_ea_proxy_sbayesrc7m/phen.txt
 gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z
 ```
 
@@ -50,7 +50,7 @@ focused on sex plus ancestry PCs.
 The final GWAS writes lightweight summary files here:
 
 ```text
-regenie_output/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas/lightweight/
+regenie_output/g_ea_proxy_sbayesrc7m_gwas/lightweight/
 ```
 
 The EA and income GWAS commands use:
@@ -180,8 +180,8 @@ bash run_gradcpt_flanker_finetuned_ea_proxy.sh --stage-aggregate
 SES_EA_PROXY_GWAS_INPUT_NAME=ses_ea_proxy_v2_kinholdout \
 bash run_gradcpt_flanker_direct_xgb_proxy.sh --stage-aggregate
 
-# 6. Build and run the final 18k no-teacher calibrated proxy GWAS.
-bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --chroms 1-22
+# 6. Build and run the final g-EA proxy GWAS.
+bash run_g_ea_proxy_v9_pipeline.sh --skip-setup --chroms 1-22 --force-final
 ```
 
 The optional ETM general-factor command can still be run as a diagnostic, but
@@ -271,11 +271,11 @@ model training subset.
 The current `ses_ea_proxy_v2_kinholdout` setup run produced:
 
 ```text
-Final eligible proxy cohort: 216,482
-OOF / fit_pca samples:       198,266
-Applied samples:              18,216
+Final eligible proxy cohort: 280,101
+OOF / fit_pca samples:       252,774
+Applied samples:              27,327
 Feature columns:                 711
-Feature hash: 8f98285d19579996606c03a91749620e92bf7c4777385bb120b38ffc3121fc9b
+Feature hash: b171d4724414e2933df1cc8cc7b8f2834dded1005f3b60a23a2784d3ccf9f9c8
 ```
 
 The final applied-model kinship holdout used the same KING threshold as the
@@ -283,11 +283,11 @@ third-degree PCA pruning step:
 
 ```text
 KING threshold:                              0.0441941
-Applied seed samples:                          18,216
-Candidate fit_pca samples:                    198,266
-KING edges at or above threshold:              60,895
-Excluded fit_pca relatives of applied samples:  9,847
-Final model training samples:                 188,419
+Applied seed samples:                          27,327
+Candidate fit_pca samples:                    252,774
+KING edges at or above threshold:              87,885
+Excluded fit_pca relatives of applied samples: 14,341
+Final model training samples:                 238,433
 ```
 
 This affects only the sixth/final model used for the applied cohort. The OOF
@@ -706,9 +706,11 @@ bash run_etm_cog_task_factors.sh --stage-aggregate
 ```
 
 The scorer reads Flanker, GradCPT, Delay Discounting, and Emotional Recognition
-from the ETM off-cycle dataset. Set `WORKSPACE_ETM_CDR` or pass
-`--etm-dataset PROJECT.DATASET` if the dataset name differs. It computes age at
-each task from ETM
+from `WORKSPACE_ETM_CDR`. For the default v9 workflow, that is the main
+`C2025Q4R6` CDR because the ETM task tables are included there. The older v8
+workflow used the `C_V8_R2_offcycle_etm` dataset. Set `WORKSPACE_ETM_CDR` or
+pass `--etm-dataset PROJECT.DATASET` if the dataset name differs. It computes
+age at each task from ETM
 `test_start_date_time` and the main CDR `person.birth_datetime`, and it uses the
 confirmed genetic-sex `sex_c` already present in
 `regenie_input/ses_ea_proxy/base_covar.txt`.
@@ -1290,7 +1292,7 @@ gradcpt_flanker_mean_z
 That branch was useful for checking how much direct teacher-label information
 changed GradCPT/Flanker prediction, but it is not the selected phenotype. The
 selected phenotype uses the fine-tuned booster score as one of three inputs in
-the final no-teacher 18k calibration.
+the final no-teacher calibration.
 
 ### Direct GradCPT/Flanker scratch XGBoost proxy
 
@@ -1359,10 +1361,10 @@ gradcpt_flanker_direct_xgb_proxy_z
 
 Earlier scratch-XGBoost runs also evaluated teacher-including three- and
 four-variable calibrations as diagnostics. Those comparisons are useful history,
-but the final selected phenotype uses the no-teacher 18k calibration described
+but the final selected phenotype uses the no-teacher calibration described
 below.
 
-## Final Selected Phenotype: 18k No-Teacher GradCPT/Flanker Calibration
+## Final Selected Phenotype: No-Teacher GradCPT/Flanker Calibration
 
 The final selected phenotype is:
 
@@ -1389,8 +1391,8 @@ with the education teacher label.
 The calibration is fold-safe. For OOF fold `k`, the linear model is fit on
 target-labeled OOF samples from the other four folds and predicts all samples in
 fold `k`. The applied model is fit on target-labeled OOF samples allowed by the
-kinship holdout and predicts the applied cohort. The resulting raw prediction is
-z-scored over all 216,482 SES-EA proxy cohort rows.
+kinship holdout and predicts the applied cohort. In the cdrv9 run, the resulting
+raw prediction is z-scored over all 280,101 SES-EA proxy cohort rows.
 
 ### Fold-safe prediction and kinship safety
 
@@ -1439,77 +1441,157 @@ made by models trained on held-out and threshold-based kinship-clean training
 samples.
 
 The selected run produced a finite phenotype for every row in the SES-EA proxy
-cohort and used the same sample count as the completed GWAS:
+cohort and used the same sample count as the final GWAS input:
 
 ```text
-Total rows:                               216,482
-OOF / fit_pca rows:                       198,266
-Applied rows:                              18,216
-Calibration target labels, either task:    18,058
-OOF target labels:                         16,439
-Applied target labels:                      1,619
-Final-model kinholdout target labels:      15,659
+Total rows:                               280,101
+OOF / fit_pca rows:                       252,774
+Applied rows:                              27,327
+Calibration target labels, either task:    55,528
+OOF target labels:                         49,492
+Applied target labels:                      6,036
+Final-model kinholdout target labels:      46,744
 ```
 
 Primary validation correlations were:
 
 | Group | Target | N | Pearson r | Spearman r |
 |---|---|---:|---:|---:|
-| Full cohort | `teacher_z` | 216,482 | 0.657842 | 0.635796 |
-| OOF | `teacher_z` | 198,266 | 0.656777 | 0.633453 |
-| Applied | `teacher_z` | 18,216 | 0.664210 | 0.648930 |
-| Either GradCPT or Flanker | `gradcpt_flanker_factor_z` | 18,058 | 0.364319 | 0.348736 |
-| Both GradCPT and Flanker | `gradcpt_flanker_factor_z` | 11,766 | 0.375980 | 0.361088 |
-| Both GradCPT and Flanker | `gradcpt_flanker_mean_z` | 11,766 | 0.376075 | 0.361160 |
+| Full cohort | `teacher_z` | 280,101 | 0.641148 | 0.623209 |
+| OOF | `teacher_z` | 252,774 | 0.640220 | 0.621428 |
+| Applied | `teacher_z` | 27,327 | 0.646964 | 0.630312 |
+| Either GradCPT or Flanker | `gradcpt_flanker_factor_z` | 55,528 | 0.393148 | 0.375928 |
+| Both GradCPT and Flanker | `gradcpt_flanker_factor_z` | 38,720 | 0.403959 | 0.384074 |
+| Both GradCPT and Flanker | `gradcpt_flanker_mean_z` | 38,720 | 0.404018 | 0.384114 |
 
-The 18k calibration-cohort scale check was:
+Predictor-level GradCPT/Flanker validation correlations were:
+
+| Group | Predictor | Target | N | Pearson r | Spearman r |
+|---|---|---|---:|---:|---:|
+| Applied both-task target | `ses_ea_proxy_z` | `gradcpt_flanker_mean_z` | 4,237 | 0.332125 | 0.303597 |
+| Applied both-task target | `gradcpt_flanker_finetuned_ea_proxy_z` | `gradcpt_flanker_mean_z` | 4,237 | 0.376375 | 0.351244 |
+| Applied both-task target | `gradcpt_flanker_direct_xgb_proxy_z` | `gradcpt_flanker_mean_z` | 4,237 | 0.416083 | 0.381262 |
+| Combined both-task target | `ses_ea_proxy_z` | `gradcpt_flanker_mean_z` | 38,720 | 0.313799 | 0.293417 |
+| Combined both-task target | `gradcpt_flanker_finetuned_ea_proxy_z` | `gradcpt_flanker_mean_z` | 38,720 | 0.359032 | 0.340223 |
+| Combined both-task target | `gradcpt_flanker_direct_xgb_proxy_z` | `gradcpt_flanker_mean_z` | 38,720 | 0.397867 | 0.378689 |
+| Combined either-task target | `ses_ea_proxy_z` | `gradcpt_flanker_factor_z` | 55,528 | 0.304134 | 0.285639 |
+| Combined either-task target | `gradcpt_flanker_finetuned_ea_proxy_z` | `gradcpt_flanker_factor_z` | 55,528 | 0.350399 | 0.334417 |
+| Combined either-task target | `gradcpt_flanker_direct_xgb_proxy_z` | `gradcpt_flanker_factor_z` | 55,528 | 0.387313 | 0.370425 |
+| Final no-teacher phenotype | `gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z` | `gradcpt_flanker_factor_z` | 55,528 | 0.393148 | 0.375928 |
+| Final no-teacher phenotype | `gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z` | `gradcpt_flanker_mean_z` | 38,720 | 0.404018 | 0.384114 |
+
+Because the complete-case GradCPT/Flanker cohort is not education-response
+balanced relative to the full teacher/EA proxy cohort, we also checked the
+same correlations after matching the complete-case cohort back to the full
+cohort's education-response distribution. The reference distribution was all
+280,101 rows with `teacher_z` and an EA response. The comparison cohort was
+rows with finite `gradcpt_flanker_mean_z`. Sparse EA-response categories that
+did not pass the `>20` reporting rule in the complete-case cohort were
+suppressed and excluded from the stratified comparison. The final resampling
+target size after that rule was 38,718, with fixed seed `20260702`.
+
+Education-response distributions before and after matching were:
+
+| EA response | Full % | GradCPT/Flanker % | Matched % | Action |
+|---|---:|---:|---:|---|
+| Advanced Degree | 31.970 | 39.873 | 31.970 | undersample |
+| College Graduate | 28.433 | 30.926 | 28.434 | undersample |
+| College One to Three | 25.539 | 22.338 | 25.539 | oversample |
+| Twelve Or GED | 11.824 | 6.408 | 11.824 | oversample |
+| Nine Through Eleven | 1.796 | 0.375 | 1.795 | oversample |
+| Five Through Eight | 0.439 | 0.080 | 0.439 | oversample |
+
+Correlations with `gradcpt_flanker_mean_z` increased after matching:
+
+| Predictor | Original r | EA-matched resample r |
+|---|---:|---:|
+| SES-EA proxy | 0.3138 | 0.3494 |
+| Fine-tuned GradCPT/Flanker proxy | 0.3590 | 0.3887 |
+| Direct XGBoost GradCPT/Flanker proxy | 0.3979 | 0.4214 |
+| Final no-teacher GWAS phenotype | 0.4040 | 0.4289 |
+
+A deterministic inverse-stratum-weighted Pearson check gave similar results:
+
+| Predictor | Weighted Pearson r |
+|---|---:|
+| SES-EA proxy | 0.3464 |
+| Fine-tuned GradCPT/Flanker proxy | 0.3889 |
+| Direct XGBoost GradCPT/Flanker proxy | 0.4232 |
+| Final no-teacher GWAS phenotype | 0.4302 |
+
+Interpretation: the complete-case GradCPT/Flanker cohort is enriched for
+higher-education responses and underrepresents lower-education responses.
+Matching it back to the full EA-response distribution restores more
+between-education contrast, so all predictor correlations rise. The final
+no-teacher phenotype remains the strongest predictor in both the original and
+matched comparisons, though its gain over the direct XGBoost proxy is modest.
+
+The calibration-cohort scale check was:
 
 | Variable | N | Mean | SD | Skew |
 |---|---:|---:|---:|---:|
-| `ses_ea_proxy_z` | 18,058 | 0.408 | 0.779 | -0.692 |
-| `gradcpt_flanker_finetuned_ea_proxy_z` | 18,058 | 0.385 | 0.666 | -0.677 |
-| `gradcpt_flanker_direct_xgb_proxy_z` | 18,058 | 0.354 | 0.910 | -0.706 |
-| `gradcpt_flanker_factor_z` | 18,058 | -0.058 | 0.961 | -0.132 |
-| Final no-teacher calibrated phenotype | 18,058 | 0.392 | 0.823 | -0.704 |
+| `ses_ea_proxy_z` | 55,528 | 0.338 | 0.815 | -0.705 |
+| `gradcpt_flanker_finetuned_ea_proxy_z` | 55,528 | 0.330 | 0.770 | -0.796 |
+| `gradcpt_flanker_direct_xgb_proxy_z` | 55,528 | 0.310 | 0.953 | -0.807 |
+| `gradcpt_flanker_factor_z` | 55,528 | -0.050 | 0.964 | -0.133 |
+| Final no-teacher calibrated phenotype | 55,528 | 0.333 | 0.897 | -0.813 |
 
 The full-cohort phenotype distribution was standardized after prediction:
 
 | Variable | N | Mean | SD | Skew |
 |---|---:|---:|---:|---:|
-| `gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z` | 216,482 | 0.000 | 1.000 | -0.595 |
+| `gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z` | 280,101 | 0.000 | 1.000 | -0.636 |
 
 The six fold-safe linear calibration coefficients were:
 
 | Fit | Train N | Predict N | Intercept | `ses_ea_proxy_z` | Fine-tuned XGB | Direct XGB |
 |---|---:|---:|---:|---:|---:|---:|
-| OOF fold 0 | 13,101 | 39,882 | -0.224622 | 0.031262 | 0.126141 | 0.295115 |
-| OOF fold 1 | 13,177 | 39,478 | -0.233044 | 0.026372 | 0.154263 | 0.275717 |
-| OOF fold 2 | 13,092 | 39,835 | -0.232062 | 0.046002 | 0.122295 | 0.284922 |
-| OOF fold 3 | 13,177 | 39,607 | -0.217658 | 0.041932 | 0.140779 | 0.274664 |
-| OOF fold 4 | 13,209 | 39,464 | -0.224152 | 0.036025 | 0.136518 | 0.275071 |
-| Applied kinholdout | 15,659 | 18,216 | -0.226704 | 0.031893 | 0.142250 | 0.281050 |
+| OOF fold 0 | 39,567 | 50,817 | -0.190793 | 0.014060 | 0.138828 | 0.292954 |
+| OOF fold 1 | 39,715 | 50,288 | -0.191847 | 0.002897 | 0.141663 | 0.304754 |
+| OOF fold 2 | 39,453 | 50,765 | -0.186495 | 0.004757 | 0.136234 | 0.299020 |
+| OOF fold 3 | 39,647 | 50,495 | -0.188028 | 0.005466 | 0.133069 | 0.300163 |
+| OOF fold 4 | 39,586 | 50,409 | -0.191318 | 0.009536 | 0.134071 | 0.292828 |
+| Applied kinholdout | 46,744 | 27,327 | -0.187863 | 0.004780 | 0.140821 | 0.297797 |
 
-The final GWAS used:
+The multivariable coefficient significance check showed that the residual
+SES-EA term was not significant after including the two GradCPT/Flanker proxy
+terms, while both GradCPT/Flanker terms were highly significant in every fit:
+
+| Fit | `ses_ea_proxy_z` p | Fine-tuned XGB p | Direct XGB p |
+|---|---:|---:|---:|
+| OOF fold 0 | 0.13817493 | 1.3041346e-31 | 8.2972005e-301 |
+| OOF fold 1 | 0.76077458 | 3.8469774e-33 | <1e-300 |
+| OOF fold 2 | 0.61955678 | 1.8937197e-30 | 1.5232672e-309 |
+| OOF fold 3 | 0.56879236 | 4.1985292e-29 | <1e-300 |
+| OOF fold 4 | 0.31694220 | 5.9990936e-30 | 3.1707073e-302 |
+| Applied kinholdout | 0.58651081 | 2.7751468e-38 | <1e-300 |
+
+This means the final no-teacher linear combiner is driven by the direct XGBoost
+proxy and the fine-tuned proxy. The original SES-EA proxy contributes little
+additional independent signal once those two survey-derived cognitive proxies
+are in the same regression.
+
+The final GWAS is configured to use:
 
 ```text
 Phenotype:  gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z
-Samples:    216,482
+Samples:    280,101
 Covariates: sex_c + PC1_AVG ... PC10_AVG
 RINT:       enabled
-Step 1:     494,984 direct variants
-Step 2:     7,251,393 WGS variants across 22 chromosomes
+Step 1:     494,816 direct variants
+Step 2:     7,252,333 WGS variants across 22 chromosomes
 ```
 
-The completed lightweight GWAS outputs are written under:
+After completion, lightweight GWAS outputs are written under:
 
 ```text
-regenie_output/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas/lightweight/
+regenie_output/g_ea_proxy_sbayesrc7m_gwas/lightweight/
 ```
 
 Diagnostic files for the final calibration are written under:
 
 ```text
-regenie_input/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_ses_ea_proxy_v2_kinholdout/diagnostics/
+regenie_input/g_ea_proxy_sbayesrc7m/diagnostics/
 
 factor18_no_teacher_calibration_coefficients.tsv
 factor18_no_teacher_calibration_correlations.tsv

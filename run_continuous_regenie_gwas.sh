@@ -125,6 +125,10 @@ regenie_version_text() {
     printf '%s\n' "${help_text}" | sed -n '2{s/^ *//;p;q;}'
 }
 
+file_sha256() {
+    sha256sum "$1" | awk '{print $1}'
+}
+
 expand_chroms() {
     local spec="$1"
     local -a out=()
@@ -301,6 +305,12 @@ desired_params="${LOCAL_REGENIE_DIR}/${OUTPUT_NAME}.regenie_gwas.desired_params.
     printf 'covar_size\t%s\n' "$(stat -c%s "${covar}")"
     printf 'keep_size\t%s\n' "$(stat -c%s "${keep}")"
     printf 'input_params_size\t%s\n' "$(stat -c%s "${input_params}")"
+    printf 'input_summary_size\t%s\n' "$(stat -c%s "${input_summary}")"
+    printf 'phen_sha256\t%s\n' "$(file_sha256 "${phen}")"
+    printf 'covar_sha256\t%s\n' "$(file_sha256 "${covar}")"
+    printf 'keep_sha256\t%s\n' "$(file_sha256 "${keep}")"
+    printf 'input_params_sha256\t%s\n' "$(file_sha256 "${input_params}")"
+    printf 'input_summary_sha256\t%s\n' "$(file_sha256 "${input_summary}")"
     for c in "${CHROMS[@]}"; do
         summary="${DX_GWAS_STEP2_PFILE_DIR}/chr${c}.summary.tsv"
         if [[ ! -s "${summary}" ]]; then

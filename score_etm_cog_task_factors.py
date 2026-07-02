@@ -385,9 +385,29 @@ def extract_has_emorecog(path: Path) -> tuple[bool, bool]:
     return has_columns, False
 
 
+def existing_extract_matches_args(args: argparse.Namespace) -> bool:
+    params_path = args.work_dir / "etm_cog_task_factors_params.tsv"
+    if not params_path.exists() or params_path.stat().st_size == 0:
+        return False
+    params = pd.read_csv(params_path, sep="\t", dtype=str)
+    if not {"parameter", "value"}.issubset(params.columns):
+        return False
+    if "score_name" in params.columns:
+        params = params[params["score_name"].isna()]
+    observed = dict(zip(params["parameter"], params["value"]))
+    return (
+        observed.get("etm_dataset") == args.etm_dataset
+        and observed.get("workspace_cdr") == args.workspace_cdr
+    )
+
+
 def ensure_bq_extract(args: argparse.Namespace, cohort: pd.DataFrame) -> Path:
     extract_path = args.work_dir / "etm_cog_task_factor_valid_sittings.csv"
     if extract_path.exists() and extract_path.stat().st_size > 0 and not args.force:
+        require(
+            existing_extract_matches_args(args),
+            f"{extract_path} exists but does not match --etm-dataset/--workspace-cdr; rerun with --force",
+        )
         has_columns, has_rows = extract_has_emorecog(extract_path)
         require(
             has_columns and has_rows,
@@ -397,6 +417,10 @@ def ensure_bq_extract(args: argparse.Namespace, cohort: pd.DataFrame) -> Path:
         return extract_path
     if args.reuse_extracts:
         require(extract_path.exists() and extract_path.stat().st_size > 0, f"--reuse-extracts requested but {extract_path} is missing")
+        require(
+            existing_extract_matches_args(args),
+            f"--reuse-extracts requested but {extract_path} does not match --etm-dataset/--workspace-cdr",
+        )
         has_columns, has_rows = extract_has_emorecog(extract_path)
         require(
             has_columns and has_rows,

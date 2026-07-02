@@ -885,7 +885,8 @@ def main():
     final_train_iids = sort_iids(set(train_iids) - final_excluded_iids)
     if args.final_kinship_holdout_kin0 and not final_train_iids:
         raise RuntimeError("No final-model training samples remain after kinship holdout")
-    final_train_allowed_by_iid = {iid: iid in set(final_train_iids) for iid in eligible_iids}
+    final_train_iid_set = set(final_train_iids)
+    final_train_allowed_by_iid = {iid: iid in final_train_iid_set for iid in eligible_iids}
     log(log_lines, "")
     log(log_lines, "=== Final applied-model kinship holdout ===")
     log(log_lines, f"Kinship table: {args.final_kinship_holdout_kin0 or 'not used'}")

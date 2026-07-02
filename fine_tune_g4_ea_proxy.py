@@ -1090,7 +1090,6 @@ def main() -> None:
         "score_raw",
         "gradcpt_flanker_mean_raw",
         "gradcpt_flanker_mean_z",
-        "etm_g4_z",
         "has_etm_g4",
         "has_gradcpt_or_flanker",
         "has_gradcpt_and_flanker",
@@ -1101,10 +1100,13 @@ def main() -> None:
         z_col,
         "prediction_model_name",
     ]
+    for col in ["etm_g4_z", "etm_g_z", "n_tasks_observed_four_domain", "task_pattern_four_domain"]:
+        if col in df.columns and col not in output_cols:
+            output_cols.append(col)
     for col in [calibrated_raw_col, calibrated_z_col]:
         if col and col not in output_cols:
             output_cols.append(col)
-    for col in TASK_COLS + ["task_pattern_four_domain", "n_tasks_observed_four_domain", "etm_g_z"]:
+    for col in TASK_COLS:
         if col in df.columns and col not in output_cols:
             output_cols.append(col)
     wide = df.loc[:, output_cols].copy()
