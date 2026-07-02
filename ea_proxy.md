@@ -870,6 +870,37 @@ the recommended PC1 because flipping a single indicator after PCA would define a
 different construct. It means this empirical score/RT PC is mostly accuracy plus
 speed, with RT variability entering in the opposite direction for this task.
 
+In the cdrv9 final EUR teacher-z cohort (`N = 280,101`), valid ETM sittings
+were counted after applying the same task-specific QC filters used by the
+scorer. Counts from 1 to 20 are suppressed under the AoU reporting rule; exact
+zero counts are shown.
+
+| Valid sittings | Delay Discounting | GradCPT | Flanker | Emotional Recognition |
+|---:|---:|---:|---:|---:|
+| 0 | 232,290 (82.931%) | 231,330 (82.588%) | 234,624 (83.764%) | 223,100 (79.650%) |
+| 1 | 37,413 (13.357%) | 38,150 (13.620%) | 35,745 (12.761%) | 42,553 (15.192%) |
+| 2 | 8,832 (3.153%) | 9,104 (3.250%) | 8,265 (2.951%) | 11,937 (4.262%) |
+| 3 | 1,208 (0.431%) | 1,200 (0.428%) | 1,121 (0.400%) | 1,925 (0.687%) |
+| 4 | 226 (0.081%) | 199 (0.071%) | 217 (0.077%) | 381 (0.136%) |
+| 5 | 71 (0.025%) | 58 (0.021%) | 66 (0.024%) | 123 (0.044%) |
+| 6 | 25 (0.009%) | 23 (0.008%) | 33 (0.012%) | 38 (0.014%) |
+| 7 | suppressed | suppressed | suppressed | suppressed |
+| 8 | suppressed | suppressed | suppressed | suppressed |
+| 9 | suppressed | suppressed | suppressed | suppressed |
+| 10 | suppressed | suppressed | suppressed | suppressed |
+| 11 | suppressed | suppressed | suppressed | suppressed |
+| 12 | suppressed | suppressed | 0 (0.000%) | suppressed |
+| 13 | suppressed | suppressed | suppressed | suppressed |
+| 14 | suppressed | suppressed | suppressed | suppressed |
+
+Cumulative valid-sitting coverage in the same cohort was:
+
+| Threshold | Delay Discounting | GradCPT | Flanker | Emotional Recognition |
+|---|---:|---:|---:|---:|
+| At least 1 | 47,811 (17.069%) | 48,771 (17.412%) | 45,477 (16.236%) | 57,001 (20.350%) |
+| At least 2 | 10,398 (3.712%) | 10,621 (3.792%) | 9,732 (3.474%) | 14,448 (5.158%) |
+| At least 3 | 1,566 (0.559%) | 1,517 (0.542%) | 1,467 (0.524%) | 2,511 (0.896%) |
+
 Repeat valid sittings are uncommon, but they provide a useful test-retest
 diagnostic. The diagnostic fits the production scoring recipe on first valid
 sittings, applies those same transforms/loadings/age-sex residualization
@@ -887,6 +918,49 @@ The repeat gaps are mostly same-day retries rather than year-scale retests:
 65.0% for DD, 84.4% for GradCPT, 57.2% for Flanker, and 69.4% for Emotional
 Recognition. These correlations are encouraging, but they should be read as
 short-interval repeatability more than long-term stability.
+
+As a longer-interval cdrv9 check, we separately computed test-retest
+correlations in the full classified-European ancestry set rather than only the
+SES-EA proxy cohort. The sample universe was the pipeline's European keep-list
+(`303,903` IIDs). The query used `C2025Q4R6` ETM tables and the same valid-
+sitting QC filters as the scorer:
+
+```text
+GradCPT valid sitting:
+  flag_trial_flags == 0
+  flag_non_response == 0
+  flag_omission_error_rate == 0
+  test_restarted == false
+  dprime is finite
+
+Flanker valid sitting:
+  flag_accuracy == 0
+  flag_trial_flags == 0
+  test_restarted == false
+  official score is finite
+```
+
+For the main retest definition, each participant's first score is their
+earliest valid sitting and the retest score is their first later valid sitting
+more than 30 days after the first. Scores are the official primary task
+outcomes, not the age/sex-normalized production proxy scores.
+
+| Task | Score | Valid sittings | People with a valid sitting | People with 2+ valid sittings | Retest pairs >30d | Pearson r | Spearman r | Mean retest - first | Median gap days | Min gap days | Max gap days |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| GradCPT | `dprime` | 64,389 | 51,197 | 10,999 | 10,399 | 0.6925 | 0.6888 | 0.0012 | 305.3 | 30.006 | 440.0 |
+| Flanker | official `score` | 60,064 | 47,784 | 10,099 | 9,541 | 0.7241 | 0.7251 | 0.4202 | 298.9 | 30.033 | 644.9 |
+
+A stricter sensitivity restricted to participants with exactly two valid
+sittings, again more than 30 days apart, was nearly identical:
+
+| Task | Score | Retest pairs >30d | Pearson r | Spearman r | Mean retest - first | Median gap days | Min gap days | Max gap days |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| GradCPT | `dprime` | 8,843 | 0.6889 | 0.6853 | -0.0042 | 329.0 | 30.006 | 440.0 |
+| Flanker | official `score` | 8,029 | 0.7230 | 0.7230 | 0.3397 | 328.9 | 30.042 | 644.9 |
+
+These longer-interval retest results are lower than the same-day-heavy
+production-score repeat diagnostic above, as expected, but they are based on
+much larger samples and are a better estimate of year-scale task stability.
 
 Individual-level cognitive score files stay in:
 
@@ -1505,6 +1579,7 @@ Correlations with `gradcpt_flanker_mean_z` increased after matching:
 
 | Predictor | Original r | EA-matched resample r |
 |---|---:|---:|
+| `teacher_z` baseline | 0.2181 | 0.2529 |
 | SES-EA proxy | 0.3138 | 0.3494 |
 | Fine-tuned GradCPT/Flanker proxy | 0.3590 | 0.3887 |
 | Direct XGBoost GradCPT/Flanker proxy | 0.3979 | 0.4214 |
@@ -1514,6 +1589,7 @@ A deterministic inverse-stratum-weighted Pearson check gave similar results:
 
 | Predictor | Weighted Pearson r |
 |---|---:|
+| `teacher_z` baseline | 0.2536 |
 | SES-EA proxy | 0.3464 |
 | Fine-tuned GradCPT/Flanker proxy | 0.3889 |
 | Direct XGBoost GradCPT/Flanker proxy | 0.4232 |
@@ -1525,6 +1601,99 @@ Matching it back to the full EA-response distribution restores more
 between-education contrast, so all predictor correlations rise. The final
 no-teacher phenotype remains the strongest predictor in both the original and
 matched comparisons, though its gain over the direct XGBoost proxy is modest.
+
+As a reliability-aware validation, we also estimated conservative lower bounds
+on the final phenotype's correlation with latent general cognitive ability.
+This is not a point estimate of `r(proxy, g)`. A task retest correlation treats
+both general ability and task-specific stable variance as reliable signal, so
+dividing the proxy-task correlation by `sqrt(task reliability)` disattenuates
+toward each task's stable true score. If the task contains any stable
+task-specific variance, the result is a lower bound for `r(proxy, g)` under the
+assumption that the proxy reaches the task mainly through general ability.
+
+This check used the exact production task z-scores that feed
+`gradcpt_flanker_mean_z`: `gradcpt_perf_z_age_sex` for GradCPT and
+`flanker_efficiency_z_age_sex` for Flanker. The Flanker column name is kept for
+pipeline compatibility, but the cdrv9 diagnostic selected `flanker_simple_score`
+as its source because it correlated at least 0.95 with the efficiency split
+score. We refit the production scoring recipe on first valid sittings, applied
+the same transforms/loadings/age-sex residualization parameters to later valid
+sittings, and verified exact agreement with the saved pipeline columns
+(`r = 1.0`, max absolute difference below `5e-16`).
+
+Retest reliability was estimated among final GWAS-cohort samples with a first
+valid sitting and a first later valid sitting more than 30 days and no more
+than four years after the first:
+
+| Task score | Source score | Retest pairs | Pearson reliability | Spearman reliability | Mean retest - first z | Median gap days |
+|---|---|---:|---:|---:|---:|---:|
+| `gradcpt_perf_z_age_sex` | `gradcpt_perf_factor` | 10,051 | 0.744942 | 0.736733 | 0.044443 | 306.7 |
+| `flanker_efficiency_z_age_sex` | `flanker_simple_score` | 9,199 | 0.669197 | 0.675637 | 0.076173 | 300.2 |
+
+A stricter sensitivity restricted to participants with exactly two scoreable
+sittings gave similar reliabilities: `0.739571` for GradCPT and `0.663849` for
+Flanker.
+
+Among participants with exactly two scoreable sittings in this same
+`>30 days` and `<=4 years` retest window, the gap between first and second
+sitting was concentrated around the next annual measurement wave:
+
+| Gap percentile | GradCPT days | Flanker days |
+|---:|---:|---:|
+| 10th | 75.9 | 73.7 |
+| 20th | 157.2 | 154.1 |
+| 30th | 244.9 | 236.9 |
+| 40th | 285.9 | 280.0 |
+| 50th | 329.5 | 329.3 |
+| 60th | 336.4 | 336.4 |
+| 70th | 338.9 | 338.9 |
+| 80th | 341.7 | 341.9 |
+| 90th | 345.4 | 346.0 |
+
+For the proxy-task correlations, the complete-case task cohorts were weighted
+back to the full final-phenotype EA-response distribution using deterministic
+inverse stratum weights. EA-response categories that did not pass the `>20`
+reporting rule in a task cohort were suppressed and excluded from that task's
+weighted comparison (`One Through Four` for GradCPT; `Never Attended` and
+`One Through Four` for Flanker).
+
+| Task score | N | Unweighted Pearson r | EA-weighted Pearson r |
+|---|---:|---:|---:|
+| `gradcpt_perf_z_age_sex` | 48,769 | 0.357281 | 0.383354 |
+| `flanker_efficiency_z_age_sex` | 45,474 | 0.343408 | 0.368800 |
+
+The equivalent fixed-seed EA-matched resample check, using one task at a time
+rather than requiring both tasks, gave:
+
+| Task score | EA-matched resample r | Reliability | Resample lower bound |
+|---|---:|---:|---:|
+| `gradcpt_perf_z_age_sex` | 0.383032 | 0.744942 | 0.443787 |
+| `flanker_efficiency_z_age_sex` | 0.370720 | 0.669197 | 0.453178 |
+
+Dividing the proxy-task correlations by `sqrt(reliability)` gives these
+task-specific lower bounds:
+
+| Task score | `sqrt(reliability)` | Unweighted lower bound | EA-weighted lower bound | Bootstrap 95% CI for EA-weighted bound |
+|---|---:|---:|---:|---:|
+| `gradcpt_perf_z_age_sex` | 0.863100 | 0.413951 | 0.444160 | 0.433428 to 0.454687 |
+| `flanker_efficiency_z_age_sex` | 0.818045 | 0.419791 | 0.450831 | 0.436475 to 0.464468 |
+
+The two task-specific estimates are close. The tighter lower bound is the
+Flanker-based estimate, about `0.451` on the EA-weighted scale. Using the
+exactly-two-sittings reliability instead gives `0.445769` for GradCPT and
+`0.452643` for Flanker; shifting the primary reliability by +/-0.03 keeps the
+EA-weighted lower bounds in the same range (`0.435477` to `0.453383` for
+GradCPT, `0.441053` to `0.461289` for Flanker).
+
+The local analysis outputs are in:
+
+```text
+data/tmp/g_proxy_latent_g_lower_bound_v9/
+
+teacher_baseline_gradcpt_flanker_mean_correlations.tsv
+no_teacher_task_specific_resampled_lower_bounds.tsv
+production_task_exactly_two_gap_deciles.tsv
+```
 
 The calibration-cohort scale check was:
 
