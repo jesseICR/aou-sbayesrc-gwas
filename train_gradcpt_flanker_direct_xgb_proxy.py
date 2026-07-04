@@ -796,8 +796,8 @@ def copy_outputs(args: argparse.Namespace, diag_dir: Path) -> None:
         print(f"Copied direct XGB outputs to {args.workspace_output_dir}", flush=True)
 
     if args.stage_aggregate:
-        require(args.workspace_scratch_dir is not None, "--stage-aggregate requires --workspace-scrap-dir")
-        scratch_uri = workspace_path_to_gs_uri(args.workspace_scratch_dir)
+        require(args.workspace_scrap_dir is not None, "--stage-aggregate requires --workspace-scrap-dir")
+        scratch_uri = workspace_path_to_gs_uri(args.workspace_scrap_dir)
         if scratch_uri:
             gcloud_cp_files(
                 list(diag_dir.glob("*.tsv"))
@@ -805,14 +805,14 @@ def copy_outputs(args: argparse.Namespace, diag_dir: Path) -> None:
                 scratch_uri,
             )
         else:
-            args.workspace_scratch_dir.mkdir(parents=True, exist_ok=True)
+            args.workspace_scrap_dir.mkdir(parents=True, exist_ok=True)
             for path in diag_dir.glob("*.tsv"):
-                shutil.copy2(path, args.workspace_scratch_dir / path.name)
+                shutil.copy2(path, args.workspace_scrap_dir / path.name)
             for name in ["direct_xgb_model_manifest.tsv", "xgboost_feature_columns.tsv"]:
                 src = args.output_dir / name
                 if src.exists():
-                    shutil.copy2(src, args.workspace_scratch_dir / name)
-        print(f"Staged aggregate diagnostics to {args.workspace_scratch_dir}", flush=True)
+                    shutil.copy2(src, args.workspace_scrap_dir / name)
+        print(f"Staged aggregate diagnostics to {args.workspace_scrap_dir}", flush=True)
 
 
 def workspace_bucket_uri_from_mount() -> str | None:

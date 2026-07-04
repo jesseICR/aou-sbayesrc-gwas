@@ -4,6 +4,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SCRIPT_DIR
+source "${SCRIPT_DIR}/aou_downstream_env.sh"
 
 usage() {
     cat <<'EOF'
@@ -89,7 +91,7 @@ export LOCAL_REGENIE_DIR="${SCRIPT_DIR}/data/regenie"
 if [[ -n "${ETM_DATASET_OVERRIDE}" ]]; then
     WORKSPACE_ETM_CDR="${ETM_DATASET_OVERRIDE}"
 else
-    WORKSPACE_ETM_CDR="${WORKSPACE_ETM_CDR:-${WORKSPACE_CDR%%.*}.C_V8_R2_offcycle_etm}"
+    WORKSPACE_ETM_CDR="${WORKSPACE_ETM_CDR:-${WORKSPACE_CDR}}"
 fi
 export WORKSPACE_ETM_CDR
 

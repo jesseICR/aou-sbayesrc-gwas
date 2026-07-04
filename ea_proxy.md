@@ -1,10 +1,11 @@
 # EA Proxy, Income, ETM Cognitive Scores, and Final GradCPT/Flanker Proxy
 
-This document covers downstream phenotype workflows that build on the core
-AoU SBayesRC/REGENIE genotype setup in `README.md`. These workflows stay
-on-platform and regenerate AoU-derived individual-level files inside the
-workspace bucket or local scratch; generated score tables, model JSONs,
-phenotype files, covariates, and REGENIE outputs are not tracked in git.
+This document is the methods/runbook record for downstream phenotype workflows
+that build on the core AoU SBayesRC/REGENIE genotype setup in `README.md`. The
+workflows stay on-platform and regenerate AoU-derived individual-level files in
+the workspace bucket or local scratch. Generated score tables, model JSONs,
+phenotype files, covariates, and REGENIE outputs are intentionally not tracked
+in git.
 
 ## Downstream phenotype command overview
 
@@ -26,34 +27,33 @@ bash run_ea_gwas.sh
 bash run_income_gwas.sh
 ```
 
-Final selected GradCPT/Flanker-enriched proxy GWAS:
+Final selected cdrv9 g-EA proxy GWAS:
 
 ```bash
-bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --preflight-only
-bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --smoke
-bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --chroms 1-22
+bash run_g_ea_proxy_v9_pipeline.sh --preflight-only --force-final
+bash run_g_ea_proxy_v9_pipeline.sh --smoke --force-final
+bash run_g_ea_proxy_v9_pipeline.sh --skip-setup --chroms 1-22 --force-final
 ```
 
-This command uses the final fold-safe no-teacher phenotype:
+That workflow uses the final fold-safe no-teacher phenotype:
 
 ```text
-regenie_input/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_ses_ea_proxy_v2_kinholdout/phen.txt
+regenie_input/g_ea_proxy_sbayesrc7m/phen.txt
 gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z
 ```
 
-The final GWAS covariates are `sex_c` and `PC1_AVG` through `PC10_AVG`. It
-does not include `yob_c` or `yob_c_sex_c_inter`; age/year-of-birth was not part
-of the final covariate set because the final phenotype had small age association
-after construction and we wanted the GWAS covariate adjustment to remain
-focused on sex plus ancestry PCs.
+The final GWAS covariates are `sex_c` and `PC1_AVG` through `PC10_AVG`.
+`yob_c` and `yob_c_sex_c_inter` are not included. After construction, the final
+phenotype had only small age/year-of-birth association, so the GWAS covariate
+set was kept to sex plus ancestry PCs.
 
 The final GWAS writes lightweight summary files here:
 
 ```text
-regenie_output/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas/lightweight/
+regenie_output/g_ea_proxy_sbayesrc7m_gwas/lightweight/
 ```
 
-The EA and income GWAS commands use:
+The simpler EA and income GWAS commands use:
 
 ```text
 Samples:
@@ -147,8 +147,8 @@ age_c_sex_c_inter      = age_c * sex_c
 PC1_AVG ... PC10_AVG
 ```
 
-The setup scripts write the current workspace-specific sample counts and answer
-counts to `{ea,income}_gwas.summary.tsv` and `{ea,income}_answer_counts.tsv`.
+The setup scripts write workspace-specific sample counts and answer counts to
+`{ea,income}_gwas.summary.tsv` and `{ea,income}_answer_counts.tsv`.
 
 ### ses_ea_proxy primary setup and scoring
 
@@ -180,8 +180,8 @@ bash run_gradcpt_flanker_finetuned_ea_proxy.sh --stage-aggregate
 SES_EA_PROXY_GWAS_INPUT_NAME=ses_ea_proxy_v2_kinholdout \
 bash run_gradcpt_flanker_direct_xgb_proxy.sh --stage-aggregate
 
-# 6. Build and run the final 18k no-teacher calibrated proxy GWAS.
-bash run_gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas.sh --chroms 1-22
+# 6. Build and run the final g-EA proxy GWAS.
+bash run_g_ea_proxy_v9_pipeline.sh --skip-setup --chroms 1-22 --force-final
 ```
 
 The optional ETM general-factor command can still be run as a diagnostic, but
@@ -217,18 +217,20 @@ sbayesrc_genotypes/sample_qc/exclude_identical_component_size_ge3_iids.txt
 sbayesrc_genotypes/gwas_genotypes/step1_direct/chr1_22_merged_gwas_step1.fam
 ```
 
-The goal is to produce a non-genetic proxy for the education-attainment
-teacher label, then review out-of-sample model performance and covariate
-correlations before deciding whether to run GWAS. The setup therefore stops
-after score generation by default. REGENIE is only an opt-in follow-up.
+The goal of this step is to produce a non-genetic proxy for the
+education-attainment teacher label and then review out-of-sample model
+performance plus covariate correlations before deciding whether to run GWAS.
+For that reason, setup stops after score generation by default; REGENIE is an
+explicit opt-in follow-up.
 
-Samples are restricted to classified European IIDs, confirmed genetic sex in
-`genetic_sex/sex_covar.txt`, samples not in the identical-component size `>=3`
-sample-QC exclusion list, codeable EA from The Basics question `1585940`, and
-age at that The Basics response `>=26`. Confirmed genetic sex is also included
-as an XGBoost model feature.
+Samples are restricted to participants who are classified European, have
+confirmed genetic sex in `genetic_sex/sex_covar.txt`, are not in the
+identical-component size `>=3` sample-QC exclusion list, have a codeable
+education response from The Basics question `1585940`, and were at least 26
+years old at that response. Confirmed genetic sex is also included as an
+XGBoost model feature.
 
-The score uses a cross-fit design:
+The proxy score uses a cross-fit design:
 
 ```text
 1. Split eligible fit_pca_iids into 5 seeded folds.
@@ -236,7 +238,7 @@ The score uses a cross-fit design:
    other four folds only, then predict the held-out fold.
 3. Fit a sixth model for the applied cohort. This model starts from eligible
    `fit_pca_iids`, but excludes any fit-PCA sample with a direct KING edge to
-   the applied cohort at `KINSHIP >= 0.0441941`.
+   an applied-cohort sample at `KINSHIP >= 0.0441941`.
 4. Apply the sixth model to eligible classified-European samples that were not
    in fit_pca_iids. Those applied samples are never used to train or tune the
    sixth model.
@@ -262,20 +264,19 @@ GradCPT+Flanker diagnostics anchored to Twelve/GED = 13 and Advanced Degree =
 20. Those diagnostics suggested that the very low education bins are too small
 and compressed to justify extreme year values in this cohort, while College
 Graduate is closer to 18 than 17. In each cross-fit fold, EA years are
-residualized on
-`yob_c`, `sex_c`, and `yob_c * sex_c` using only the four-fifths training
-pool, then z-scored using that training-pool residual mean and SD. The sixth
-model uses the same residualization procedure fit on the kinship-clean final
-model training subset.
+residualized on `yob_c`, `sex_c`, and `yob_c * sex_c` using only the
+four-fifths training pool, then z-scored using that training-pool residual mean
+and SD. The sixth model uses the same residualization procedure, fit only on
+the kinship-clean final-model training subset.
 
 The current `ses_ea_proxy_v2_kinholdout` setup run produced:
 
 ```text
-Final eligible proxy cohort: 216,482
-OOF / fit_pca samples:       198,266
-Applied samples:              18,216
+Final eligible proxy cohort: 280,101
+OOF / fit_pca samples:       252,774
+Applied samples:              27,327
 Feature columns:                 711
-Feature hash: 8f98285d19579996606c03a91749620e92bf7c4777385bb120b38ffc3121fc9b
+Feature hash: b171d4724414e2933df1cc8cc7b8f2834dded1005f3b60a23a2784d3ccf9f9c8
 ```
 
 The final applied-model kinship holdout used the same KING threshold as the
@@ -283,16 +284,17 @@ third-degree PCA pruning step:
 
 ```text
 KING threshold:                              0.0441941
-Applied seed samples:                          18,216
-Candidate fit_pca samples:                    198,266
-KING edges at or above threshold:              60,895
-Excluded fit_pca relatives of applied samples:  9,847
-Final model training samples:                 188,419
+Applied seed samples:                          27,327
+Candidate fit_pca samples:                    252,774
+KING edges at or above threshold:              87,885
+Excluded fit_pca relatives of applied samples: 14,341
+Final model training samples:                 238,433
 ```
 
-This affects only the sixth/final model used for the applied cohort. The OOF
-fold models still train on the other four folds of `fit_pca_iids`, so their
-out-of-fold validation remains directly comparable to earlier runs.
+This kinship holdout affects only the sixth/final model used for the applied
+cohort. The OOF fold models still train on the other four folds of
+`fit_pca_iids`, so their out-of-fold validation remains directly comparable to
+earlier runs.
 
 OOF correlations with the revised `teacher_z`, by fold:
 
@@ -315,25 +317,26 @@ Applied Spearman r vs teacher_z: 0.6648
 
 Survey features come from The Basics, Lifestyle, Overall Health, Healthcare
 Access & Utilization, Personal and Family Health History, Social Determinants
-of Health, and Behavioral Health & Personality. BHP is read from the
-off-cycle Mental Health / Well-Being CDR dataset; override
-`WORKSPACE_MHWB_CDR` if the dataset name differs. The Washington Group
-disability items are sourced from The Basics. ZIP3-derived socioeconomic
-features come from `ds_zip_code_socioeconomic`; raw ZIP codes are not used.
-The highest-grade education item itself is excluded from the XGBoost feature
-matrix because it defines the teacher label. Personal and Family Health History
-now includes allowlisted mental-health/substance-use family-history indicators:
-the family-condition question keeps None, ADHD, alcohol use disorder, drug use
+of Health, and Behavioral Health & Personality. BHP is read from the off-cycle
+Mental Health / Well-Being CDR dataset; override `WORKSPACE_MHWB_CDR` if the
+dataset name differs. The Washington Group disability items are sourced from
+The Basics. ZIP3-derived socioeconomic features come from
+`ds_zip_code_socioeconomic`; raw ZIP codes are not used. The highest-grade
+education item itself is excluded from the XGBoost feature matrix because it
+defines the teacher label. Personal and Family Health History includes
+allowlisted mental-health/substance-use family-history indicators: the
+family-condition question keeps None, ADHD, alcohol use disorder, drug use
 disorder, and autism spectrum disorder, and the alcohol/drug relative-specific
-questions keep self, parent, sibling, grandparent, son, and daughter indicators.
-PMI missing answers such as Skip, Prefer Not, and Don't Know are treated as
-missing/nonresponse, not as negative family history.
+questions keep self, parent, sibling, grandparent, son, and daughter
+indicators. PMI missing answers such as Skip, Prefer Not, and Don't Know are
+treated as missing/nonresponse, not as negative family history.
 
 Feature extraction is multi-select safe. For each person/question, the setup
 selects the latest survey timestamp, keeps all answer rows from that timestamp,
 and one-hot encodes every retained `answer_concept_id` for nominal and
-multi-select fields. Ordered Likert-style fields are encoded as one ordinal
-numeric feature; continuous survey values are parsed as numeric features.
+multi-select fields. Ordered Likert-style fields are encoded as a single
+ordinal numeric feature. Continuous survey values are parsed as numeric
+features.
 
 Missing-data handling is explicit:
 
@@ -698,22 +701,23 @@ The cognitive-score command is downstream of this proxy setup: it reads
 `run_etm_cog_task_factors.sh` builds task-specific Exploring the Mind cognitive
 scores for the already-defined `ses_ea_proxy` phenotype cohort. It consumes
 `regenie_input/ses_ea_proxy/all_scores.tsv`, so both out-of-fold proxy scores
-and sixth-model applied proxy scores are included. This command does not run a
-GWAS.
+and sixth-model applied proxy scores are included. This is a scoring and
+diagnostic command only; it does not run GWAS.
 
 ```bash
 bash run_etm_cog_task_factors.sh --stage-aggregate
 ```
 
 The scorer reads Flanker, GradCPT, Delay Discounting, and Emotional Recognition
-from the ETM off-cycle dataset. Set `WORKSPACE_ETM_CDR` or pass
-`--etm-dataset PROJECT.DATASET` if the dataset name differs. It computes age at
-each task from ETM
-`test_start_date_time` and the main CDR `person.birth_datetime`, and it uses the
-confirmed genetic-sex `sex_c` already present in
-`regenie_input/ses_ea_proxy/base_covar.txt`.
+from `WORKSPACE_ETM_CDR`. In the default cdrv9 workflow, that is the main
+`C2025Q4R6` CDR because the ETM task tables are included there. The older v8
+workflow used the `C_V8_R2_offcycle_etm` dataset. Set `WORKSPACE_ETM_CDR` or
+pass `--etm-dataset PROJECT.DATASET` if the dataset name differs. Age at each
+task is computed from ETM `test_start_date_time` and the main CDR
+`person.birth_datetime`; confirmed genetic sex comes from the `sex_c` column
+already present in `regenie_input/ses_ea_proxy/base_covar.txt`.
 
-For each task, the scoring order is deliberately fixed:
+For each task, the scorer uses a fixed order of operations:
 
 ```text
 1. Apply task-specific invalid-performance QC flags.
@@ -728,9 +732,9 @@ For each task, the scoring order is deliberately fixed:
 ```
 
 The individual measurement indicators are not residualized for age or sex
-before FA/PCA. Age and confirmed genetic sex are removed only from the final
-task score, so the factor/PCA loadings are learned from the task measurements
-themselves rather than from age/sex-residualized inputs.
+before FA/PCA. Age and confirmed genetic sex are removed only after the raw task
+score is formed. This keeps the factor/PCA loadings tied to the task
+measurements themselves rather than to age/sex-residualized inputs.
 
 The primary valid-sitting filters are:
 
@@ -743,7 +747,7 @@ The primary valid-sitting filters are:
 
 `any_timeouts` is retained as a diagnostic rather than an exclusion by default.
 
-The command writes a long diagnostic score table plus a one-row-per-sample
+The command writes both a long diagnostic score table and a one-row-per-sample
 recommended-score table. The recommended scores are:
 
 ```text
@@ -753,7 +757,7 @@ flanker_efficiency_z_age_sex   # Flanker efficiency source selected by diagnosti
 emorecog_perf_z_age_sex        # Emotional Recognition PC1 of score + RT consistency/speed
 ```
 
-The current rationale is:
+The score-selection rationale is:
 
 ```text
 Delay Discounting:
@@ -841,9 +845,9 @@ Flanker:
     z-score the residual to write flanker_efficiency_z_age_sex
 ```
 
-Current aggregate diagnostics from the scored cohort are below. These are not
-pipeline constants; they are regenerated into the diagnostic TSVs whenever the
-command is run on a new cohort/CDR.
+Current aggregate diagnostics from the scored cohort are below. These are run
+outputs, not pipeline constants; they are regenerated into the diagnostic TSVs
+whenever the command is run on a new cohort/CDR.
 
 | Recommended score | Source used by the pipeline | Scored N | Pearson r with `ses_ea_proxy_z` | Spearman r |
 |---|---|---:|---:|---:|
@@ -868,11 +872,44 @@ the recommended PC1 because flipping a single indicator after PCA would define a
 different construct. It means this empirical score/RT PC is mostly accuracy plus
 speed, with RT variability entering in the opposite direction for this task.
 
-Repeat valid sittings are uncommon, but they provide a useful test-retest
-diagnostic. The diagnostic fits the production scoring recipe on first valid
-sittings, applies those same transforms/loadings/age-sex residualization
-parameters unchanged to each person's second valid sitting, and then correlates
-first-vs-second task scores.
+In the cdrv9 final EUR teacher-z cohort (`N = 280,101`), valid ETM sittings
+were counted after applying the same task-specific QC filters used by the
+scorer. Counts from 1 to 20 are suppressed under the AoU reporting rule; exact
+zero counts are shown.
+
+| Valid sittings | Delay Discounting | GradCPT | Flanker | Emotional Recognition |
+|---:|---:|---:|---:|---:|
+| 0 | 232,290 (82.931%) | 231,330 (82.588%) | 234,624 (83.764%) | 223,100 (79.650%) |
+| 1 | 37,413 (13.357%) | 38,150 (13.620%) | 35,745 (12.761%) | 42,553 (15.192%) |
+| 2 | 8,832 (3.153%) | 9,104 (3.250%) | 8,265 (2.951%) | 11,937 (4.262%) |
+| 3 | 1,208 (0.431%) | 1,200 (0.428%) | 1,121 (0.400%) | 1,925 (0.687%) |
+| 4 | 226 (0.081%) | 199 (0.071%) | 217 (0.077%) | 381 (0.136%) |
+| 5 | 71 (0.025%) | 58 (0.021%) | 66 (0.024%) | 123 (0.044%) |
+| 6 | 25 (0.009%) | 23 (0.008%) | 33 (0.012%) | 38 (0.014%) |
+| 7 | suppressed | suppressed | suppressed | suppressed |
+| 8 | suppressed | suppressed | suppressed | suppressed |
+| 9 | suppressed | suppressed | suppressed | suppressed |
+| 10 | suppressed | suppressed | suppressed | suppressed |
+| 11 | suppressed | suppressed | suppressed | suppressed |
+| 12 | suppressed | suppressed | 0 (0.000%) | suppressed |
+| 13 | suppressed | suppressed | suppressed | suppressed |
+| 14 | suppressed | suppressed | suppressed | suppressed |
+
+Cumulative valid-sitting coverage in the same cohort was:
+
+| Threshold | Delay Discounting | GradCPT | Flanker | Emotional Recognition |
+|---|---:|---:|---:|---:|
+| At least 1 | 47,811 (17.069%) | 48,771 (17.412%) | 45,477 (16.236%) | 57,001 (20.350%) |
+| At least 2 | 10,398 (3.712%) | 10,621 (3.792%) | 9,732 (3.474%) | 14,448 (5.158%) |
+| At least 3 | 1,566 (0.559%) | 1,517 (0.542%) | 1,467 (0.524%) | 2,511 (0.896%) |
+
+Short-interval repeat valid sittings are uncommon, but they provide a useful
+scoring sanity check. This is mostly a same-day or short-gap repeatability
+diagnostic, not the longer-interval reliability estimate used below for the
+latent cognitive ability lower-bound calculation. The diagnostic fits the
+production scoring recipe on first valid sittings, applies those same
+transforms/loadings/age-sex residualization parameters unchanged to each
+person's second valid sitting, and then correlates first-vs-second task scores.
 
 | Task score | Repeat pairs | Pearson r | Spearman r | Mean second - first z |
 |---|---:|---:|---:|---:|
@@ -883,8 +920,51 @@ first-vs-second task scores.
 
 The repeat gaps are mostly same-day retries rather than year-scale retests:
 65.0% for DD, 84.4% for GradCPT, 57.2% for Flanker, and 69.4% for Emotional
-Recognition. These correlations are encouraging, but they should be read as
-short-interval repeatability more than long-term stability.
+Recognition. These correlations support short-interval score repeatability,
+but they should not be used as long-term task reliability estimates.
+
+As a longer-interval cdrv9 check, we separately computed test-retest
+correlations in the full classified-European ancestry set rather than only the
+SES-EA proxy cohort. The sample universe was the pipeline's European keep-list
+(`303,903` IIDs). The query used `C2025Q4R6` ETM tables and the same valid-
+sitting QC filters as the scorer:
+
+```text
+GradCPT valid sitting:
+  flag_trial_flags == 0
+  flag_non_response == 0
+  flag_omission_error_rate == 0
+  test_restarted == false
+  dprime is finite
+
+Flanker valid sitting:
+  flag_accuracy == 0
+  flag_trial_flags == 0
+  test_restarted == false
+  official score is finite
+```
+
+For the main retest definition, each participant's first score is their
+earliest valid sitting and the retest score is their first later valid sitting
+more than 30 days after the first. Scores are the official primary task
+outcomes, not the age/sex-normalized production proxy scores.
+
+| Task | Score | Valid sittings | People with a valid sitting | People with 2+ valid sittings | Retest pairs >30d | Pearson r | Spearman r | Mean retest - first | Median gap days | Min gap days | Max gap days |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| GradCPT | `dprime` | 64,389 | 51,197 | 10,999 | 10,399 | 0.6925 | 0.6888 | 0.0012 | 305.3 | 30.006 | 440.0 |
+| Flanker | official `score` | 60,064 | 47,784 | 10,099 | 9,541 | 0.7241 | 0.7251 | 0.4202 | 298.9 | 30.033 | 644.9 |
+
+A stricter sensitivity restricted to participants with exactly two valid
+sittings, again more than 30 days apart, was nearly identical:
+
+| Task | Score | Retest pairs >30d | Pearson r | Spearman r | Mean retest - first | Median gap days | Min gap days | Max gap days |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| GradCPT | `dprime` | 8,843 | 0.6889 | 0.6853 | -0.0042 | 329.0 | 30.006 | 440.0 |
+| Flanker | official `score` | 8,029 | 0.7230 | 0.7230 | 0.3397 | 328.9 | 30.042 | 644.9 |
+
+These longer-interval retest results are lower than the same-day-heavy
+production-score repeat diagnostic above, as expected, but they are based on
+much larger samples and are a better estimate of year-scale task stability.
 
 Individual-level cognitive score files stay in:
 
@@ -930,7 +1010,7 @@ etm_cog_task_factors_emorecog_*.tsv
 
 `run_etm_g_from_task_scores.sh` builds downstream ETM general
 cognitive/performance factor scores from the recommended task scores. It reads
-the task-score output and the SES-EA proxy cohort files only; it does not query
+the task-score output and the SES-EA proxy cohort files only. It does not query
 ETM tables again and does not run GWAS.
 
 ```bash
@@ -975,8 +1055,8 @@ g_hat_i = lambda_O' * Sigma_O^{-1} * x_iO
 Sigma_O = lambda_O lambda_O' + diag(psi_O)
 ```
 
-One-task scores are therefore intentionally shrunk toward zero; the command does
-not divide by the sum of available weights or z-score within missingness
+One-task scores are intentionally shrunk toward zero. The command does not
+divide by the sum of available weights and does not z-score within missingness
 pattern. The final ETM-g score is z-scored using the complete-case `g_hat`
 distribution. It is not residualized again for age or sex because the task
 inputs were already age/sex-normalized upstream. Age/sex correlations and
@@ -996,8 +1076,8 @@ Among complete cases only, the proxy correlations were:
 | `etm_g_z` | DD + GradCPT + Flanker observed | 11,165 | 0.306 | 0.291 |
 | `etm_g4_z` | DD + GradCPT + Flanker + EmoRecog observed | 11,077 | 0.298 | 0.282 |
 
-The four-domain score is accepted by the loading checks and adds coverage for
-people with only Emotional Recognition observed, but in the current run it is
+The four-domain score passes the loading checks and adds coverage for people
+with only Emotional Recognition observed. In the current run, however, it is
 slightly weaker against the SES-EA proxy than the three-domain score. The
 three-domain score is therefore kept as the continuity/primary ETM-g phenotype,
 with `etm_g4_z` available as the four-domain coverage/sensitivity score.
@@ -1079,8 +1159,8 @@ g4_finetuned_ea_proxy_z
 ```
 
 This is a G4-targeted survey proxy initialized from the SES-EA proxy booster.
-It should be interpreted as a cognitive-function-enriched predictive score, not
-as an observed cognitive score or as a causal mediation estimate.
+It should be interpreted as a cognitive-function-enriched predictive score,
+not as an observed cognitive score or a causal mediation estimate.
 
 The command consumes:
 
@@ -1125,12 +1205,13 @@ command loads `xgboost_models/fold_k.json`, fine-tunes only on target-eligible
 `role=oof` samples with `fold_id != k`, and predicts the original held-out
 `fold_id == k` samples. The final applied model loads `final_model.json`,
 fine-tunes on all target-eligible OOF samples, and predicts only
-`role=applied` samples. Thus target-labeled samples are predicted by models
-that did not fine-tune on them.
+`role=applied` samples. Thus, target-labeled samples are predicted by models
+that did not fine-tune on those samples.
 
-Because continued XGBoost training appends trees to boosters whose raw outputs
-are on the original SES-EA proxy raw-score scale, the ETM-g4 label is aligned
-within each fold's allowed fine-tuning rows before training:
+Continued XGBoost training appends trees to boosters whose raw outputs are on
+the original SES-EA proxy raw-score scale. To keep the appended trees on that
+scale, the ETM-g4 label is aligned within each fold's allowed fine-tuning rows
+before training:
 
 ```text
 y_g4_aligned =
@@ -1191,7 +1272,7 @@ Those diagnostics include target-overlap counts, label-alignment means and SDs,
 selected appended-tree rounds, before/after correlations with `etm_g4_z`,
 teacher and EA-years retention, covariate correlations with YOB/sex/PCs, score
 distributions in ETM and non-ETM samples, feature-importance comparisons, and
-task-pattern validation. These diagnostics should be reviewed before using
+task-pattern validation. Review these diagnostics before using
 `g4_finetuned_ea_proxy_z` as a downstream phenotype.
 
 ### GradCPT/Flanker fine-tuned SES-EA proxy scoring
@@ -1290,7 +1371,7 @@ gradcpt_flanker_mean_z
 That branch was useful for checking how much direct teacher-label information
 changed GradCPT/Flanker prediction, but it is not the selected phenotype. The
 selected phenotype uses the fine-tuned booster score as one of three inputs in
-the final no-teacher 18k calibration.
+the final no-teacher calibration.
 
 ### Direct GradCPT/Flanker scratch XGBoost proxy
 
@@ -1327,11 +1408,35 @@ internal validation = 4-fold xgb.cv within the allowed training pool
 The feature matrix starts with the exact SES-EA proxy feature contract, then
 adds The Basics education item `1585940` as both a revised numeric years feature
 and one-hot response indicators. This is intentional for this direct cognitive
-proxy benchmark: unlike the original EA proxy, this model is not being trained
-to predict the education item itself.
+proxy benchmark: unlike the original EA proxy, this model is not trained to
+predict the education item itself.
+
+The resulting direct-XGBoost feature contract has 720 columns, while the
+SES-EA proxy feature contract has 711 columns. The SES-EA feature list is an
+identical ordered prefix of the direct-XGBoost feature list; the nine appended
+direct-only columns are:
+
+```text
+q1585940_highest_grade_revised_ea_years_num
+q1585940_a1585941_highest_grade
+q1585940_a1585942_highest_grade
+q1585940_a1585943_highest_grade
+q1585940_a1585944_highest_grade
+q1585940_a1585945_highest_grade
+q1585940_a1585946_highest_grade
+q1585940_a1585947_highest_grade
+q1585940_a1585948_highest_grade
+```
+
+These are deliberately absent from the SES-EA proxy model because that model's
+label is the education-derived `teacher_z`; including the education response
+would be direct target leakage. They are deliberately present in the scratch
+GradCPT/Flanker direct-XGBoost model because its label is the cognitive-task
+factor, so the participant's education response is allowed to act as one survey
+predictor among the broader questionnaire feature set.
 
 The training target uses all samples with at least one of the two strongest ETM
-task scores, not just people who completed both:
+task scores, rather than only participants who completed both:
 
 ```text
 gradcpt_perf_z_age_sex
@@ -1342,9 +1447,9 @@ Among complete cases, the current GradCPT-Flanker correlation is about `0.466`,
 so the equal-loading two-indicator model uses loading `sqrt(0.466) ~= 0.683`.
 People with both tests receive the two-test regression factor score. People
 with only one test receive a shrunken one-test estimate, approximately
-`0.683 * observed_task_z`, instead of treating a single task as full-strength
-general cognition. The resulting `gradcpt_flanker_factor_z` is z-scored using
-the both-test complete-case reference.
+`0.683 * observed_task_z`, instead of treating a single task as a full-strength
+two-domain cognitive score. The resulting `gradcpt_flanker_factor_z` is
+z-scored using the both-test complete-case reference.
 
 For each scratch XGBoost fit, the training labels are rescaled to match the
 mean and SD of `ses_ea_proxy_z` in that model's allowed target-labeled training
@@ -1359,12 +1464,13 @@ gradcpt_flanker_direct_xgb_proxy_z
 
 Earlier scratch-XGBoost runs also evaluated teacher-including three- and
 four-variable calibrations as diagnostics. Those comparisons are useful history,
-but the final selected phenotype uses the no-teacher 18k calibration described
+but the final selected phenotype uses the no-teacher calibration described
 below.
 
-## Final Selected Phenotype: 18k No-Teacher GradCPT/Flanker Calibration
+## Final Selected Phenotype: No-Teacher GradCPT/Flanker Calibration
 
-The final selected phenotype is:
+The final selected phenotype, and the phenotype used for the cdrv9 GWAS
+reported here, is:
 
 ```text
 gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z
@@ -1389,18 +1495,18 @@ with the education teacher label.
 The calibration is fold-safe. For OOF fold `k`, the linear model is fit on
 target-labeled OOF samples from the other four folds and predicts all samples in
 fold `k`. The applied model is fit on target-labeled OOF samples allowed by the
-kinship holdout and predicts the applied cohort. The resulting raw prediction is
-z-scored over all 216,482 SES-EA proxy cohort rows.
+kinship holdout and predicts the applied cohort. In the cdrv9 run, the resulting
+raw prediction is z-scored over all 280,101 SES-EA proxy cohort rows.
 
 ### Fold-safe prediction and kinship safety
 
 The final phenotype is designed so that each participant's score is produced by
-models that did not train on that participant's own row. In other words, the
-participant's own survey responses, area-SES features, genetic sex feature, and
-education-response feature where applicable are used as predictors when scoring
-that participant, but those same feature values and that participant's own
-teacher/cognitive outcome labels are not part of the training data for the
-model that generates that participant's prediction.
+models that did not train on that participant's own row. The participant's own
+survey responses, area-SES features, genetic sex feature, and education-response
+feature where applicable are used as predictors when scoring that participant.
+Those same feature values, and that participant's own teacher/cognitive outcome
+labels, are not part of the training data for the model that generates that
+participant's prediction.
 
 This rule is applied at every predictive layer:
 
@@ -1433,83 +1539,309 @@ fit-PCA folds should not contain relatives of the held-out sample at
 `KINSHIP >= 0.0441941`, the cutoff used here for first-cousin/third-degree-or-
 closer relatedness. For the applied rows, the `final_model_train_allowed` flag
 additionally removes fit-PCA samples related to any applied sample at the same
-`0.0441941` threshold before fitting the sixth/final models. In that practical
-sense, the final phenotype for a sample comes from survey-based predictions
-made by models trained on held-out and threshold-based kinship-clean training
-samples.
+`0.0441941` threshold before fitting the sixth/final models. In practical terms,
+each final score comes from survey-based predictions made by models trained on
+held-out and threshold-based kinship-clean training samples.
 
 The selected run produced a finite phenotype for every row in the SES-EA proxy
-cohort and used the same sample count as the completed GWAS:
+cohort and used the same sample count as the final GWAS input:
 
 ```text
-Total rows:                               216,482
-OOF / fit_pca rows:                       198,266
-Applied rows:                              18,216
-Calibration target labels, either task:    18,058
-OOF target labels:                         16,439
-Applied target labels:                      1,619
-Final-model kinholdout target labels:      15,659
+Total rows:                               280,101
+OOF / fit_pca rows:                       252,774
+Applied rows:                              27,327
+Calibration target labels, either task:    55,528
+OOF target labels:                         49,492
+Applied target labels:                      6,036
+Final-model kinholdout target labels:      46,744
 ```
 
 Primary validation correlations were:
 
 | Group | Target | N | Pearson r | Spearman r |
 |---|---|---:|---:|---:|
-| Full cohort | `teacher_z` | 216,482 | 0.657842 | 0.635796 |
-| OOF | `teacher_z` | 198,266 | 0.656777 | 0.633453 |
-| Applied | `teacher_z` | 18,216 | 0.664210 | 0.648930 |
-| Either GradCPT or Flanker | `gradcpt_flanker_factor_z` | 18,058 | 0.364319 | 0.348736 |
-| Both GradCPT and Flanker | `gradcpt_flanker_factor_z` | 11,766 | 0.375980 | 0.361088 |
-| Both GradCPT and Flanker | `gradcpt_flanker_mean_z` | 11,766 | 0.376075 | 0.361160 |
+| Full cohort | `teacher_z` | 280,101 | 0.641148 | 0.623209 |
+| OOF | `teacher_z` | 252,774 | 0.640220 | 0.621428 |
+| Applied | `teacher_z` | 27,327 | 0.646964 | 0.630312 |
+| Either GradCPT or Flanker | `gradcpt_flanker_factor_z` | 55,528 | 0.393148 | 0.375928 |
+| Both GradCPT and Flanker | `gradcpt_flanker_factor_z` | 38,720 | 0.403959 | 0.384074 |
+| Both GradCPT and Flanker | `gradcpt_flanker_mean_z` | 38,720 | 0.404018 | 0.384114 |
 
-The 18k calibration-cohort scale check was:
+Predictor-level GradCPT/Flanker validation correlations were:
+
+| Group | Predictor | Target | N | Pearson r | Spearman r |
+|---|---|---|---:|---:|---:|
+| Applied both-task target | `ses_ea_proxy_z` | `gradcpt_flanker_mean_z` | 4,237 | 0.332125 | 0.303597 |
+| Applied both-task target | `gradcpt_flanker_finetuned_ea_proxy_z` | `gradcpt_flanker_mean_z` | 4,237 | 0.376375 | 0.351244 |
+| Applied both-task target | `gradcpt_flanker_direct_xgb_proxy_z` | `gradcpt_flanker_mean_z` | 4,237 | 0.416083 | 0.381262 |
+| Combined both-task target | `ses_ea_proxy_z` | `gradcpt_flanker_mean_z` | 38,720 | 0.313799 | 0.293417 |
+| Combined both-task target | `gradcpt_flanker_finetuned_ea_proxy_z` | `gradcpt_flanker_mean_z` | 38,720 | 0.359032 | 0.340223 |
+| Combined both-task target | `gradcpt_flanker_direct_xgb_proxy_z` | `gradcpt_flanker_mean_z` | 38,720 | 0.397867 | 0.378689 |
+| Combined either-task target | `ses_ea_proxy_z` | `gradcpt_flanker_factor_z` | 55,528 | 0.304134 | 0.285639 |
+| Combined either-task target | `gradcpt_flanker_finetuned_ea_proxy_z` | `gradcpt_flanker_factor_z` | 55,528 | 0.350399 | 0.334417 |
+| Combined either-task target | `gradcpt_flanker_direct_xgb_proxy_z` | `gradcpt_flanker_factor_z` | 55,528 | 0.387313 | 0.370425 |
+| Final no-teacher phenotype | `gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z` | `gradcpt_flanker_factor_z` | 55,528 | 0.393148 | 0.375928 |
+| Final no-teacher phenotype | `gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z` | `gradcpt_flanker_mean_z` | 38,720 | 0.404018 | 0.384114 |
+
+The participants who completed either GradCPT or Flanker are also a selected
+survey-completion subgroup. Correlations with the education-derived `teacher_z`
+were lower among ETM-task takers than among participants who took neither of
+the two tasks:
+
+| Group | N | SES-EA proxy Pearson r | Fine-tuned Pearson r | Direct XGBoost Pearson r |
+|---|---:|---:|---:|---:|
+| Took either GradCPT or Flanker | 55,528 | 0.6153 | 0.4925 | 0.5436 |
+| Did not take either | 224,573 | 0.6810 | 0.6070 | 0.6214 |
+
+Spearman correlations showed the same pattern:
+
+| Group | SES-EA proxy Spearman r | Fine-tuned Spearman r | Direct XGBoost Spearman r |
+|---|---:|---:|---:|
+| Took either GradCPT or Flanker | 0.5647 | 0.4626 | 0.5187 |
+| Did not take either | 0.6533 | 0.5853 | 0.6197 |
+
+A quick feature-coverage diagnostic pointed in the same direction. Using a
+crude question-level approximation, a survey question was treated as observed
+for a person if that person had any exported row for that `question_concept_id`;
+the question was then weighted by the number of XGBoost columns it expands into.
+This does not apply every branch-recode and nonresponse nuance from the exact
+feature builder, but it is a useful fast check of survey-completion imbalance.
+
+| Group | N | Survey-question features missing | Mean missing features/person |
+|---|---:|---:|---:|
+| Took either GradCPT or Flanker | 55,528 | 26.34% | 181.8 / 690 |
+| Took neither | 224,573 | 48.03% | 331.4 / 690 |
+
+Including the direct model's nine education-response features, which are
+observed for everyone in this teacher-labeled cohort, gave:
+
+| Group | Direct-XGBoost question features missing | Mean missing features/person |
+|---|---:|---:|
+| Took either GradCPT or Flanker | 26.01% | 181.8 / 699 |
+| Took neither | 47.41% | 331.4 / 699 |
+
+These diagnostics suggest that ETM-task takers have substantially more complete
+survey feature coverage, while the survey-derived predictors are less aligned
+with the education-derived teacher label in that selected subgroup. The local
+diagnostic tables were written to:
+
+```text
+data/tmp/teacher_z_predictor_correlations_by_etm_status_v9.tsv
+data/tmp/xgboost_question_feature_missingness_by_etm_status_crude_v9.tsv
+```
+
+Because the complete-case GradCPT/Flanker cohort is not education-response
+balanced relative to the full teacher/EA proxy cohort, we also checked the
+same correlations after matching the complete-case cohort back to the full
+cohort's education-response distribution. The reference distribution was all
+280,101 rows with `teacher_z` and an EA response. The comparison cohort was the
+set of rows with finite `gradcpt_flanker_mean_z`. Sparse EA-response categories
+that did not pass the `>20` reporting rule in the complete-case cohort were
+suppressed and excluded from the stratified comparison. The final resampling
+target size after that rule was 38,718, with fixed seed `20260702`.
+
+Education-response distributions before and after matching were:
+
+| EA response | Full % | GradCPT/Flanker % | Matched % | Action |
+|---|---:|---:|---:|---|
+| Advanced Degree | 31.970 | 39.873 | 31.970 | undersample |
+| College Graduate | 28.433 | 30.926 | 28.434 | undersample |
+| College One to Three | 25.539 | 22.338 | 25.539 | oversample |
+| Twelve Or GED | 11.824 | 6.408 | 11.824 | oversample |
+| Nine Through Eleven | 1.796 | 0.375 | 1.795 | oversample |
+| Five Through Eight | 0.439 | 0.080 | 0.439 | oversample |
+
+Correlations with `gradcpt_flanker_mean_z` increased after matching:
+
+| Predictor | Original r | EA-matched resample r |
+|---|---:|---:|
+| `teacher_z` baseline | 0.2181 | 0.2529 |
+| SES-EA proxy | 0.3138 | 0.3494 |
+| Fine-tuned GradCPT/Flanker proxy | 0.3590 | 0.3887 |
+| Direct XGBoost GradCPT/Flanker proxy | 0.3979 | 0.4214 |
+| Final no-teacher GWAS phenotype | 0.4040 | 0.4289 |
+
+A deterministic inverse-stratum-weighted Pearson check gave similar results:
+
+| Predictor | Weighted Pearson r |
+|---|---:|
+| `teacher_z` baseline | 0.2536 |
+| SES-EA proxy | 0.3464 |
+| Fine-tuned GradCPT/Flanker proxy | 0.3889 |
+| Direct XGBoost GradCPT/Flanker proxy | 0.4232 |
+| Final no-teacher GWAS phenotype | 0.4302 |
+
+Interpretation: the complete-case GradCPT/Flanker cohort is enriched for
+higher-education responses and underrepresents lower-education responses.
+Matching it back to the full EA-response distribution restores more
+between-education contrast, so all predictor correlations rise. The final
+no-teacher phenotype remains the strongest predictor in both the original and
+matched comparisons, though its gain over the direct XGBoost proxy is modest.
+
+As a reliability-aware validation, we also estimated conservative lower bounds
+on the final phenotype's correlation with latent general cognitive ability.
+This is not a point estimate of `r(proxy, g)`. A task retest correlation treats
+both general ability and task-specific stable variance as reliable signal, so
+dividing the proxy-task correlation by `sqrt(task reliability)` disattenuates
+toward each task's stable true score. If the task contains stable task-specific
+variance, the result is a lower bound for `r(proxy, g)` under the assumption
+that the proxy reaches the task mainly through general ability.
+
+This check used the exact production task z-scores that feed
+`gradcpt_flanker_mean_z`: `gradcpt_perf_z_age_sex` for GradCPT and
+`flanker_efficiency_z_age_sex` for Flanker. The Flanker column name is kept for
+pipeline compatibility, but the cdrv9 diagnostic selected `flanker_simple_score`
+as its source because it correlated at least 0.95 with the efficiency split
+score. We refit the production scoring recipe on first valid sittings, applied
+the same transforms/loadings/age-sex residualization parameters to later valid
+sittings, and verified exact agreement with the saved pipeline columns
+(`r = 1.0`, max absolute difference below `5e-16`).
+
+Retest reliability was estimated among final GWAS-cohort samples with a first
+valid sitting and a first later valid sitting more than 30 days and no more
+than four years after the first:
+
+| Task score | Source score | Retest pairs | Pearson reliability | Spearman reliability | Mean retest - first z | Median gap days |
+|---|---|---:|---:|---:|---:|---:|
+| `gradcpt_perf_z_age_sex` | `gradcpt_perf_factor` | 10,051 | 0.744942 | 0.736733 | 0.044443 | 306.7 |
+| `flanker_efficiency_z_age_sex` | `flanker_simple_score` | 9,199 | 0.669197 | 0.675637 | 0.076173 | 300.2 |
+
+A stricter sensitivity restricted to participants with exactly two scoreable
+sittings gave similar reliabilities: `0.739571` for GradCPT and `0.663849` for
+Flanker.
+
+Among participants with exactly two scoreable sittings in this same
+`>30 days` and `<=4 years` retest window, the gap between first and second
+sitting was concentrated around the next annual measurement wave:
+
+| Gap percentile | GradCPT days | Flanker days |
+|---:|---:|---:|
+| 10th | 75.9 | 73.7 |
+| 20th | 157.2 | 154.1 |
+| 30th | 244.9 | 236.9 |
+| 40th | 285.9 | 280.0 |
+| 50th | 329.5 | 329.3 |
+| 60th | 336.4 | 336.4 |
+| 70th | 338.9 | 338.9 |
+| 80th | 341.7 | 341.9 |
+| 90th | 345.4 | 346.0 |
+
+For the proxy-task correlations, the complete-case task cohorts were weighted
+back to the full final-phenotype EA-response distribution using deterministic
+inverse stratum weights. EA-response categories that did not pass the `>20`
+reporting rule in a task cohort were suppressed and excluded from that task's
+weighted comparison (`One Through Four` for GradCPT; `Never Attended` and
+`One Through Four` for Flanker).
+
+| Task score | N | Unweighted Pearson r | EA-weighted Pearson r |
+|---|---:|---:|---:|
+| `gradcpt_perf_z_age_sex` | 48,769 | 0.357281 | 0.383354 |
+| `flanker_efficiency_z_age_sex` | 45,474 | 0.343408 | 0.368800 |
+
+The equivalent fixed-seed EA-matched resample check, using one task at a time
+rather than requiring both tasks, gave:
+
+| Task score | EA-matched resample r | Reliability | Resample lower bound |
+|---|---:|---:|---:|
+| `gradcpt_perf_z_age_sex` | 0.383032 | 0.744942 | 0.443787 |
+| `flanker_efficiency_z_age_sex` | 0.370720 | 0.669197 | 0.453178 |
+
+Dividing the proxy-task correlations by `sqrt(reliability)` gives these
+task-specific lower bounds:
+
+| Task score | `sqrt(reliability)` | Unweighted lower bound | EA-weighted lower bound | Bootstrap 95% CI for EA-weighted bound |
+|---|---:|---:|---:|---:|
+| `gradcpt_perf_z_age_sex` | 0.863100 | 0.413951 | 0.444160 | 0.433428 to 0.454687 |
+| `flanker_efficiency_z_age_sex` | 0.818045 | 0.419791 | 0.450831 | 0.436475 to 0.464468 |
+
+The two task-specific estimates are close. The tighter lower bound is the
+Flanker-based estimate, about `0.451` on the EA-weighted scale. Using the
+exactly-two-sittings reliability instead gives `0.445769` for GradCPT and
+`0.452643` for Flanker; shifting the primary reliability by +/-0.03 keeps the
+EA-weighted lower bounds in the same range (`0.435477` to `0.453383` for
+GradCPT, `0.441053` to `0.461289` for Flanker).
+
+Taken together, the final no-teacher GWAS phenotype has an estimated
+lower-bound correlation of about `0.44` to `0.45` with latent cognitive ability
+from these GradCPT/Flanker validation checks, with bootstrap uncertainty
+roughly spanning `0.43` to `0.46`.
+
+The local analysis outputs are in:
+
+```text
+data/tmp/g_proxy_latent_g_lower_bound_v9/
+
+teacher_baseline_gradcpt_flanker_mean_correlations.tsv
+no_teacher_task_specific_resampled_lower_bounds.tsv
+production_task_exactly_two_gap_deciles.tsv
+```
+
+The calibration-cohort scale check was:
 
 | Variable | N | Mean | SD | Skew |
 |---|---:|---:|---:|---:|
-| `ses_ea_proxy_z` | 18,058 | 0.408 | 0.779 | -0.692 |
-| `gradcpt_flanker_finetuned_ea_proxy_z` | 18,058 | 0.385 | 0.666 | -0.677 |
-| `gradcpt_flanker_direct_xgb_proxy_z` | 18,058 | 0.354 | 0.910 | -0.706 |
-| `gradcpt_flanker_factor_z` | 18,058 | -0.058 | 0.961 | -0.132 |
-| Final no-teacher calibrated phenotype | 18,058 | 0.392 | 0.823 | -0.704 |
+| `ses_ea_proxy_z` | 55,528 | 0.338 | 0.815 | -0.705 |
+| `gradcpt_flanker_finetuned_ea_proxy_z` | 55,528 | 0.330 | 0.770 | -0.796 |
+| `gradcpt_flanker_direct_xgb_proxy_z` | 55,528 | 0.310 | 0.953 | -0.807 |
+| `gradcpt_flanker_factor_z` | 55,528 | -0.050 | 0.964 | -0.133 |
+| Final no-teacher calibrated phenotype | 55,528 | 0.333 | 0.897 | -0.813 |
 
 The full-cohort phenotype distribution was standardized after prediction:
 
 | Variable | N | Mean | SD | Skew |
 |---|---:|---:|---:|---:|
-| `gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z` | 216,482 | 0.000 | 1.000 | -0.595 |
+| `gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z` | 280,101 | 0.000 | 1.000 | -0.636 |
 
 The six fold-safe linear calibration coefficients were:
 
 | Fit | Train N | Predict N | Intercept | `ses_ea_proxy_z` | Fine-tuned XGB | Direct XGB |
 |---|---:|---:|---:|---:|---:|---:|
-| OOF fold 0 | 13,101 | 39,882 | -0.224622 | 0.031262 | 0.126141 | 0.295115 |
-| OOF fold 1 | 13,177 | 39,478 | -0.233044 | 0.026372 | 0.154263 | 0.275717 |
-| OOF fold 2 | 13,092 | 39,835 | -0.232062 | 0.046002 | 0.122295 | 0.284922 |
-| OOF fold 3 | 13,177 | 39,607 | -0.217658 | 0.041932 | 0.140779 | 0.274664 |
-| OOF fold 4 | 13,209 | 39,464 | -0.224152 | 0.036025 | 0.136518 | 0.275071 |
-| Applied kinholdout | 15,659 | 18,216 | -0.226704 | 0.031893 | 0.142250 | 0.281050 |
+| OOF fold 0 | 39,567 | 50,817 | -0.190793 | 0.014060 | 0.138828 | 0.292954 |
+| OOF fold 1 | 39,715 | 50,288 | -0.191847 | 0.002897 | 0.141663 | 0.304754 |
+| OOF fold 2 | 39,453 | 50,765 | -0.186495 | 0.004757 | 0.136234 | 0.299020 |
+| OOF fold 3 | 39,647 | 50,495 | -0.188028 | 0.005466 | 0.133069 | 0.300163 |
+| OOF fold 4 | 39,586 | 50,409 | -0.191318 | 0.009536 | 0.134071 | 0.292828 |
+| Applied kinholdout | 46,744 | 27,327 | -0.187863 | 0.004780 | 0.140821 | 0.297797 |
 
-The final GWAS used:
+The multivariable coefficient significance check showed that the residual
+SES-EA term was not significant after including the two GradCPT/Flanker proxy
+terms, while both GradCPT/Flanker terms were highly significant in every fit:
+
+| Fit | `ses_ea_proxy_z` p | Fine-tuned XGB p | Direct XGB p |
+|---|---:|---:|---:|
+| OOF fold 0 | 0.13817493 | 1.3041346e-31 | 8.2972005e-301 |
+| OOF fold 1 | 0.76077458 | 3.8469774e-33 | <1e-300 |
+| OOF fold 2 | 0.61955678 | 1.8937197e-30 | 1.5232672e-309 |
+| OOF fold 3 | 0.56879236 | 4.1985292e-29 | <1e-300 |
+| OOF fold 4 | 0.31694220 | 5.9990936e-30 | 3.1707073e-302 |
+| Applied kinholdout | 0.58651081 | 2.7751468e-38 | <1e-300 |
+
+This means the final no-teacher linear combiner is driven by the direct XGBoost
+proxy and the fine-tuned proxy. The original SES-EA proxy contributes little
+additional independent signal once those two survey-derived cognitive proxies
+are in the same regression.
+
+The final GWAS is configured to use:
 
 ```text
 Phenotype:  gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z
-Samples:    216,482
+Samples:    280,101
 Covariates: sex_c + PC1_AVG ... PC10_AVG
 RINT:       enabled
-Step 1:     494,984 direct variants
-Step 2:     7,251,393 WGS variants across 22 chromosomes
+Step 1:     494,816 direct variants
+Step 2:     7,252,333 WGS variants across 22 chromosomes
 ```
 
-The completed lightweight GWAS outputs are written under:
+After completion, lightweight GWAS outputs are written under:
 
 ```text
-regenie_output/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas/lightweight/
+regenie_output/g_ea_proxy_sbayesrc7m_gwas/lightweight/
 ```
 
 Diagnostic files for the final calibration are written under:
 
 ```text
-regenie_input/gradcpt_flanker_factor18_no_teacher_calibrated_proxy_ses_ea_proxy_v2_kinholdout/diagnostics/
+regenie_input/g_ea_proxy_sbayesrc7m/diagnostics/
 
 factor18_no_teacher_calibration_coefficients.tsv
 factor18_no_teacher_calibration_correlations.tsv

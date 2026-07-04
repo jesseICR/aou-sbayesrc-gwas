@@ -6,6 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export SCRIPT_DIR
+source "${SCRIPT_DIR}/aou_downstream_env.sh"
 
 usage() {
     cat <<'EOF'
@@ -102,8 +103,8 @@ export DX_REGENIE_INPUT_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/regenie_
 export DX_REGENIE_OUTPUT_URI="${WORKSPACE_BUCKET_URI}/sbayesrc_genotypes/regenie_output"
 
 export FACTOR18_GWAS_SOURCE_NAME="${FACTOR18_GWAS_SOURCE_NAME:-gradcpt_flanker_direct_xgb_proxy_ses_ea_proxy_v2_kinholdout}"
-export FACTOR18_GWAS_INPUT_NAME="${FACTOR18_GWAS_INPUT_NAME:-gradcpt_flanker_factor18_no_teacher_calibrated_proxy_ses_ea_proxy_v2_kinholdout}"
-BASE_OUTPUT_NAME="${FACTOR18_GWAS_OUTPUT_NAME:-gradcpt_flanker_factor18_no_teacher_calibrated_proxy_gwas}"
+export FACTOR18_GWAS_INPUT_NAME="${FACTOR18_GWAS_INPUT_NAME:-g_ea_proxy_sbayesrc7m}"
+BASE_OUTPUT_NAME="${FACTOR18_GWAS_OUTPUT_NAME:-g_ea_proxy_sbayesrc7m_gwas}"
 if [[ "${SMOKE}" -eq 1 ]]; then
     export REGENIE_CHROMS="22"
     export FACTOR18_GWAS_OUTPUT_NAME="${BASE_OUTPUT_NAME}_chr22_smoke"
@@ -473,6 +474,37 @@ print(f"covariate_columns\t{','.join(covar_cols)}")
 PY
 }
 
+wait_for_input_files_ready() {
+    local attempt phen_lines covar_lines keep_lines sig last_sig="" stable=0
+    for attempt in $(seq 1 120); do
+        if [[ -s "${PHEN}" && -s "${COVAR}" && -s "${KEEP}" ]]; then
+            phen_lines=$(wc -l < "${PHEN}" 2>/dev/null || echo 0)
+            covar_lines=$(wc -l < "${COVAR}" 2>/dev/null || echo 0)
+            keep_lines=$(wc -l < "${KEEP}" 2>/dev/null || echo 0)
+            sig="${phen_lines}:${covar_lines}:${keep_lines}"
+            if [[ "${phen_lines}" -eq $((keep_lines + 1)) && "${covar_lines}" -eq $((keep_lines + 1)) && "${keep_lines}" -gt 0 ]]; then
+                if [[ "${sig}" == "${last_sig}" ]]; then
+                    echo "input_files_ready	phen_lines=${phen_lines}	covar_lines=${covar_lines}	keep_lines=${keep_lines}"
+                    return 0
+                fi
+                stable=1
+            else
+                stable=0
+            fi
+            last_sig="${sig}"
+        fi
+        if [[ "${attempt}" -eq 1 || $((attempt % 10)) -eq 0 ]]; then
+            echo "waiting_for_input_files	attempt=${attempt}	phen_lines=${phen_lines:-NA}	covar_lines=${covar_lines:-NA}	keep_lines=${keep_lines:-NA}	stable=${stable}"
+        fi
+        sleep 2
+    done
+    echo "ERROR: final input files did not reach stable matching row counts." >&2
+    echo "  PHEN=${PHEN}" >&2
+    echo "  COVAR=${COVAR}" >&2
+    echo "  KEEP=${KEEP}" >&2
+    return 1
+}
+
 echo "=================================================================="
 echo "AoU factor18 no-teacher GradCPT/Flanker proxy GWAS — $(date)"
 echo "=================================================================="
@@ -492,6 +524,7 @@ echo "  Log file             = ${LOG_FILE}"
 echo ""
 
 prepare_input_package
+wait_for_input_files_ready
 validate_input_package
 
 echo ""
