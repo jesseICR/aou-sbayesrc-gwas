@@ -1411,6 +1411,30 @@ and one-hot response indicators. This is intentional for this direct cognitive
 proxy benchmark: unlike the original EA proxy, this model is not trained to
 predict the education item itself.
 
+The resulting direct-XGBoost feature contract has 720 columns, while the
+SES-EA proxy feature contract has 711 columns. The SES-EA feature list is an
+identical ordered prefix of the direct-XGBoost feature list; the nine appended
+direct-only columns are:
+
+```text
+q1585940_highest_grade_revised_ea_years_num
+q1585940_a1585941_highest_grade
+q1585940_a1585942_highest_grade
+q1585940_a1585943_highest_grade
+q1585940_a1585944_highest_grade
+q1585940_a1585945_highest_grade
+q1585940_a1585946_highest_grade
+q1585940_a1585947_highest_grade
+q1585940_a1585948_highest_grade
+```
+
+These are deliberately absent from the SES-EA proxy model because that model's
+label is the education-derived `teacher_z`; including the education response
+would be direct target leakage. They are deliberately present in the scratch
+GradCPT/Flanker direct-XGBoost model because its label is the cognitive-task
+factor, so the participant's education response is allowed to act as one survey
+predictor among the broader questionnaire feature set.
+
 The training target uses all samples with at least one of the two strongest ETM
 task scores, rather than only participants who completed both:
 
@@ -1558,6 +1582,53 @@ Predictor-level GradCPT/Flanker validation correlations were:
 | Combined either-task target | `gradcpt_flanker_direct_xgb_proxy_z` | `gradcpt_flanker_factor_z` | 55,528 | 0.387313 | 0.370425 |
 | Final no-teacher phenotype | `gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z` | `gradcpt_flanker_factor_z` | 55,528 | 0.393148 | 0.375928 |
 | Final no-teacher phenotype | `gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z` | `gradcpt_flanker_mean_z` | 38,720 | 0.404018 | 0.384114 |
+
+The participants who completed either GradCPT or Flanker are also a selected
+survey-completion subgroup. Correlations with the education-derived `teacher_z`
+were lower among ETM-task takers than among participants who took neither of
+the two tasks:
+
+| Group | N | SES-EA proxy Pearson r | Fine-tuned Pearson r | Direct XGBoost Pearson r |
+|---|---:|---:|---:|---:|
+| Took either GradCPT or Flanker | 55,528 | 0.6153 | 0.4925 | 0.5436 |
+| Did not take either | 224,573 | 0.6810 | 0.6070 | 0.6214 |
+
+Spearman correlations showed the same pattern:
+
+| Group | SES-EA proxy Spearman r | Fine-tuned Spearman r | Direct XGBoost Spearman r |
+|---|---:|---:|---:|
+| Took either GradCPT or Flanker | 0.5647 | 0.4626 | 0.5187 |
+| Did not take either | 0.6533 | 0.5853 | 0.6197 |
+
+A quick feature-coverage diagnostic pointed in the same direction. Using a
+crude question-level approximation, a survey question was treated as observed
+for a person if that person had any exported row for that `question_concept_id`;
+the question was then weighted by the number of XGBoost columns it expands into.
+This does not apply every branch-recode and nonresponse nuance from the exact
+feature builder, but it is a useful fast check of survey-completion imbalance.
+
+| Group | N | Survey-question features missing | Mean missing features/person |
+|---|---:|---:|---:|
+| Took either GradCPT or Flanker | 55,528 | 26.34% | 181.8 / 690 |
+| Took neither | 224,573 | 48.03% | 331.4 / 690 |
+
+Including the direct model's nine education-response features, which are
+observed for everyone in this teacher-labeled cohort, gave:
+
+| Group | Direct-XGBoost question features missing | Mean missing features/person |
+|---|---:|---:|
+| Took either GradCPT or Flanker | 26.01% | 181.8 / 699 |
+| Took neither | 47.41% | 331.4 / 699 |
+
+These diagnostics suggest that ETM-task takers have substantially more complete
+survey feature coverage, while the survey-derived predictors are less aligned
+with the education-derived teacher label in that selected subgroup. The local
+diagnostic tables were written to:
+
+```text
+data/tmp/teacher_z_predictor_correlations_by_etm_status_v9.tsv
+data/tmp/xgboost_question_feature_missingness_by_etm_status_crude_v9.tsv
+```
 
 Because the complete-case GradCPT/Flanker cohort is not education-response
 balanced relative to the full teacher/EA proxy cohort, we also checked the
