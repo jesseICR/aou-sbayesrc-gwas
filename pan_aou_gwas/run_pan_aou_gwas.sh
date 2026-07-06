@@ -187,8 +187,11 @@ PY_ARGS=(
   --question-manifest "${SCRIPT_DIR}/metadata/survey_question_manifest.tsv"
   --ordinal-manifest "${SCRIPT_DIR}/metadata/ordinal_mapping_manifest.tsv"
   --pfhh-allowlist "${SCRIPT_DIR}/metadata/pfhh_self_allowlist.tsv"
+  --external-scores "${SCRIPT_DIR}/metadata/external_scores.tsv"
   --outdir "${SCRIPT_DIR}"
 )
+# Where the ea_proxy ETM/proxy score files live (registry paths expand this).
+export PAN_AOU_COG_DIR="${PAN_AOU_COG_DIR:-${DX_REGENIE_INPUT_DIR}/ses_ea_proxy/scrap/etm_cog_task_factors}"
 [[ "${FORCE}" == 1 ]] && PY_ARGS+=(--force)
 [[ "${SETUP_ONLY}" == 1 ]] && PY_ARGS+=(--skip-gwas)
 [[ "${SMOKE}" == 1 ]] && PY_ARGS+=(--phenotypes "${SMOKE_PHENOS}")

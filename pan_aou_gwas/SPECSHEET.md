@@ -37,6 +37,11 @@ bfile was built in the AoU environment.
 8. **PFHH conditions also get a genetic-relatedness-weighted family-burden sumscore** (self = 1,
    first-degree = 0.5, grandparent = 0.25, summed) as a quantitative liability-proxy phenotype
    alongside the binary `self_has_<condition>` (§11.2).
+9. **EA/income use the exact repo conversions** (`setup_ea_gwas.py`/`setup_income_gwas.py`) and the
+   same **age ≥ 26** restriction (§7.3).
+10. **Cognitive + EA-proxy scores are GWASed** as external quantitative traits — the 4 ETM task
+   scores plus teacher_z, SES-EA proxy, fine-tuned proxies, direct-XGBoost proxy, and the final
+   g-EA proxy (§11b), residualized on sex + PCs.
 
 ---
 
@@ -280,6 +285,9 @@ enumerated with explicit per-answer values in `metadata/ordinal_mapping_manifest
 
 ### 7.3 Education and income anchors (ea_proxy.md)
 
+These reproduce the exact `EA_MAPPING` / `INCOME_MAPPING` in the repo's
+`setup_ea_gwas.py` and `setup_income_gwas.py` (values verified identical).
+
 ```text
 Education (question "highest grade", -> years):
   never attended / grades 1-4 / grades 5-8 = 9;  grades 9-11 = 10;  grade 12 or GED = 13;
@@ -288,6 +296,11 @@ Income (annual household, -> $k midpoints, top-coded 250):
   <10k=5, 10-25k=17.5, 25-35k=30, 35-50k=42.5, 50-75k=62.5, 75-100k=87.5,
   100-150k=125, 150-200k=175, >200k=250
 ```
+
+Also matching those scripts: **every education and income phenotype (ordinal and
+each binary one-vs-rest) restricts to respondents aged ≥ 26 at the survey response**
+(`--min-age-at-survey 26`), so people who may not have finished education / are
+early-career are excluded.
 
 ---
 
@@ -403,6 +416,39 @@ levels rule (§12) drops any condition too rare to score.
 
 ---
 
+## 11b. External cognitive / EA-proxy score GWAS
+
+The ea_proxy workflow produces pre-computed continuous scores that are GWASed here
+as external quantitative traits. Because they are already age/sex-normalized
+upstream, they are INT'd and residualized on **sex_c + PC1..PC10 only** (no age
+term) — matching the repo's final g-EA proxy GWAS covariates. The registry is
+`metadata/external_scores.tsv` (score file paths + column names; missing files are
+skipped with a warning). Phenotype ids are prefixed `cog_`.
+
+ETM cognitive task scores (recommended per-task summary score, `*_z_age_sex`):
+
+```text
+dd_patience_z_age_sex     Delay Discounting patience = -lnk (negative log mean discount rate k);
+                          higher = more patient / less delay discounting.
+gradcpt_perf_z_age_sex    GradCPT sustained attention = PC1 of d-prime, -log(RT CV), -log(median RT);
+                          higher = better sustained attention.
+flanker_efficiency_z_age_sex  Flanker inhibitory control = official AoU Flanker rate-correct score (0-100);
+                          higher = better attentional control.
+emorecog_perf_z_age_sex   Emotional Recognition = PC1 of accuracy, -log(RT CV), -log(median RT);
+                          higher = better emotion recognition.
+```
+
+EA / SES / cognitive proxy scores:
+
+```text
+teacher_z                  EA years residualized on yob, sex, yob:sex, z-scored (the EA teacher label).
+ses_ea_proxy_z             cross-fit XGBoost survey/area-SES -> EA-years proxy (no genotypes).
+gradcpt_flanker_finetuned_ea_proxy_z   SES-EA boosters fine-tuned toward the GradCPT+Flanker mean.
+gradcpt_flanker_direct_xgb_proxy_z     scratch XGBoost survey -> GradCPT+Flanker proxy (not fine-tuned).
+g4_finetuned_ea_proxy_z    SES-EA boosters fine-tuned toward the 4-domain ETM-g factor.
+gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z   the final selected g-EA proxy (headline).
+```
+
 ## 12. Phenotype-eligibility thresholds
 
 ```text
@@ -453,10 +499,12 @@ Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case 
 | Behavioral Health & Personality | 60 | 176 | 25 | 9 | 210 |
 | PFHH self-history allowlist (binary self_has) | 33 | 33 | 0 | 0 | 33 |
 | PFHH relatedness-burden sumscore (quant) | 33 | 0 | 33 | 0 | 33 |
-| Physical measurements | 7 | 0 | 0 | 7 | 7 |
-| **TOTAL** | **763** | **3010** | **378** | **60** | **3448** |
+| Physical measurements | 9 | 0 | 0 | 9 | 9 |
+| Cognitive / EA-proxy external scores | 10 | 0 | 0 | 10 | 10 |
+| **TOTAL** | **782** | **3010** | **378** | **72** | **3460** |
 
-(The 33 `pfhh_burden_*` sumscores are counted in the "ordinal" column as quantitative traits.)
+(The 33 `pfhh_burden_*` sumscores and the 10 `cog_*` external scores are counted as
+quantitative traits. Physical measurements now include pulse pressure and MAP.)
 
 ---
 

@@ -26,6 +26,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import re
 import shutil
 import subprocess
@@ -204,6 +205,15 @@ def slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", str(text).lower()).strip("_")[:40] or "x"
 
 
+# Minimum age-at-survey by ordinal rule, matching the repo's dedicated EA/income
+# GWAS (setup_ea_gwas.py / setup_income_gwas.py, --min-age-at-survey default 26):
+# exclude respondents who may not have completed education / are early-career.
+MIN_AGE_BY_RULE = {
+    "education_years_ea_proxy": 26.0,
+    "income_midpoint_k": 26.0,
+}
+
+
 def build_survey_phenotypes(questions, qman, ord_lookup):
     """Yield (pheno_id, trait_type, kind, {iid: (y, age)}, meta)."""
     for qid, q in questions.items():
@@ -217,6 +227,16 @@ def build_survey_phenotypes(questions, qman, ord_lookup):
             if disp != "numeric":
                 continue
         responses = q["responses"]
+
+        # Age-at-survey minimum for EA/income (matches the repo GWAS scripts),
+        # applied to every phenotype derived from that question.
+        min_age = MIN_AGE_BY_RULE.get(man["ordinal_rule"])
+        if min_age is not None:
+            responses = {
+                pid: (age, ans)
+                for pid, (age, ans) in responses.items()
+                if age is not None and not math.isnan(age) and age >= min_age
+            }
 
         is_multi = man["phenotype_class"] == "multi_select"
         # ---- binary one-vs-rest per observed valid answer ------------------
@@ -409,6 +429,49 @@ def build_pfhh_phenotypes(questions, allowlist_path):
         }
 
 
+def build_external_score_phenotypes(config_path, keep):
+    """Yield pre-computed continuous scores (ETM cognitive tasks + EA/SES proxies).
+
+    These come from the ea_proxy workflow (ETM task scoring + the SES-EA/g-EA
+    proxy models). They are already age/sex-normalized upstream, so they are
+    residualized on sex_c + PC1..PC10 only (covar_mode=sexpc), matching the
+    repo's final g-EA proxy GWAS covariate choice. The registry lives in
+    metadata/external_scores.tsv; missing score files are skipped with a note.
+    """
+    if not config_path or not Path(config_path).exists():
+        return
+    with open(config_path, newline="") as f:
+        rows = [r for r in csv.DictReader(f, delimiter="\t") if not r["phenotype_id"].startswith("#")]
+    for r in rows:
+        path = Path(os.path.expandvars(r["score_file"].strip()))
+        if not path.exists() or path.stat().st_size == 0:
+            log(f"  external score missing, skipping {r['phenotype_id']}: {path}")
+            continue
+        iid_col, val_col = r["iid_col"].strip(), r["value_col"].strip()
+        delim = "\t" if path.suffix in (".tsv", ".txt") else ","
+        vals = {}
+        with open(path, newline="") as fh:
+            for row in csv.DictReader(fh, delimiter=delim):
+                iid = (row.get(iid_col) or "").strip()
+                if iid not in keep:
+                    continue
+                try:
+                    vals[iid] = (float(row[val_col]), float("nan"))
+                except (KeyError, ValueError, TypeError):
+                    continue
+        if not vals:
+            log(f"  WARN: {r['phenotype_id']} matched 0 samples in {path} "
+                f"(check iid_col={iid_col!r}, value_col={val_col!r}).")
+            continue
+        yield f"cog_{r['phenotype_id']}", "external_score", "quant", vals, {
+            "question_concept_id": "",
+            "question": r.get("description", ""),
+            "answer": "",
+            "ordinal_rule": "",
+            "covar_mode": "sexpc",
+        }
+
+
 def build_measurement_phenotypes(meas_csv: Path, keep: set[str]):
     if not meas_csv or not meas_csv.exists() or meas_csv.stat().st_size == 0:
         return
@@ -464,15 +527,53 @@ def build_measurement_phenotypes(meas_csv: Path, keep: set[str]):
                 bmi[pid] = (b, w[1])
     yield "bmi_kg_m2", "measurement", "quant", bmi, {"question_concept_id": "", "question": "bmi_kg_m2", "answer": "", "ordinal_rule": ""}
 
+    # Pulse pressure and MAP require a same-date SBP+DBP pair (spec 10.3).
+    sbp = per["systolic_bp_mmhg"]
+    dbp = per["diastolic_bp_mmhg"]
+    pp, mapv = {}, {}
+    for pid in set(sbp) & set(dbp):
+        dmap = {}
+        for d, v, a in sbp[pid]:
+            if 70.0 <= v <= 260.0:
+                dmap.setdefault(d, {})["s"] = (v, a)
+        for d, v, a in dbp[pid]:
+            if 40.0 <= v <= 160.0 and d in dmap:
+                dmap[d]["d"] = (v, a)
+        pairs = [
+            (d, val["s"][0], val["d"][0], val["s"][1])
+            for d, val in dmap.items()
+            if "s" in val and "d" in val and val["s"][0] > val["d"][0]
+        ]
+        if not pairs:
+            continue
+        pairs.sort(key=lambda t: t[0])  # earliest visit -> closest to baseline
+        _, s, dd, age = pairs[0]
+        pulse = s - dd
+        m = dd + pulse / 3.0
+        if 15.0 <= pulse <= 150.0:
+            pp[pid] = (pulse, age)
+        if 50.0 <= m <= 180.0:
+            mapv[pid] = (m, age)
+    yield "pulse_pressure_mmhg", "measurement", "quant", pp, {"question_concept_id": "", "question": "pulse_pressure_mmhg", "answer": "", "ordinal_rule": ""}
+    yield "mean_arterial_pressure_mmhg", "measurement", "quant", mapv, {"question_concept_id": "", "question": "mean_arterial_pressure_mmhg", "answer": "", "ordinal_rule": ""}
+
 
 # --------------------------------------------------------------------------- #
 # residualize + write + PLINK2
 # --------------------------------------------------------------------------- #
-def prepare_and_write(pheno_id, kind, values, sex, pcs, outdir):
-    """Return (pheno_path, keep_path, n, n_cases, n_controls) or None if it fails QC."""
+def prepare_and_write(pheno_id, kind, values, sex, pcs, outdir, covar_mode="full"):
+    """Return (pheno_path, keep_path, n, n_cases, n_controls) or None if it fails QC.
+
+    covar_mode: "full"  -> age_c, sex_c, age_c:sex_c, PC1..PC10 (survey/measurement)
+                "sexpc" -> sex_c, PC1..PC10 only (pre-age-normalized external scores,
+                           matching the repo's final g-EA proxy GWAS covariates).
+    """
+    need_age = covar_mode == "full"
     rows = []
     for iid, (y, age) in values.items():
-        if iid not in sex or iid not in pcs or math.isnan(y) or (age is None) or math.isnan(age):
+        if iid not in sex or iid not in pcs or math.isnan(y):
+            continue
+        if need_age and (age is None or math.isnan(age)):
             continue
         rows.append((iid, y, age, sex[iid], pcs[iid]))
 
@@ -491,11 +592,14 @@ def prepare_and_write(pheno_id, kind, values, sex, pcs, outdir):
 
     iids = [r[0] for r in rows]
     y = np.array([r[1] for r in rows], dtype=float)
-    age = np.array([r[2] for r in rows], dtype=float)
     sex_c = np.array([r[3] for r in rows], dtype=float) - 0.5
     pc = np.array([r[4] for r in rows], dtype=float)
-    age_c = age - age.mean()
-    covars = np.column_stack([age_c, sex_c, age_c * sex_c, pc])
+    if covar_mode == "sexpc":
+        covars = np.column_stack([sex_c, pc])
+    else:
+        age = np.array([r[2] for r in rows], dtype=float)
+        age_c = age - age.mean()
+        covars = np.column_stack([age_c, sex_c, age_c * sex_c, pc])
 
     if kind == "binary":
         pheno_vec = residualize(y, covars)          # LPM residual, no INT
@@ -553,6 +657,8 @@ def main() -> None:
     ap.add_argument("--question-manifest", type=Path, required=True)
     ap.add_argument("--ordinal-manifest", type=Path, required=True)
     ap.add_argument("--pfhh-allowlist", type=Path, default=None)
+    ap.add_argument("--external-scores", type=Path, default=None,
+                    help="registry TSV of pre-computed cognitive/EA-proxy scores to GWAS.")
     ap.add_argument("--outdir", type=Path, required=True)
     ap.add_argument("--phenotypes", default="", help="comma-separated pheno_id filter (smoke test).")
     ap.add_argument("--plink2-bin", default=shutil.which("plink2") or "plink2")
@@ -583,6 +689,7 @@ def main() -> None:
         build_numeric_phenotypes(questions, qman),
         build_pfhh_phenotypes(questions, args.pfhh_allowlist),
         build_measurement_phenotypes(args.measurements_csv, keep),
+        build_external_score_phenotypes(args.external_scores, keep),
     ]
 
     manifest_rows = []
@@ -593,7 +700,9 @@ def main() -> None:
         for pheno_id, trait_type, kind, values, meta in gen:
             if only and pheno_id not in only:
                 continue
-            prep = prepare_and_write(pheno_id, kind, values, sex, pcs, args.outdir)
+            prep = prepare_and_write(
+                pheno_id, kind, values, sex, pcs, args.outdir, meta.get("covar_mode", "full")
+            )
             if prep is None:
                 continue
             pheno_path, keep_path, pheno_name, n, ncase, nctrl = prep

@@ -29,7 +29,8 @@ metadata/                          generated manifests (see below)
 | `ordinal_answer_templates.tsv` | (rule, answer phrase) | the shared ordinal rule library, machine-readable |
 | `ordinal_mapping_manifest.tsv` | (ordinal question, answer) | the exact answer→value mapping applied at runtime |
 | `flagged_questions.tsv` | flagged question | sensitive + medium-confidence + uncertain-ordinal items for review |
-| `pfhh_self_allowlist.tsv` | condition | the 33 `self_has_<condition>` PFHH self-history phenotypes |
+| `pfhh_self_allowlist.tsv` | condition | the 33 PFHH self-history conditions (binary + burden sumscore) |
+| `external_scores.tsv` | cognitive/proxy score | registry of ETM task + EA-proxy scores to GWAS (verify paths on platform) |
 
 Regenerate the manifests from the codebook (safe to run off-platform):
 
