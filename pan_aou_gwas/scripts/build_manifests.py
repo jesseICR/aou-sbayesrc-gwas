@@ -55,9 +55,12 @@ EXCLUDE_ITEM_RE = re.compile(
     r"noneofthese|socialsecurity|thebasics_countryborn)",
     re.I,
 )
+# Note: address/phone/email/ZIP entry fields are free-text and already excluded
+# as such, so they are intentionally NOT listed here (listing "address" wrongly
+# caught "How many years have you lived at your current address?").
 EXCLUDE_LABEL_RE = re.compile(
-    r"\b(race|ethnic|hispanic|latino|tribe|social security|phone|email|"
-    r"address|zip code|please specify|which categories describe you)\b",
+    r"\b(race|ethnic|hispanic|latino|tribe|social security number|"
+    r"please specify|which categories describe you)\b",
     re.I,
 )
 
@@ -130,7 +133,12 @@ def is_nominal(item_concept: str, options) -> bool:
     return False
 
 
-def disposition(row) -> dict:
+def has_numeric_sibling(item: str, all_items: set) -> bool:
+    """True if a dedicated numeric-entry field exists for this gated radio."""
+    return any(item + suf in all_items for suf in ("number", "_number", "age", "_age"))
+
+
+def disposition(row, all_items) -> dict:
     survey = row["survey"]
     item = row["item_concept"]
     label = row["field_label"]
@@ -194,6 +202,23 @@ def disposition(row) -> dict:
     # Single-select (radio/dropdown/yesno) and slider
     if cls in ("single_select", "slider"):
         base["n_binary_phenos"] = n_core  # one-vs-rest per valid option
+        # "Enter <the amount of time / number / age / response>" radios gate a
+        # free numeric entry: the real datum is the number (value_as_number), so
+        # treat the question as a continuous phenotype, not a degenerate radio.
+        core = [lab for _, lab in options if not R.is_missing(lab)]
+        enter_numeric = re.compile(
+            r"\s*enter\s+(the\s+)?(number|amount|time|age|years?|months?|weeks?|days?|minutes?|hours?)\b",
+            re.I,
+        )
+        if core and all(enter_numeric.match(lab) for lab in core):
+            if has_numeric_sibling(item, all_items):
+                # A dedicated _number/_age field already captures the value.
+                base["disposition"] = "excluded_gated_prompt"
+                base["notes"] = "numeric entry captured by its _number/_age sibling field."
+                return base
+            base["disposition"] = "numeric"
+            base["notes"] = "numeric entry gated by a radio prompt; GWAS the entered value."
+            return base
         # Degenerate: no usable contrast after removing missing-type answers.
         if n_core < 2:
             base["disposition"] = "excluded_degenerate"
@@ -317,9 +342,10 @@ def main() -> None:
 
     from collections import Counter
 
+    all_items = {r["item_concept"] for r in rows}
     counts = Counter()
     for row in rows:
-        d = disposition(row)
+        d = disposition(row, all_items)
         counts[d["disposition"]] += 1
         qw.writerow(
             [

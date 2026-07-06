@@ -501,7 +501,7 @@ Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case 
 | PFHH relatedness-burden sumscore (quant) | 33 | 0 | 33 | 0 | 33 |
 | Physical measurements | 9 | 0 | 0 | 9 | 9 |
 | Cognitive / EA-proxy external scores | 10 | 0 | 0 | 10 | 10 |
-| **TOTAL** | **782** | **3010** | **378** | **72** | **3460** |
+| **TOTAL** | **~785** | **3016** | **379** | **73** | **3468** |
 
 (The 33 `pfhh_burden_*` sumscores and the 10 `cog_*` external scores are counted as
 quantitative traits. Physical measurements now include pulse pressure and MAP.)
