@@ -42,7 +42,6 @@ GROUPS = OrderedDict([
     ("MOS Social Support (RAND) + Tangible subscale",
      (["RAND Moss Social Support Survey", "MOS Social Support - Tangible Support",
        "RAND Moss Social Support Survey Tangible Support Subscale"], "social_support")),
-    ("Social Cohesion / Perceived Neighborhood Disorder", (["Social Cohesion Neighborhood Scale"], None)),
 ])
 
 REVERSE_FRAG = CR.REVERSE_TEXT_FRAGMENTS
@@ -98,6 +97,29 @@ def main() -> None:
             else:
                 sc = ", ".join(f"{lbl}={val}" for lbl, val in amap.values())
                 out.append(f"    - {q}{rev}  — [{sc}]")
+        out.append("")
+
+    # explicit mixed-valence composites, item labels from the ordinal manifest
+    code_qtext, code_vals = {}, {}
+    for r in csv.DictReader(open(ROOT / "metadata/ordinal_mapping_manifest.tsv"), delimiter="\t"):
+        code_qtext[r["item_concept"]] = r["field_label"]
+        code_vals.setdefault(r["item_concept"], set()).add(r["ordinal_value"])
+    out.append("### Neighborhood, walkability & food-insecurity composites\n")
+    out.append(
+        "Built directly from the survey items (reusing their ordinal scores), because the scoring "
+        "sheet groups these with mixed item valence. Opposite-valence items are reverse-keyed.\n"
+    )
+    for slug, (desc, items) in CR.EXPLICIT_COMPOSITES.items():
+        present = [(c, rev) for c, rev in items if c in code_qtext]
+        if len(present) < 2:
+            continue
+        n_rev = sum(1 for _c, rev in present if rev)
+        out.append(f"#### comp_{slug}\n")
+        out.append(f"- {desc}")
+        out.append(f"- **Items:** {len(present)}; **reverse-keyed:** {n_rev}; prorated sum")
+        out.append("- **Questions:**")
+        for c, rev in present:
+            out.append(f"    - {code_qtext[c]}" + (" *(reverse-keyed)*" if rev else ""))
         out.append("")
 
     (ROOT / "metadata/COMPOSITE_SCORES.md").write_text("\n".join(out) + "\n")

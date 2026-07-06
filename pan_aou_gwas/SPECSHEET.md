@@ -44,8 +44,9 @@ bfile was built in the AoU environment.
    g-EA proxy (§11b), residualized on sex + PCs.
 11. **Validated composite scores are built** from the codebook Scoring sheets — GAD-7, PHQ-9, PSS,
    ACE, IES, ASRS, AUDIT-C, Everyday Discrimination, loneliness, social support, PROMIS, resilience,
-   spiritual experience, health literacy, and the BFI-2 Big Five domains (§11c), as prorated sums
-   with per-scale reverse-keying.
+   spiritual experience, health literacy, the BFI-2 Big Five domains, and the neighborhood social
+   cohesion / disorder / walkability and Hunger Vital Sign composites (§11c), as prorated sums with
+   per-scale reverse-keying (opposite-valence items flipped).
 12. **Wearable (Fitbit) phenotypes** — mean daily steps, sedentary/active minutes, sleep duration and
    efficiency (§10b), on the Fitbit subcohort.
 
@@ -623,18 +624,84 @@ Each composite is a **prorated sum**: mean(available item scores) × n_items, re
     - Someone who understands your problems
     - Someone to love and make you feel wanted
 
-### Social Cohesion / Perceived Neighborhood Disorder
+### Neighborhood, walkability & food-insecurity composites
 
-- **Items:** 5
-- **Per-item scoring:** 2 answer scales across items (shown per item below)
-- **Total score:** prorated sum of 5 items; no reverse-keyed items
-- **Auto-built:** no — documented only; items are also GWASed individually as ordinal phenotypes
+Built directly from the survey items (reusing their ordinal scores), because the scoring sheet groups these with mixed item valence. Opposite-valence items are reverse-keyed.
+
+#### comp_social_cohesion
+
+- Neighborhood social cohesion; higher = more cohesion.
+- **Items:** 4; **reverse-keyed:** 0; prorated sum
 - **Questions:**
-    - People around here are willing to help their neighbors.  — [Strongly Agree=5.0, Agree=4.0, Neutral (neither agree or disagree)=3.0, Disagree=2.0, Srongly Disagree=1.0]
-    - People in my neighborhood generally get along with each other.  — [Strongly Agree=5.0, Agree=4.0, Neutral (neither agree or disagree)=3.0, Disagree=2.0, Srongly Disagree=1.0]
-    - People in my neighborhood can be trusted.  — [Strongly Agree=5.0, Agree=4.0, Neutral (neither agree or disagree)=3.0, Disagree=2.0, Srongly Disagree=1.0]
-    - People in my neighborhood share the same values.  — [Strongly Agree=5.0, Agree=4.0, Neutral (neither agree or disagree)=3.0, Disagree=2.0, Srongly Disagree=1.0]
-    - There is a lot of graffiti in my neighborhood.  — [Strongly Agree=5.0, Agree=4.0, Disagree=2.0, Srongly Disagree=1.0]
+    - People around here are willing to help their neighbors.
+    - People in my neighborhood generally get along with each other.
+    - People in my neighborhood can be trusted.
+    - People in my neighborhood share the same values.
+
+#### comp_neighborhood_disorder
+
+- Perceived neighborhood disorder (order items reversed); higher = more disorder.
+- **Items:** 13; **reverse-keyed:** 4; prorated sum
+- **Questions:**
+    - There is a lot of graffiti in my neighborhood.
+    - My neighborhood is noisy.
+    - Vandalism is common in my neighborhood.
+    - There are lot of abandoned buildings in my neighborhood.
+    - There are too many people hanging around on the streets near my home.
+    - There is a lot of crime in my neighborhood.
+    - There is too much drug use in my neighborhood.
+    - There is too much alcohol use in my neighborhood.
+    - I'm always having trouble with my neighbors.
+    - My neighborhood is clean. *(reverse-keyed)*
+    - People in my neighborhood take good care of their houses and apartments. *(reverse-keyed)*
+    - In my neighborhood, people watch out for each other. *(reverse-keyed)*
+    - My neighborhood is safe. *(reverse-keyed)*
+
+#### comp_neighborhood_physical_disorder
+
+- Physical disorder subscale (order items reversed); higher = more disorder.
+- **Items:** 6; **reverse-keyed:** 2; prorated sum
+- **Questions:**
+    - There is a lot of graffiti in my neighborhood.
+    - My neighborhood is noisy.
+    - Vandalism is common in my neighborhood.
+    - There are lot of abandoned buildings in my neighborhood.
+    - My neighborhood is clean. *(reverse-keyed)*
+    - People in my neighborhood take good care of their houses and apartments. *(reverse-keyed)*
+
+#### comp_neighborhood_social_disorder
+
+- Social disorder subscale (order items reversed); higher = more disorder.
+- **Items:** 7; **reverse-keyed:** 2; prorated sum
+- **Questions:**
+    - There are too many people hanging around on the streets near my home.
+    - There is a lot of crime in my neighborhood.
+    - There is too much drug use in my neighborhood.
+    - There is too much alcohol use in my neighborhood.
+    - I'm always having trouble with my neighbors.
+    - In my neighborhood, people watch out for each other. *(reverse-keyed)*
+    - My neighborhood is safe. *(reverse-keyed)*
+
+#### comp_neighborhood_walkability
+
+- PANES neighborhood walkability (crime-safety items reversed); higher = more walkable.
+- **Items:** 7; **reverse-keyed:** 2; prorated sum
+- **Questions:**
+    - Many shops, stores, markets or other places to buy things I need are within easy walking distance of my home. Would you say that you...
+    - It is within a 10-15 minute walk to a transit stop (such as bus, train, trolley, or tram) from my home. Would you say that you...
+    - There are sidewalks on most of the streets in my neighborhood. Would you say that you...
+    - There are facilities to bicycle in or near my neighborhood, such as special lanes, separate paths or trails, or shared use paths for cycles and pedestrians. Would you say that you...
+    - My neighborhood has several free or low-cost recreation facilities, such as parks, walking trails, bike paths, recreation centers, playgrounds, public swimming pools, etc. Would you say that you...
+    - The crime rate in my neighborhood makes it unsafe to go on walks at night. Would you say that you... *(reverse-keyed)*
+    - The crime rate in my neighborhood makes it unsafe to go on walks during the day. Would you say that you... *(reverse-keyed)*
+
+#### comp_hunger_vital_sign
+
+- Hunger Vital Sign food-insecurity screener; higher = more food insecurity.
+- **Items:** 2; **reverse-keyed:** 0; prorated sum
+- **Questions:**
+    - Within the past 12 months, we worried whether our food would run out before we got money to buy more.
+    - Within the past 12 months, the food we bought just didn't last and we didn't have money to get more.
 
 ## 12. Phenotype-eligibility thresholds
 
@@ -688,9 +755,9 @@ Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case 
 | PFHH relatedness-burden sumscore (quant) | 33 | 0 | 33 | 0 | 33 |
 | Physical measurements | 9 | 0 | 0 | 9 | 9 |
 | Cognitive / EA-proxy external scores | 10 | 0 | 0 | 10 | 10 |
-| Validated composite scores (§11c) + BFI-2 Big Five | 21 | 0 | 21 | 0 | 21 |
+| Validated composite scores (§11c) + BFI-2 Big Five + neighborhood/walkability/hunger | 27 | 0 | 27 | 0 | 27 |
 | Wearable (Fitbit) phenotypes (§10b) | 5 | 0 | 0 | 5 | 5 |
-| **TOTAL** | **~811** | **3016** | **400** | **78** | **3494** |
+| **TOTAL** | **~817** | **3016** | **406** | **78** | **3500** |
 
 (The 33 `pfhh_burden_*` sumscores and the 10 `cog_*` external scores are counted as
 quantitative traits. Physical measurements now include pulse pressure and MAP.)

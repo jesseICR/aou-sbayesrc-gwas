@@ -62,3 +62,39 @@ BFI2_DOMAINS = {
 }
 
 MIN_ITEM_FRACTION = 0.8
+
+# Composites the scoring sheets group with mixed item valence (or fail to score
+# cleanly). Built directly from the survey items, reusing their ordinal scores,
+# with opposite-valence items reverse-keyed (flipped on their own min/max).
+# Format: slug -> (description, [(item_concept, reverse), ...]).
+EXPLICIT_COMPOSITES = {
+    "social_cohesion": (
+        "Neighborhood social cohesion; higher = more cohesion.",
+        [("scns_1", False), ("scns_2", False), ("scns_3", False), ("scns_4", False)],
+    ),
+    "neighborhood_disorder": (
+        "Perceived neighborhood disorder (order items reversed); higher = more disorder.",
+        [("nds_1", False), ("nds_2", False), ("nds_3", False), ("nds_4", False),
+         ("nds_7", False), ("nds_8", False), ("nds_9", False), ("nds_10", False), ("nds_11", False),
+         ("nds_5", True), ("nds_6", True), ("nds_12", True), ("nds_13", True)],
+    ),
+    "neighborhood_physical_disorder": (
+        "Physical disorder subscale (order items reversed); higher = more disorder.",
+        [("nds_1", False), ("nds_2", False), ("nds_3", False), ("nds_4", False),
+         ("nds_5", True), ("nds_6", True)],
+    ),
+    "neighborhood_social_disorder": (
+        "Social disorder subscale (order items reversed); higher = more disorder.",
+        [("nds_7", False), ("nds_8", False), ("nds_9", False), ("nds_10", False), ("nds_11", False),
+         ("nds_12", True), ("nds_13", True)],
+    ),
+    "neighborhood_walkability": (
+        "PANES neighborhood walkability (crime-safety items reversed); higher = more walkable.",
+        [("ips_2", False), ("ips_3", False), ("ips_4", False), ("ips_5", False), ("ips_6", False),
+         ("ips_7", True), ("ips_16", True)],
+    ),
+    "hunger_vital_sign": (
+        "Hunger Vital Sign food-insecurity screener; higher = more food insecurity.",
+        [("hvs_1", False), ("hvs_2", False)],
+    ),
+}

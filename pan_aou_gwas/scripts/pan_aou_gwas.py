@@ -430,19 +430,23 @@ def build_pfhh_phenotypes(questions, allowlist_path):
         }
 
 
-def build_composite_phenotypes(questions, manifest_path):
+def build_composite_phenotypes(questions, manifest_path, ordinal_manifest_path=None, ord_lookup=None):
     """Yield validated composite scores (GAD-7, PHQ-9, PSS, BFI-2 Big Five, ...).
 
     Each composite is a prorated sum over its items (matched to survey responses
     by question text, reverse-keyed per composite_rules), requiring >= 80% of
     items answered. Residualized on the full covariate set (survey age is known).
+
+    Scoring-sheet instruments come from `manifest_path`. The mixed-valence
+    neighborhood/walkability/hunger composites are built from EXPLICIT_COMPOSITES
+    (item lists), reusing the ordinal scores (`ord_lookup` + `ordinal_manifest`).
     """
     import composite_rules as CR
 
-    if not manifest_path or not Path(manifest_path).exists():
-        return
-    with open(manifest_path, newline="") as f:
-        rows = list(csv.DictReader(f, delimiter="\t"))
+    rows = []
+    if manifest_path and Path(manifest_path).exists():
+        with open(manifest_path, newline="") as f:
+            rows = list(csv.DictReader(f, delimiter="\t"))
 
     qtext_to_qid = {}
     for qid, q in questions.items():
@@ -530,6 +534,39 @@ def build_composite_phenotypes(questions, manifest_path):
             "answer": f"{n_items}-item BFI-2-XS domain", "ordinal_rule": "composite",
             "covar_mode": "full",
         }
+
+    # explicit mixed-valence composites, scored from the ordinal manifest
+    if ord_lookup and ordinal_manifest_path and Path(ordinal_manifest_path).exists():
+        code_qtext, code_vals = {}, defaultdict(list)
+        with open(ordinal_manifest_path, newline="") as f:
+            for r in csv.DictReader(f, delimiter="\t"):
+                code_qtext[r["item_concept"]] = r["field_label"]
+                try:
+                    code_vals[r["item_concept"]].append(float(r["ordinal_value"]))
+                except (ValueError, TypeError):
+                    pass
+        for slug, (desc, items) in CR.EXPLICIT_COMPOSITES.items():
+            item_list = []
+            for code, rev in items:
+                qt = code_qtext.get(code)
+                if not qt:
+                    continue
+                nq = norm_q(qt)
+                qid = qtext_to_qid.get(nq)
+                vals_c = code_vals.get(code)
+                if qid is None or not vals_c:
+                    continue
+                ans_map = {a: v for (q_, a), v in ord_lookup.items() if q_ == nq}
+                if not ans_map:
+                    continue
+                item_list.append((qid, ans_map, rev, min(vals_c), max(vals_c)))
+            if len(item_list) < 2:
+                continue
+            vals, n_items = score_items(item_list)
+            yield f"comp_{slug}", "composite", "quant", vals, {
+                "question_concept_id": "", "question": slug,
+                "answer": desc, "ordinal_rule": "composite", "covar_mode": "full",
+            }
 
 
 FITBIT_MIN_DAYS = 10
@@ -851,7 +888,7 @@ def main() -> None:
         build_survey_phenotypes(questions, qman, ord_lookup),
         build_numeric_phenotypes(questions, qman),
         build_pfhh_phenotypes(questions, args.pfhh_allowlist),
-        build_composite_phenotypes(questions, args.composite_manifest),
+        build_composite_phenotypes(questions, args.composite_manifest, args.ordinal_manifest, ord_lookup),
         build_measurement_phenotypes(args.measurements_csv, keep),
         build_fitbit_phenotypes(args.fitbit_activity_csv, args.fitbit_sleep_csv, keep),
         build_external_score_phenotypes(args.external_scores, keep),
