@@ -245,6 +245,7 @@ PY_ARGS=(
   --question-manifest "${SCRIPT_DIR}/metadata/survey_question_manifest.tsv"
   --ordinal-manifest "${SCRIPT_DIR}/metadata/ordinal_mapping_manifest.tsv"
   --item-inventory "${SCRIPT_DIR}/metadata/survey_item_inventory.tsv"
+  --state-clusters "${SCRIPT_DIR}/metadata/state_clusters.tsv"
   --fitbit-chronotype-csv "${FITBIT_CHRONO_CSV}"
   --pfhh-allowlist "${SCRIPT_DIR}/metadata/pfhh_self_allowlist.tsv"
   --composite-manifest "${SCRIPT_DIR}/metadata/composite_items_manifest.tsv"
@@ -253,6 +254,9 @@ PY_ARGS=(
 )
 # Where the ea_proxy ETM/proxy score files live (registry paths expand this).
 export PAN_AOU_COG_DIR="${PAN_AOU_COG_DIR:-${DX_REGENIE_INPUT_DIR}/ses_ea_proxy/scrap/etm_cog_task_factors}"
+# Optional residence-state CSV (person_id,state,age) from ZIP3 geography; else
+# the worker uses the survey work-address state.
+[[ -n "${PAN_AOU_STATE_CSV:-}" && -s "${PAN_AOU_STATE_CSV}" ]] && PY_ARGS+=(--state-csv "${PAN_AOU_STATE_CSV}")
 [[ "${FORCE}" == 1 ]] && PY_ARGS+=(--force)
 [[ "${SETUP_ONLY}" == 1 ]] && PY_ARGS+=(--skip-gwas)
 [[ "${SMOKE}" == 1 ]] && PY_ARGS+=(--phenotypes "${SMOKE_PHENOS}")

@@ -842,6 +842,61 @@ def build_acculturation_phenotype(questions, item_labels):
             "covar_mode": "full"})
 
 
+def build_state_cluster_phenotypes(questions, item_labels, clusters_path, state_csv, keep):
+    """One binary GWAS per state cluster: membership (state in cluster) vs not.
+
+    State source: a person->state CSV via `state_csv` (person_id,state[,age]) if
+    given (e.g. residence state from ZIP3); otherwise the survey work-address
+    state item. NOTE these phenotypes largely capture residual geographic genetic
+    structure (PCs absorb much of it) -- interpret as geography/structure, not trait
+    biology.
+    """
+    if not clusters_path or not Path(clusters_path).exists():
+        return
+    clusters = {}
+    with open(clusters_path, newline="") as f:
+        for r in csv.DictReader(f, delimiter="\t"):
+            clusters[r["cluster"]] = {s.strip().lower() for s in r["states"].split("|")}
+
+    state_by_person = {}  # pid -> (state_lower, age)
+    if state_csv and Path(state_csv).exists() and Path(state_csv).stat().st_size > 0:
+        with open(state_csv, newline="") as f:
+            for row in csv.DictReader(f):
+                pid = (row.get("person_id") or "").strip()
+                st = (row.get("state") or "").strip()
+                if pid in keep and st:
+                    try:
+                        age = float(row.get("age", "nan"))
+                    except (ValueError, TypeError):
+                        age = float("nan")
+                    state_by_person[pid] = (st.lower(), age)
+        src = f"residence-state CSV ({Path(state_csv).name})"
+    else:
+        qtext_to_qid = {norm_q(q["question"]): qid for qid, q in questions.items()}
+        lab = item_labels.get("employmentworkaddress_state")
+        qid = qtext_to_qid.get(norm_q(lab)) if lab else None
+        if qid:
+            for pid, (age, answers) in questions[qid]["responses"].items():
+                nm = [a for a in answers if not R.is_missing(a)]
+                if len(nm) == 1:
+                    state_by_person[pid] = (R.norm(nm[0]), age)
+        src = "survey work-address state"
+    if not state_by_person:
+        return
+    log(f"  state-cluster source: {src} ({len(state_by_person)} with a state)")
+
+    for cluster, states in clusters.items():
+        values = {}
+        for pid, (st, age) in state_by_person.items():
+            if age is None or math.isnan(age):
+                continue
+            values[pid] = (1.0 if st in states else 0.0, age)
+        yield f"geo_{cluster}", "geographic", "binary", values, {
+            "question_concept_id": "", "question": f"state_cluster_{cluster}",
+            "answer": "member vs non-member", "ordinal_rule": "", "covar_mode": "full",
+        }
+
+
 def build_external_score_phenotypes(config_path, keep):
     """Yield pre-computed continuous scores (ETM cognitive tasks + EA/SES proxies).
 
@@ -1074,6 +1129,10 @@ def main() -> None:
     ap.add_argument("--ordinal-manifest", type=Path, required=True)
     ap.add_argument("--item-inventory", type=Path, default=None,
                     help="survey_item_inventory.tsv (for derived-psych/acculturation item labels).")
+    ap.add_argument("--state-clusters", type=Path, default=None,
+                    help="state_clusters.tsv (geographic/political cluster membership GWAS).")
+    ap.add_argument("--state-csv", type=Path, default=None,
+                    help="optional person_id,state,age CSV (residence state); else survey work state.")
     ap.add_argument("--pfhh-allowlist", type=Path, default=None)
     ap.add_argument("--composite-manifest", type=Path, default=None,
                     help="composite_items_manifest.tsv (validated sum/domain scores).")
@@ -1112,6 +1171,7 @@ def main() -> None:
         build_composite_phenotypes(questions, args.composite_manifest, args.ordinal_manifest, ord_lookup),
         build_derived_psych_phenotypes(questions, item_labels),
         build_acculturation_phenotype(questions, item_labels),
+        build_state_cluster_phenotypes(questions, item_labels, args.state_clusters, args.state_csv, keep),
         build_measurement_phenotypes(args.measurements_csv, keep),
         build_fitbit_phenotypes(args.fitbit_activity_csv, args.fitbit_sleep_csv, keep),
         build_chronotype_phenotype(args.fitbit_chronotype_csv, keep),

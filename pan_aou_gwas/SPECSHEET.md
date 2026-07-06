@@ -53,6 +53,8 @@ bfile was built in the AoU environment.
    recurrent), probable bipolar/mania, psychotic experiences, PCL-PTSD, and lifetime suicidal
    ideation / attempt (all sensitive).
 14. **Acculturation index** (§11e) — US-born + English-at-home + English proficiency.
+15. **Geographic / political state-cluster membership** (§11f) — 12 binary Census-region / subregion /
+   political-grouping phenotypes (primarily capture residual geographic structure).
 
 ---
 
@@ -747,6 +749,24 @@ English proficiency (chis_1_xx)          + 0..1  (imputed 1 for English-at-home 
 Summed to a 0–3 index, then INT'd and residualized (§4.1). Mainly informative across the immigrant /
 language-minority gradient; US-born English-at-home participants sit at the ceiling.
 
+## 11f. Geographic / political state-cluster membership
+
+One binary GWAS per state cluster (member vs non-member), from `metadata/state_clusters.tsv` — 12
+clusters: the 4 Census regions (Northeast, Midwest, South, West), 4 subregions (New England, Great
+Lakes, Rocky Mountain, Sunbelt), and 4 political groupings (Swing, Solid Blue, Lean Blue, Solid Red).
+Phenotype ids `geo_<cluster>`.
+
+State source: the participant's **work-address state** (`employmentworkaddress_state`) by default —
+the only participant-linked state in the survey, since home address is privacy-suppressed. For true
+**residence state**, supply a `person_id,state,age` CSV (derived from the AoU ZIP3 geography) via
+`PAN_AOU_STATE_CSV`; the builder uses it in preference. "Southern California" (Sunbelt) is
+approximated by all of California; Alaska/Hawaii/DC are unassigned (controls).
+
+**Interpretation caveat:** within EUR-unrelated samples, residualized on 10 PCs, these largely capture
+**residual fine-scale geographic genetic structure** (the PCs already absorb the major geographic
+gradients) — read them as geography/structure/migration signals, not trait biology. Political
+clusters via work-state are a coarse proxy for where people actually live and vote.
+
 ## 12. Phenotype-eligibility thresholds
 
 ```text
@@ -802,8 +822,9 @@ Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case 
 | Validated composite scores (§11c): scales + BFI-2 Big Five + neighborhood/walkability/hunger + PCL | 28 | 0 | 28 | 0 | 28 |
 | Derived psychiatric phenotypes (§11d) | 8 | 8 | 0 | 0 | 8 |
 | Acculturation index (§11e) | 1 | 0 | 1 | 0 | 1 |
+| Geographic / political state clusters (§11f) | 12 | 12 | 0 | 0 | 12 |
 | Wearable (Fitbit) phenotypes incl. chronotype (§10b) | 6 | 0 | 0 | 6 | 6 |
-| **TOTAL** | **~832** | **3024** | **407** | **79** | **3511** |
+| **TOTAL** | **~844** | **3036** | **407** | **79** | **3523** |
 
 (The 33 `pfhh_burden_*` sumscores and the 10 `cog_*` external scores are counted as
 quantitative traits. Physical measurements now include pulse pressure and MAP.)
