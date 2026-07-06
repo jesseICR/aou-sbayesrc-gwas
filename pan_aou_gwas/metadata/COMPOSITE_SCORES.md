@@ -228,3 +228,22 @@ Built directly from the survey items (reusing their ordinal scores), because the
     - Within the past 12 months, we worried whether our food would run out before we got money to buy more.
     - Within the past 12 months, the food we bought just didn't last and we didn't have money to get more.
 
+#### comp_ptsd_pcl
+
+- PTSD symptoms (abbreviated PCL, 5 items, 0-4 each); higher = more symptoms.
+- **Items:** 5; **reverse-keyed:** 0; prorated sum
+- **Questions:**
+    - In the past month, have you had repeated, disturbing memories, thoughts, or images of a stressful experience from the past?
+    - In the past month, have you felt very upset when something reminded you of a stressful experience from the past?
+    - In the past month, have you avoided activities or situations because they reminded you of a stressful experience from the past?
+    - In the past month, have you felt distant or cut off from other people?
+    - In the past month, have you felt irritable or had angry outbursts?
+
+#### comp_subjective_wellbeing
+
+- Subjective well-being (happiness + life meaning, UKB-style); higher = greater well-being.
+- **Items:** 2; **reverse-keyed:** 0; prorated sum
+- **Questions:**
+    - In general, how happy are you?
+    - To what extent do you feel your life to be meaningful?
+

@@ -101,4 +101,8 @@ EXPLICIT_COMPOSITES = {
         "PTSD symptoms (abbreviated PCL, 5 items, 0-4 each); higher = more symptoms.",
         [("pcl_1", False), ("pcl_2", False), ("pcl_3", False), ("pcl_4", False), ("pcl_5", False)],
     ),
+    "subjective_wellbeing": (
+        "Subjective well-being (happiness + life meaning, UKB-style); higher = greater well-being.",
+        [("mhqukb_57", False), ("mhqukb_58", False)],
+    ),
 }

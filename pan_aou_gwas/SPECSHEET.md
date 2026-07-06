@@ -714,6 +714,25 @@ Built directly from the survey items (reusing their ordinal scores), because the
     - Within the past 12 months, we worried whether our food would run out before we got money to buy more.
     - Within the past 12 months, the food we bought just didn't last and we didn't have money to get more.
 
+#### comp_ptsd_pcl
+
+- PTSD symptoms (abbreviated PCL, 5 items, 0-4 each); higher = more symptoms.
+- **Items:** 5; **reverse-keyed:** 0; prorated sum
+- **Questions:**
+    - In the past month, have you had repeated, disturbing memories, thoughts, or images of a stressful experience from the past?
+    - In the past month, have you felt very upset when something reminded you of a stressful experience from the past?
+    - In the past month, have you avoided activities or situations because they reminded you of a stressful experience from the past?
+    - In the past month, have you felt distant or cut off from other people?
+    - In the past month, have you felt irritable or had angry outbursts?
+
+#### comp_subjective_wellbeing
+
+- Subjective well-being (happiness + life meaning, UKB-style); higher = greater well-being.
+- **Items:** 2; **reverse-keyed:** 0; prorated sum
+- **Questions:**
+    - In general, how happy are you?
+    - To what extent do you feel your life to be meaningful?
+
 ## 11d. Derived psychiatric phenotypes (UKB-MHQ / CIDI-SF / PCL)
 
 AoU imported the UKB Mental Health Questionnaire, so the published algorithmic phenotypes are
@@ -819,12 +838,12 @@ Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case 
 | PFHH relatedness-burden sumscore (quant) | 33 | 0 | 33 | 0 | 33 |
 | Physical measurements | 9 | 0 | 0 | 9 | 9 |
 | Cognitive / EA-proxy external scores | 10 | 0 | 0 | 10 | 10 |
-| Validated composite scores (§11c): scales + BFI-2 Big Five + neighborhood/walkability/hunger + PCL | 28 | 0 | 28 | 0 | 28 |
+| Validated composite scores (§11c): scales + BFI-2 Big Five + neighborhood/walkability/hunger + PCL + well-being | 29 | 0 | 29 | 0 | 29 |
 | Derived psychiatric phenotypes (§11d) | 8 | 8 | 0 | 0 | 8 |
 | Acculturation index (§11e) | 1 | 0 | 1 | 0 | 1 |
 | Geographic / political state clusters (§11f) | 12 | 12 | 0 | 0 | 12 |
 | Wearable (Fitbit) phenotypes incl. chronotype (§10b) | 6 | 0 | 0 | 6 | 6 |
-| **TOTAL** | **~844** | **3036** | **407** | **79** | **3523** |
+| **TOTAL** | **~845** | **3036** | **408** | **79** | **3524** |
 
 (The 33 `pfhh_burden_*` sumscores and the 10 `cog_*` external scores are counted as
 quantitative traits. Physical measurements now include pulse pressure and MAP.)
