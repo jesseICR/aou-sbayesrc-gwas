@@ -97,4 +97,8 @@ EXPLICIT_COMPOSITES = {
         "Hunger Vital Sign food-insecurity screener; higher = more food insecurity.",
         [("hvs_1", False), ("hvs_2", False)],
     ),
+    "ptsd_pcl": (
+        "PTSD symptoms (abbreviated PCL, 5 items, 0-4 each); higher = more symptoms.",
+        [("pcl_1", False), ("pcl_2", False), ("pcl_3", False), ("pcl_4", False), ("pcl_5", False)],
+    ),
 }

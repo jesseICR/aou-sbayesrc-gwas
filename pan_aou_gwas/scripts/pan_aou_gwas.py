@@ -625,6 +625,223 @@ def build_fitbit_phenotypes(activity_csv, sleep_csv, keep):
         }
 
 
+def build_chronotype_phenotype(chrono_csv, keep):
+    """Chronotype proxy = mean main-sleep onset clock hour (morningness-eveningness).
+
+    Onset hours before noon are wrapped to [24,36) so a 1am onset (=25) sorts after
+    a 10pm onset (=22); higher = later/more evening. >= FITBIT_MIN_DAYS nights.
+    """
+    if not chrono_csv or not Path(chrono_csv).exists() or Path(chrono_csv).stat().st_size == 0:
+        return
+    agg = defaultdict(lambda: {"onset": [], "age": []})
+    with open(chrono_csv, newline="") as f:
+        for row in csv.DictReader(f):
+            pid = (row.get("person_id") or "").strip()
+            if pid not in keep:
+                continue
+            try:
+                h = float(row["onset_hour"])
+                agg[pid]["onset"].append(h + 24.0 if h < 12.0 else h)
+                agg[pid]["age"].append(float(row["age"]))
+            except (KeyError, ValueError, TypeError):
+                pass
+    values = {}
+    for pid, d in agg.items():
+        if len(d["onset"]) < FITBIT_MIN_DAYS or not d["age"]:
+            continue
+        values[pid] = (sum(d["onset"]) / len(d["onset"]), sum(d["age"]) / len(d["age"]))
+    yield "fitbit_chronotype_sleep_onset", "fitbit", "quant", values, {
+        "question_concept_id": "", "question": "fitbit_chronotype_sleep_onset",
+        "answer": "mean main-sleep onset clock hour; higher = later/evening", "ordinal_rule": "",
+        "covar_mode": "full",
+    }
+
+
+def load_item_labels(inventory_path):
+    """item_concept -> field label, from the survey item inventory."""
+    out = {}
+    if not inventory_path or not Path(inventory_path).exists():
+        return out
+    with open(inventory_path, newline="") as f:
+        for r in csv.DictReader(f, delimiter="\t"):
+            out.setdefault(r["item_concept"], r["field_label"])
+    return out
+
+
+def build_derived_psych_phenotypes(questions, item_labels):
+    """Algorithmic psychiatric phenotypes from the UKB-MHQ / CIDI-SF / PCL items.
+
+    Screening-level derivations (documented in SPECSHEET 11d). All are sensitive
+    (mental health / suicidality) and should carry the sensitive release tier.
+    """
+    qtext_to_qid = {}
+    for qid, q in questions.items():
+        qtext_to_qid.setdefault(norm_q(q["question"]), qid)
+
+    def resp(code):
+        lab = item_labels.get(code)
+        qid = qtext_to_qid.get(norm_q(lab)) if lab else None
+        return questions.get(qid, {}).get("responses", {}) if qid else {}
+
+    def nonmiss(pid, r):
+        v = r.get(pid)
+        return [a for a in v[1] if not R.is_missing(a)] if v else []
+
+    def age_of(pid, *rs):
+        for r in rs:
+            v = r.get(pid)
+            if v and v[0] is not None and not math.isnan(v[0]):
+                return v[0]
+        return None
+
+    def yes(ans_list):
+        return any(R.norm(a) == "yes" or R.norm(a).startswith("yes,") for a in ans_list)
+
+    def binary_from(case_test, denom_codes, pheno_id, desc):
+        """case_test(pid)->True/False/None(exclude); denom = answered any denom item."""
+        rs = [resp(c) for c in denom_codes]
+        pids = set().union(*[set(r) for r in rs]) if rs else set()
+        values = {}
+        for pid in pids:
+            if not any(nonmiss(pid, r) for r in rs):
+                continue
+            y = case_test(pid)
+            if y is None:
+                continue
+            a = age_of(pid, *rs)
+            if a is not None:
+                values[pid] = (1.0 if y else 0.0, a)
+        return (pheno_id, "binary", "binary", values,
+                {"question_concept_id": "", "question": pheno_id, "answer": desc,
+                 "ordinal_rule": "derived_psych", "covar_mode": "full"})
+
+    # ---- psychotic experiences (any of voices / thought-insertion / paranoia) --
+    r21, r22, r23 = resp("cidi5_21"), resp("cidi5_22"), resp("cidi5_23")
+
+    def psychosis(pid):
+        a = nonmiss(pid, r21) + nonmiss(pid, r22) + nonmiss(pid, r23)
+        return yes(a) if a else None
+
+    yield binary_from(psychosis, ["cidi5_21", "cidi5_22", "cidi5_23"],
+                      "psych_psychotic_experiences_any",
+                      "any lifetime psychotic experience (voices/thought-insertion/paranoia)")
+
+    # ---- suicidality / self-harm (each its own binary) ------------------------
+    for code, pid_name, desc in [
+        ("ss_1", "psych_self_harm_ideation_lifetime", "lifetime thoughts of purposely hurting yourself"),
+        ("ss_2", "psych_suicidal_ideation_lifetime", "lifetime thoughts of killing yourself"),
+        ("ss_3", "psych_suicide_attempt_lifetime", "lifetime suicide attempt"),
+    ]:
+        r = resp(code)
+        yield binary_from(lambda pid, r=r: (yes(nonmiss(pid, r)) if nonmiss(pid, r) else None),
+                          [code], pid_name, desc)
+
+    # ---- mania screen / probable bipolar (UKB Smith 2013 style) ---------------
+    r43, r44, r45, r46, r47 = (resp("mhqukb_43"), resp("mhqukb_44"), resp("mhqukb_45"),
+                               resp("mhqukb_46"), resp("mhqukb_47"))
+
+    def mania_core(pid):
+        return yes(nonmiss(pid, r43)) or yes(nonmiss(pid, r44))
+
+    def n_manic_symptoms(pid):
+        return len(nonmiss(pid, r45))
+
+    def mania_screen(pid):
+        if not (nonmiss(pid, r43) or nonmiss(pid, r44)):
+            return None
+        return mania_core(pid) and n_manic_symptoms(pid) >= 3
+
+    yield binary_from(mania_screen, ["mhqukb_43", "mhqukb_44"], "psych_mania_episode_screen",
+                      "manic/irritable episode + >=3 symptoms (screen)")
+
+    def probable_bipolar(pid):
+        base = mania_screen(pid)
+        if base is None:
+            return None
+        if not base:
+            return False
+        dur = {R.norm(a) for a in nonmiss(pid, r46)}
+        long_enough = any("four days" in d or "week or more" in d for d in dur)
+        prob = any("needed treatment or caused problems" in R.norm(a) for a in nonmiss(pid, r47))
+        return bool(long_enough and prob)
+
+    yield binary_from(probable_bipolar, ["mhqukb_43", "mhqukb_44"], "psych_probable_bipolar",
+                      "probable bipolar: mania screen + >=4 day duration + impairment (UKB-style)")
+
+    # ---- depression: lifetime episode + probable recurrent --------------------
+    r5, r6, r24 = resp("mhqukb_5"), resp("mhqukb_6"), resp("mhqukb_24")
+
+    def depressed_episode(pid):
+        a = nonmiss(pid, r5) + nonmiss(pid, r6)
+        return yes(a) if a else None
+
+    yield binary_from(depressed_episode, ["mhqukb_5", "mhqukb_6"], "psych_lifetime_depressed_episode",
+                      "ever a >=2-week period of low mood / anhedonia (screen)")
+
+    def recurrent_dep(pid):
+        core = depressed_episode(pid)
+        if core is None:
+            return None
+        if not core:
+            return False
+        return any("several" in R.norm(a) for a in nonmiss(pid, r24))
+
+    yield binary_from(recurrent_dep, ["mhqukb_5", "mhqukb_6"], "psych_probable_recurrent_depression",
+                      "lifetime depressed episode + several episodes (recurrent-MDD proxy)")
+
+
+def build_acculturation_phenotype(questions, item_labels):
+    """Cultural-assimilation index: US-born + English-at-home + English proficiency.
+
+    Higher = more acculturated. Components normalised to 0-1 and summed; English
+    proficiency is imputed maximal for participants who speak English at home.
+    """
+    qtext_to_qid = {}
+    for qid, q in questions.items():
+        qtext_to_qid.setdefault(norm_q(q["question"]), qid)
+
+    def resp(code):
+        lab = item_labels.get(code)
+        qid = qtext_to_qid.get(norm_q(lab)) if lab else None
+        return questions.get(qid, {}).get("responses", {}) if qid else {}
+
+    born, lang, prof = resp("thebasics_birthplace"), resp("chis_1"), resp("chis_1_xx")
+    prof_map = {"not at all": 0.0, "not well": 1.0 / 3, "well": 2.0 / 3, "very well": 1.0}
+
+    def one(pid, r):
+        v = r.get(pid)
+        nm = [a for a in v[1] if not R.is_missing(a)] if v else []
+        return nm[0] if len(nm) == 1 else None
+
+    pids = set(born) | set(lang) | set(prof)
+    values = {}
+    for pid in pids:
+        b = one(pid, born)
+        if b is None:
+            continue  # birthplace is the anchor component
+        us_born = 1.0 if R.norm(b) == "usa" else 0.0
+        lg = one(pid, lang)
+        english_home = 1.0 if (lg and R.norm(lg) == "no") else (0.0 if lg else None)
+        if english_home == 1.0:
+            eng = 1.0
+        else:
+            pv = one(pid, prof)
+            eng = prof_map.get(R.norm(pv)) if pv else None
+        comps = [us_born] + ([english_home] if english_home is not None else []) + ([eng] if eng is not None else [])
+        age = None
+        for r in (born, lang, prof):
+            v = r.get(pid)
+            if v and v[0] is not None and not math.isnan(v[0]):
+                age = v[0]
+                break
+        if len(comps) >= 1 and age is not None:
+            values[pid] = (sum(comps), age)  # 0..3 acculturation index
+    yield ("accult_index", "acculturation", "quant", values,
+           {"question_concept_id": "", "question": "acculturation_index",
+            "answer": "US-born + English-at-home + English proficiency", "ordinal_rule": "",
+            "covar_mode": "full"})
+
+
 def build_external_score_phenotypes(config_path, keep):
     """Yield pre-computed continuous scores (ETM cognitive tasks + EA/SES proxies).
 
@@ -852,8 +1069,11 @@ def main() -> None:
     ap.add_argument("--measurements-csv", type=Path, default=None)
     ap.add_argument("--fitbit-activity-csv", type=Path, default=None)
     ap.add_argument("--fitbit-sleep-csv", type=Path, default=None)
+    ap.add_argument("--fitbit-chronotype-csv", type=Path, default=None)
     ap.add_argument("--question-manifest", type=Path, required=True)
     ap.add_argument("--ordinal-manifest", type=Path, required=True)
+    ap.add_argument("--item-inventory", type=Path, default=None,
+                    help="survey_item_inventory.tsv (for derived-psych/acculturation item labels).")
     ap.add_argument("--pfhh-allowlist", type=Path, default=None)
     ap.add_argument("--composite-manifest", type=Path, default=None,
                     help="composite_items_manifest.tsv (validated sum/domain scores).")
@@ -873,7 +1093,8 @@ def main() -> None:
 
     qman = load_question_manifest(args.question_manifest)
     ord_lookup = load_ordinal_lookup(args.ordinal_manifest)
-    log(f"manifest questions={len(qman)}  ordinal answer maps={len(ord_lookup)}")
+    item_labels = load_item_labels(args.item_inventory)
+    log(f"manifest questions={len(qman)}  ordinal answer maps={len(ord_lookup)}  item labels={len(item_labels)}")
 
     survey_paths = [args.survey_csv]
     if args.bhp_csv:
@@ -889,8 +1110,11 @@ def main() -> None:
         build_numeric_phenotypes(questions, qman),
         build_pfhh_phenotypes(questions, args.pfhh_allowlist),
         build_composite_phenotypes(questions, args.composite_manifest, args.ordinal_manifest, ord_lookup),
+        build_derived_psych_phenotypes(questions, item_labels),
+        build_acculturation_phenotype(questions, item_labels),
         build_measurement_phenotypes(args.measurements_csv, keep),
         build_fitbit_phenotypes(args.fitbit_activity_csv, args.fitbit_sleep_csv, keep),
+        build_chronotype_phenotype(args.fitbit_chronotype_csv, keep),
         build_external_score_phenotypes(args.external_scores, keep),
     ]
 

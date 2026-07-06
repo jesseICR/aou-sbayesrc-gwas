@@ -47,8 +47,12 @@ bfile was built in the AoU environment.
    spiritual experience, health literacy, the BFI-2 Big Five domains, and the neighborhood social
    cohesion / disorder / walkability and Hunger Vital Sign composites (§11c), as prorated sums with
    per-scale reverse-keying (opposite-valence items flipped).
-12. **Wearable (Fitbit) phenotypes** — mean daily steps, sedentary/active minutes, sleep duration and
-   efficiency (§10b), on the Fitbit subcohort.
+12. **Wearable (Fitbit) phenotypes** — mean daily steps, sedentary/active minutes, sleep duration,
+   efficiency, and a chronotype (sleep-onset) proxy (§10b), on the Fitbit subcohort.
+13. **Derived psychiatric phenotypes** (§11d) from the UKB-MHQ/CIDI/PCL items — probable MDD (incl.
+   recurrent), probable bipolar/mania, psychotic experiences, PCL-PTSD, and lifetime suicidal
+   ideation / attempt (all sensitive).
+14. **Acculturation index** (§11e) — US-born + English-at-home + English proficiency.
 
 ---
 
@@ -396,7 +400,12 @@ fitbit_sedentary_minutes    mean daily sedentary minutes
 fitbit_active_minutes       mean daily fairly+very active minutes
 fitbit_sleep_minutes        mean nightly minutes asleep (main sleep)
 fitbit_sleep_efficiency     mean minute_asleep / minute_in_bed
+fitbit_chronotype_sleep_onset  mean main-sleep onset clock hour (chronotype proxy;
+                            onset before noon wrapped to [24,36), higher = later/evening)
 ```
+
+Chronotype uses the `sleep_level` start times (earliest main-sleep segment per night); confirm that
+table's schema on-platform.
 
 Sourced from the AoU `activity_summary` and `sleep_daily_summary` Fitbit tables (a smaller wearable
 subcohort). The orchestrator extracts them and skips gracefully if the tables are absent
@@ -703,6 +712,41 @@ Built directly from the survey items (reusing their ordinal scores), because the
     - Within the past 12 months, we worried whether our food would run out before we got money to buy more.
     - Within the past 12 months, the food we bought just didn't last and we didn't have money to get more.
 
+## 11d. Derived psychiatric phenotypes (UKB-MHQ / CIDI-SF / PCL)
+
+AoU imported the UKB Mental Health Questionnaire, so the published algorithmic phenotypes are
+derivable from the raw items. These are screening-level derivations (documented assumptions below),
+**all sensitive** (mental health / suicidality → sensitive release tier). Binary unless noted.
+
+```text
+psych_psychotic_experiences_any     any Yes to voices / thought-insertion / paranoia (cidi5_21/22/23)
+psych_self_harm_ideation_lifetime   ss_1  (ever thoughts of purposely hurting yourself)
+psych_suicidal_ideation_lifetime    ss_2  (ever thoughts of killing yourself)
+psych_suicide_attempt_lifetime      ss_3  (ever a suicide attempt)
+psych_mania_episode_screen          (ever high/hyper OR irritable) AND >=3 manic symptoms (mhqukb_43/44/45)
+psych_probable_bipolar              mania screen AND >=4-day duration (mhqukb_46) AND impairment (mhqukb_47)
+psych_lifetime_depressed_episode    ever a >=2-week low-mood / anhedonia period (mhqukb_5/6)
+psych_probable_recurrent_depression lifetime depressed episode AND several episodes (mhqukb_24)
+ptsd_pcl (composite, §11c)          abbreviated PCL 5-item sum (pcl_1..5), continuous
+```
+
+The depression and bipolar derivations follow the UKB Smith et al. 2013 logic at the item level; they
+are not the full CIDI symptom-count diagnoses, so they read as "probable"/"screen". Controls are
+participants who completed the relevant module and do not meet criteria.
+
+## 11e. Acculturation index
+
+A cultural-assimilation score (`accult_index`, quantitative; higher = more acculturated):
+
+```text
+US-born (birthplace = USA)               + 1 / 0
+English spoken at home (chis_1 = No)     + 1 / 0
+English proficiency (chis_1_xx)          + 0..1  (imputed 1 for English-at-home speakers)
+```
+
+Summed to a 0–3 index, then INT'd and residualized (§4.1). Mainly informative across the immigrant /
+language-minority gradient; US-born English-at-home participants sit at the ceiling.
+
 ## 12. Phenotype-eligibility thresholds
 
 ```text
@@ -755,9 +799,11 @@ Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case 
 | PFHH relatedness-burden sumscore (quant) | 33 | 0 | 33 | 0 | 33 |
 | Physical measurements | 9 | 0 | 0 | 9 | 9 |
 | Cognitive / EA-proxy external scores | 10 | 0 | 0 | 10 | 10 |
-| Validated composite scores (§11c) + BFI-2 Big Five + neighborhood/walkability/hunger | 27 | 0 | 27 | 0 | 27 |
-| Wearable (Fitbit) phenotypes (§10b) | 5 | 0 | 0 | 5 | 5 |
-| **TOTAL** | **~817** | **3016** | **406** | **78** | **3500** |
+| Validated composite scores (§11c): scales + BFI-2 Big Five + neighborhood/walkability/hunger + PCL | 28 | 0 | 28 | 0 | 28 |
+| Derived psychiatric phenotypes (§11d) | 8 | 8 | 0 | 0 | 8 |
+| Acculturation index (§11e) | 1 | 0 | 1 | 0 | 1 |
+| Wearable (Fitbit) phenotypes incl. chronotype (§10b) | 6 | 0 | 0 | 6 | 6 |
+| **TOTAL** | **~832** | **3024** | **407** | **79** | **3511** |
 
 (The 33 `pfhh_burden_*` sumscores and the 10 `cog_*` external scores are counted as
 quantitative traits. Physical measurements now include pulse pressure and MAP.)

@@ -209,7 +209,27 @@ if [[ "${PAN_AOU_SKIP_FITBIT:-0}" != 1 ]]; then
     " > "${FITBIT_SLEEP_CSV}" || echo "  WARN: Fitbit sleep extract failed."
   fi
   [[ -s "${FITBIT_ACT_CSV}" ]] || echo "  (no Fitbit activity; set PAN_AOU_SKIP_FITBIT=1 to silence)"
+  # Chronotype: per-night main-sleep onset clock hour, from sleep_level start times.
+  FITBIT_CHRONO_CSV="${EXTRACT_DIR}/fitbit_chronotype.csv"
+  if [[ ( ! -s "${FITBIT_CHRONO_CSV}" || "${FORCE}" == 1 ) ]] && \
+     bq --project_id="${GOOGLE_PROJECT}" show "${WORKSPACE_CDR/./:}.sleep_level" >/dev/null 2>&1; then
+    echo "Extracting Fitbit sleep onset (chronotype) ..."
+    bq --project_id="${GOOGLE_PROJECT}" query --nouse_legacy_sql --format=csv --max_rows=1000000000 "
+      WITH onset AS (
+        SELECT person_id, sleep_date, MIN(start_datetime) AS sleep_start
+        FROM \`${WORKSPACE_CDR}.sleep_level\`
+        WHERE is_main_sleep = true AND start_datetime IS NOT NULL
+        GROUP BY person_id, sleep_date
+      )
+      SELECT
+        CAST(o.person_id AS STRING) AS person_id,
+        EXTRACT(HOUR FROM o.sleep_start) + EXTRACT(MINUTE FROM o.sleep_start)/60.0 AS onset_hour,
+        DATE_DIFF(o.sleep_date, DATE(p.birth_datetime), DAY)/365.25 AS age
+      FROM onset o JOIN \`${WORKSPACE_CDR}.person\` p USING (person_id)
+    " > "${FITBIT_CHRONO_CSV}" || echo "  WARN: chronotype extract failed (verify sleep_level schema)."
+  fi
 fi
+: "${FITBIT_CHRONO_CSV:=${EXTRACT_DIR}/fitbit_chronotype.csv}"
 
 # --- 4. build phenotypes + run GWAS ---------------------------------------- #
 PY_ARGS=(
@@ -224,6 +244,8 @@ PY_ARGS=(
   --fitbit-sleep-csv "${FITBIT_SLEEP_CSV}"
   --question-manifest "${SCRIPT_DIR}/metadata/survey_question_manifest.tsv"
   --ordinal-manifest "${SCRIPT_DIR}/metadata/ordinal_mapping_manifest.tsv"
+  --item-inventory "${SCRIPT_DIR}/metadata/survey_item_inventory.tsv"
+  --fitbit-chronotype-csv "${FITBIT_CHRONO_CSV}"
   --pfhh-allowlist "${SCRIPT_DIR}/metadata/pfhh_self_allowlist.tsv"
   --composite-manifest "${SCRIPT_DIR}/metadata/composite_items_manifest.tsv"
   --external-scores "${SCRIPT_DIR}/metadata/external_scores.tsv"
