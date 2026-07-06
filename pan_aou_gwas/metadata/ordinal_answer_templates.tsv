@@ -1,0 +1,223 @@
+rule	answer_label_normalized	value	confidence	description
+freq_never_veryoften_0_4	never	0	high	Frequency Never..Very often; higher = more frequent.
+freq_never_veryoften_0_4	rarely	1	high	Frequency Never..Very often; higher = more frequent.
+freq_never_veryoften_0_4	sometimes	2	high	Frequency Never..Very often; higher = more frequent.
+freq_never_veryoften_0_4	often	3	high	Frequency Never..Very often; higher = more frequent.
+freq_never_veryoften_0_4	very often	4	high	Frequency Never..Very often; higher = more frequent.
+freq_pss_0_4	never	0	high	Perceived-Stress-Scale frequency Never..Very often; higher = more frequent.
+freq_pss_0_4	almost never	1	high	Perceived-Stress-Scale frequency Never..Very often; higher = more frequent.
+freq_pss_0_4	sometimes	2	high	Perceived-Stress-Scale frequency Never..Very often; higher = more frequent.
+freq_pss_0_4	fairly often	3	high	Perceived-Stress-Scale frequency Never..Very often; higher = more frequent.
+freq_pss_0_4	very often	4	high	Perceived-Stress-Scale frequency Never..Very often; higher = more frequent.
+freq_never_often_0_3	never	0	high	Frequency Never..Often (no 'very often'); higher = more frequent.
+freq_never_often_0_3	rarely	1	high	Frequency Never..Often (no 'very often'); higher = more frequent.
+freq_never_often_0_3	sometimes	2	high	Frequency Never..Often (no 'very often'); higher = more frequent.
+freq_never_often_0_3	often	3	high	Frequency Never..Often (no 'very often'); higher = more frequent.
+freq_never_always_0_4	never	0	high	Frequency Never..Always; higher = more frequent.
+freq_never_always_0_4	rarely	1	high	Frequency Never..Always; higher = more frequent.
+freq_never_always_0_4	sometimes	2	high	Frequency Never..Always; higher = more frequent.
+freq_never_always_0_4	most of the time	3	high	Frequency Never..Always; higher = more frequent.
+freq_never_always_0_4	always	4	high	Frequency Never..Always; higher = more frequent.
+freq_always_never_0_4	never	0	high	Frequency Always..Never as worded; higher = more frequent.
+freq_always_never_0_4	occasionally	1	high	Frequency Always..Never as worded; higher = more frequent.
+freq_always_never_0_4	sometimes	2	high	Frequency Always..Never as worded; higher = more frequent.
+freq_always_never_0_4	often	3	high	Frequency Always..Never as worded; higher = more frequent.
+freq_always_never_0_4	always	4	high	Frequency Always..Never as worded; higher = more frequent.
+freq_never_always_na_0_3	never	0	high	Frequency Never..Always with a Not-applicable option; higher = more frequent.
+freq_never_always_na_0_3	sometimes	1	high	Frequency Never..Always with a Not-applicable option; higher = more frequent.
+freq_never_always_na_0_3	most of the time	2	high	Frequency Never..Always with a Not-applicable option; higher = more frequent.
+freq_never_always_na_0_3	always	3	high	Frequency Never..Always with a Not-applicable option; higher = more frequent.
+freq_always_none_0_3	none of the time	0	high	Frequency Always..None of the time; higher = more frequent, as worded.
+freq_always_none_0_3	some of the time	1	high	Frequency Always..None of the time; higher = more frequent, as worded.
+freq_always_none_0_3	most of the time	2	high	Frequency Always..None of the time; higher = more frequent, as worded.
+freq_always_none_0_3	always	3	high	Frequency Always..None of the time; higher = more frequent, as worded.
+time_none_all_0_4	none of the time	0	high	Proportion of time None..All; higher = more of the time.
+time_none_all_0_4	a little of the time	1	high	Proportion of time None..All; higher = more of the time.
+time_none_all_0_4	some of the time	2	high	Proportion of time None..All; higher = more of the time.
+time_none_all_0_4	most of the time	3	high	Proportion of time None..All; higher = more of the time.
+time_none_all_0_4	all of the time	4	high	Proportion of time None..All; higher = more of the time.
+time_all_none_0_4	none of the time	0	high	Proportion of time All..None as worded; higher = more of the time.
+time_all_none_0_4	a little of the time	1	high	Proportion of time All..None as worded; higher = more of the time.
+time_all_none_0_4	some of the time	2	high	Proportion of time All..None as worded; higher = more of the time.
+time_all_none_0_4	most of the time	3	high	Proportion of time All..None as worded; higher = more of the time.
+time_all_none_0_4	all or almost all of the time	4	high	Proportion of time All..None as worded; higher = more of the time.
+phq_gad_0_3	not at all	0	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
+phq_gad_0_3	several days	1	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
+phq_gad_0_3	more than half the days	2	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
+phq_gad_0_3	more than half of the days	2	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
+phq_gad_0_3	nearly every day	3	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
+days_last5_midpoint	none of the days (0 days)	0.0	high	Days in last 5 (midpoints); every day = 5.
+days_last5_midpoint	a few days (1-2 days)	1.5	high	Days in last 5 (midpoints); every day = 5.
+days_last5_midpoint	most days (3-4 days)	3.5	high	Days in last 5 (midpoints); every day = 5.
+days_last5_midpoint	every day	5.0	high	Days in last 5 (midpoints); every day = 5.
+freq_event_0_5	never	0	high	Event frequency Never..Almost every day; higher = more frequent.
+freq_event_0_5	less than once a year	1	high	Event frequency Never..Almost every day; higher = more frequent.
+freq_event_0_5	a few times a year	2	high	Event frequency Never..Almost every day; higher = more frequent.
+freq_event_0_5	a few times a month	3	high	Event frequency Never..Almost every day; higher = more frequent.
+freq_event_0_5	at least once a week	4	high	Event frequency Never..Almost every day; higher = more frequent.
+freq_event_0_5	almost everyday	5	high	Event frequency Never..Almost every day; higher = more frequent.
+freq_event_0_5	almost every day	5	high	Event frequency Never..Almost every day; higher = more frequent.
+freq_event_0_3	never	0	high	Event frequency Never..Almost every day (4 levels); higher = more frequent.
+freq_event_0_3	a few times a month	1	high	Event frequency Never..Almost every day (4 levels); higher = more frequent.
+freq_event_0_3	at least once a week	2	high	Event frequency Never..Almost every day (4 levels); higher = more frequent.
+freq_event_0_3	almost everyday	3	high	Event frequency Never..Almost every day (4 levels); higher = more frequent.
+freq_event_0_3	almost every day	3	high	Event frequency Never..Almost every day (4 levels); higher = more frequent.
+freq_covid_contact_0_3	only a few times	0	high	Contact frequency Only a few times..Daily; higher = more frequent.
+freq_covid_contact_0_3	1-3 times per month	1	high	Contact frequency Only a few times..Daily; higher = more frequent.
+freq_covid_contact_0_3	1-5 times per week	2	high	Contact frequency Only a few times..Daily; higher = more frequent.
+freq_covid_contact_0_3	daily	3	high	Contact frequency Only a few times..Daily; higher = more frequent.
+agree_bfi_1_5	disagree strongly	1	high	BFI-2 agreement Disagree strongly..Agree strongly; higher = stronger agreement.
+agree_bfi_1_5	disagree a little	2	high	BFI-2 agreement Disagree strongly..Agree strongly; higher = stronger agreement.
+agree_bfi_1_5	neutral; no opinion	3	high	BFI-2 agreement Disagree strongly..Agree strongly; higher = stronger agreement.
+agree_bfi_1_5	agree a little	4	high	BFI-2 agreement Disagree strongly..Agree strongly; higher = stronger agreement.
+agree_bfi_1_5	agree strongly	5	high	BFI-2 agreement Disagree strongly..Agree strongly; higher = stronger agreement.
+agree_1_4	strongly disagree	1	high	Agreement without neutral midpoint; higher = stronger agreement.
+agree_1_4	disagree	2	high	Agreement without neutral midpoint; higher = stronger agreement.
+agree_1_4	agree	3	high	Agreement without neutral midpoint; higher = stronger agreement.
+agree_1_4	strongly agree	4	high	Agreement without neutral midpoint; higher = stronger agreement.
+agree_1_5	strongly disagree	1	high	Agreement Strongly disagree..Strongly agree; higher = stronger agreement.
+agree_1_5	disagree	2	high	Agreement Strongly disagree..Strongly agree; higher = stronger agreement.
+agree_1_5	neither agree nor disagree	3	high	Agreement Strongly disagree..Strongly agree; higher = stronger agreement.
+agree_1_5	agree	4	high	Agreement Strongly disagree..Strongly agree; higher = stronger agreement.
+agree_1_5	strongly agree	5	high	Agreement Strongly disagree..Strongly agree; higher = stronger agreement.
+agree_neutral_1_5	strongly disagree	1	high	Agreement with explicit neutral label; higher = stronger agreement.
+agree_neutral_1_5	disagree	2	high	Agreement with explicit neutral label; higher = stronger agreement.
+agree_neutral_1_5	neutral (neither agree nor disagree)	3	high	Agreement with explicit neutral label; higher = stronger agreement.
+agree_neutral_1_5	agree	4	high	Agreement with explicit neutral label; higher = stronger agreement.
+agree_neutral_1_5	strongly agree	5	high	Agreement with explicit neutral label; higher = stronger agreement.
+agree_somewhat_1_4	strongly disagree	1	high	Agreement Strongly disagree..Strongly agree (somewhat variant); higher = stronger agreement.
+agree_somewhat_1_4	somewhat disagree	2	high	Agreement Strongly disagree..Strongly agree (somewhat variant); higher = stronger agreement.
+agree_somewhat_1_4	somewhat agree	3	high	Agreement Strongly disagree..Strongly agree (somewhat variant); higher = stronger agreement.
+agree_somewhat_1_4	strongly agree	4	high	Agreement Strongly disagree..Strongly agree (somewhat variant); higher = stronger agreement.
+agree_lotr_1_5	i disagree a lot	1	high	LOT-R optimism agreement; higher = stronger agreement as worded.
+agree_lotr_1_5	i disagree a little	2	high	LOT-R optimism agreement; higher = stronger agreement as worded.
+agree_lotr_1_5	i neither agree nor disagree	3	high	LOT-R optimism agreement; higher = stronger agreement as worded.
+agree_lotr_1_5	i agree a little	4	high	LOT-R optimism agreement; higher = stronger agreement as worded.
+agree_lotr_1_5	i agree a lot	5	high	LOT-R optimism agreement; higher = stronger agreement as worded.
+describes_me_0_4	does not describe me at all	0	high	Self-description Does not describe..Describes very well; higher = more characteristic.
+describes_me_0_4	does not describe me	1	high	Self-description Does not describe..Describes very well; higher = more characteristic.
+describes_me_0_4	neutral	2	high	Self-description Does not describe..Describes very well; higher = more characteristic.
+describes_me_0_4	describes me	3	high	Self-description Does not describe..Describes very well; higher = more characteristic.
+describes_me_0_4	describes me very well	4	high	Self-description Does not describe..Describes very well; higher = more characteristic.
+intensity_0_4	not at all	0	high	Intensity Not at all..Extremely; higher = more intense.
+intensity_0_4	a little bit	1	high	Intensity Not at all..Extremely; higher = more intense.
+intensity_0_4	moderately	2	high	Intensity Not at all..Extremely; higher = more intense.
+intensity_0_4	quite a bit	3	high	Intensity Not at all..Extremely; higher = more intense.
+intensity_0_4	extremely	4	high	Intensity Not at all..Extremely; higher = more intense.
+amount_0_4	not at all	0	high	Amount Not at all..An extreme amount; higher = more.
+amount_0_4	a little	1	high	Amount Not at all..An extreme amount; higher = more.
+amount_0_4	a moderate amount	2	high	Amount Not at all..An extreme amount; higher = more.
+amount_0_4	very much	3	high	Amount Not at all..An extreme amount; higher = more.
+amount_0_4	an extreme amount	4	high	Amount Not at all..An extreme amount; higher = more.
+distress_0_4	not distressing at all. it was a positive experience	0	high	Distress positive..Very distressing; higher = more distress.
+distress_0_4	not distressing, a neutral experience	1	high	Distress positive..Very distressing; higher = more distress.
+distress_0_4	a bit distressing	2	high	Distress positive..Very distressing; higher = more distress.
+distress_0_4	quite distressing	3	high	Distress positive..Very distressing; higher = more distress.
+distress_0_4	very distressing	4	high	Distress positive..Very distressing; higher = more distress.
+health_1_5	poor	1	high	Self-rated health/quality Poor..Excellent; higher = better.
+health_1_5	fair	2	high	Self-rated health/quality Poor..Excellent; higher = better.
+health_1_5	good	3	high	Self-rated health/quality Poor..Excellent; higher = better.
+health_1_5	very good	4	high	Self-rated health/quality Poor..Excellent; higher = better.
+health_1_5	excellent	5	high	Self-rated health/quality Poor..Excellent; higher = better.
+ability_extent_0_4	not at all	0	high	Ability/extent Not at all..Completely; higher = greater ability.
+ability_extent_0_4	a little	1	high	Ability/extent Not at all..Completely; higher = greater ability.
+ability_extent_0_4	moderately	2	high	Ability/extent Not at all..Completely; higher = greater ability.
+ability_extent_0_4	mostly	3	high	Ability/extent Not at all..Completely; higher = greater ability.
+ability_extent_0_4	completely	4	high	Ability/extent Not at all..Completely; higher = greater ability.
+severity_0_4	none	0	high	Symptom severity None..Very severe; higher = worse.
+severity_0_4	mild	1	high	Symptom severity None..Very severe; higher = worse.
+severity_0_4	moderate	2	high	Symptom severity None..Very severe; higher = worse.
+severity_0_4	severe	3	high	Symptom severity None..Very severe; higher = worse.
+severity_0_4	very severe	4	high	Symptom severity None..Very severe; higher = worse.
+difficulty_0_4	unable to do	0	high	PROMIS everyday-activity difficulty; higher = less difficulty / more able.
+difficulty_0_4	with much difficulty	1	high	PROMIS everyday-activity difficulty; higher = less difficulty / more able.
+difficulty_0_4	with some difficulty	2	high	PROMIS everyday-activity difficulty; higher = less difficulty / more able.
+difficulty_0_4	with a little difficulty	3	high	PROMIS everyday-activity difficulty; higher = less difficulty / more able.
+difficulty_0_4	without any difficulty	4	high	PROMIS everyday-activity difficulty; higher = less difficulty / more able.
+audit_freq_0_4	never	0	high	AUDIT-C drinking frequency; higher = more frequent.
+audit_freq_0_4	monthly or less	1	high	AUDIT-C drinking frequency; higher = more frequent.
+audit_freq_0_4	2-4 times a month	2	high	AUDIT-C drinking frequency; higher = more frequent.
+audit_freq_0_4	two to four times a month	2	high	AUDIT-C drinking frequency; higher = more frequent.
+audit_freq_0_4	2-3 times a week	3	high	AUDIT-C drinking frequency; higher = more frequent.
+audit_freq_0_4	two to three times a week	3	high	AUDIT-C drinking frequency; higher = more frequent.
+audit_freq_0_4	4 or more times a week	4	high	AUDIT-C drinking frequency; higher = more frequent.
+audit_freq_0_4	four or more times a week	4	high	AUDIT-C drinking frequency; higher = more frequent.
+binge_freq_0_4	never	0	high	Binge/6+ drink frequency; higher = more frequent.
+binge_freq_0_4	never in the last year	0	high	Binge/6+ drink frequency; higher = more frequent.
+binge_freq_0_4	less than monthly	1	high	Binge/6+ drink frequency; higher = more frequent.
+binge_freq_0_4	monthly	2	high	Binge/6+ drink frequency; higher = more frequent.
+binge_freq_0_4	weekly	3	high	Binge/6+ drink frequency; higher = more frequent.
+binge_freq_0_4	daily or almost daily	4	high	Binge/6+ drink frequency; higher = more frequent.
+subuse_lifestyle_0_4	never	0	high	Substance-use frequency Never..Daily or almost daily; higher = more frequent.
+subuse_lifestyle_0_4	once or twice	1	high	Substance-use frequency Never..Daily or almost daily; higher = more frequent.
+subuse_lifestyle_0_4	monthly	2	high	Substance-use frequency Never..Daily or almost daily; higher = more frequent.
+subuse_lifestyle_0_4	weekly	3	high	Substance-use frequency Never..Daily or almost daily; higher = more frequent.
+subuse_lifestyle_0_4	daily or almost daily	4	high	Substance-use frequency Never..Daily or almost daily; higher = more frequent.
+smoke_freq_0_2	not at all	0	high	Current smoking/use frequency Not at all..Every day; higher = more frequent.
+smoke_freq_0_2	some days	1	high	Current smoking/use frequency Not at all..Every day; higher = more frequent.
+smoke_freq_0_2	every day	2	high	Current smoking/use frequency Not at all..Every day; higher = more frequent.
+current_use_0_3	no, never	0	high	Use status No never..Yes every day; higher = more current/frequent use.
+current_use_0_3	not currently, but in the past	1	high	Use status No never..Yes every day; higher = more current/frequent use.
+current_use_0_3	yes, some days	2	high	Use status No never..Yes every day; higher = more current/frequent use.
+current_use_0_3	yes, every day	3	high	Use status No never..Yes every day; higher = more current/frequent use.
+change_lessmore_signed	less often than usual	-1	high	Signed change vs usual; negative = less, 0 = same, positive = more.
+change_lessmore_signed	the same as usual	0	high	Signed change vs usual; negative = less, 0 = same, positive = more.
+change_lessmore_signed	more often than usual	1	high	Signed change vs usual; negative = less, 0 = same, positive = more.
+change_muchmore_signed	much less	-2	high	Signed change Much less..Much more; negative = less, positive = more.
+change_muchmore_signed	a little less	-1	high	Signed change Much less..Much more; negative = less, positive = more.
+change_muchmore_signed	about the same	0	high	Signed change Much less..Much more; negative = less, positive = more.
+change_muchmore_signed	a little more	1	high	Signed change Much less..Much more; negative = less, positive = more.
+change_muchmore_signed	much more	2	high	Signed change Much less..Much more; negative = less, positive = more.
+freq_never_always5_0_4	never	0	high	Frequency Never..Always (5 levels); higher = more frequent.
+freq_never_always5_0_4	rarely	1	high	Frequency Never..Always (5 levels); higher = more frequent.
+freq_never_always5_0_4	sometimes	2	high	Frequency Never..Always (5 levels); higher = more frequent.
+freq_never_always5_0_4	often	3	high	Frequency Never..Always (5 levels); higher = more frequent.
+freq_never_always5_0_4	always	4	high	Frequency Never..Always (5 levels); higher = more frequent.
+recency_lifetime_0_2	never	0	high	Lifetime event recency; higher = happened and more recent.
+recency_lifetime_0_2	yes, but not in the last 12 months	1	high	Lifetime event recency; higher = happened and more recent.
+recency_lifetime_0_2	yes, within the last 12 months	2	high	Lifetime event recency; higher = happened and more recent.
+yes_maybe_no_0_2	no	0	medium	Affirmation likelihood No/Maybe/Yes; higher = more likely.
+yes_maybe_no_0_2	maybe	1	medium	Affirmation likelihood No/Maybe/Yes; higher = more likely.
+yes_maybe_no_0_2	yes	2	medium	Affirmation likelihood No/Maybe/Yes; higher = more likely.
+ace_freq_0_2	never	0	high	ACE-style frequency Never/Once/More than once; higher = more repeated.
+ace_freq_0_2	once	1	high	ACE-style frequency Never/Once/More than once; higher = more repeated.
+ace_freq_0_2	more than once	2	high	ACE-style frequency Never/Once/More than once; higher = more repeated.
+happiness_0_5	extremely unhappy	0	high	Happiness Extremely unhappy..Extremely happy; higher = happier.
+happiness_0_5	very unhappy	1	high	Happiness Extremely unhappy..Extremely happy; higher = happier.
+happiness_0_5	moderately unhappy	2	high	Happiness Extremely unhappy..Extremely happy; higher = happier.
+happiness_0_5	moderately happy	3	high	Happiness Extremely unhappy..Extremely happy; higher = happier.
+happiness_0_5	very happy	4	high	Happiness Extremely unhappy..Extremely happy; higher = happier.
+happiness_0_5	extremely happy	5	high	Happiness Extremely unhappy..Extremely happy; higher = happier.
+impact_0_3	not at all	0	high	Impact/impairment Not at all..A lot; higher = more impact.
+impact_0_3	a little	1	high	Impact/impairment Not at all..A lot; higher = more impact.
+impact_0_3	somewhat	2	high	Impact/impairment Not at all..A lot; higher = more impact.
+impact_0_3	a lot	3	high	Impact/impairment Not at all..A lot; higher = more impact.
+food_insecurity_0_2	never true	0	high	Food-insecurity item Never/Sometimes/Often true; higher = more insecurity.
+food_insecurity_0_2	sometimes true	1	high	Food-insecurity item Never/Sometimes/Often true; higher = more insecurity.
+food_insecurity_0_2	often true	2	high	Food-insecurity item Never/Sometimes/Often true; higher = more insecurity.
+likelihood_0_4	very unlikely	0	high	Likelihood Very unlikely..Very likely; 'do not know yet' intermediate.
+likelihood_0_4	unlikely	1	high	Likelihood Very unlikely..Very likely; 'do not know yet' intermediate.
+likelihood_0_4	i do not know yet	2	high	Likelihood Very unlikely..Very likely; 'do not know yet' intermediate.
+likelihood_0_4	likely	3	high	Likelihood Very unlikely..Very likely; 'do not know yet' intermediate.
+likelihood_0_4	very likely	4	high	Likelihood Very unlikely..Very likely; 'do not know yet' intermediate.
+spiritual_frequency_0_5	never or almost never	0	medium	BMMRS spiritual/religious frequency; no belief coded lowest (0).
+spiritual_frequency_0_5	i do not believe in god (or a higher power)	0	medium	BMMRS spiritual/religious frequency; no belief coded lowest (0).
+spiritual_frequency_0_5	i am not religious	0	medium	BMMRS spiritual/religious frequency; no belief coded lowest (0).
+spiritual_frequency_0_5	once in a while	1	medium	BMMRS spiritual/religious frequency; no belief coded lowest (0).
+spiritual_frequency_0_5	some days	2	medium	BMMRS spiritual/religious frequency; no belief coded lowest (0).
+spiritual_frequency_0_5	most days	3	medium	BMMRS spiritual/religious frequency; no belief coded lowest (0).
+spiritual_frequency_0_5	every day	4	medium	BMMRS spiritual/religious frequency; no belief coded lowest (0).
+spiritual_frequency_0_5	many times a day	5	medium	BMMRS spiritual/religious frequency; no belief coded lowest (0).
+drink_count_band_midpoint	1 or 2	1.5	medium	Daily drink-count bands (midpoints); open top bin -> 10.
+drink_count_band_midpoint	3 or 4	3.5	medium	Daily drink-count bands (midpoints); open top bin -> 10.
+drink_count_band_midpoint	5 or 6	5.5	medium	Daily drink-count bands (midpoints); open top bin -> 10.
+drink_count_band_midpoint	7 to 9	8.0	medium	Daily drink-count bands (midpoints); open top bin -> 10.
+drink_count_band_midpoint	10 or more	10.0	medium	Daily drink-count bands (midpoints); open top bin -> 10.
+visit_count_band_midpoint	1	1.0	medium	Number-of-visits bands (midpoints); top bin 16+ -> 16.
+visit_count_band_midpoint	2-3	2.5	medium	Number-of-visits bands (midpoints); top bin 16+ -> 16.
+visit_count_band_midpoint	4-5	4.5	medium	Number-of-visits bands (midpoints); top bin 16+ -> 16.
+visit_count_band_midpoint	6-7	6.5	medium	Number-of-visits bands (midpoints); top bin 16+ -> 16.
+visit_count_band_midpoint	8-9	8.5	medium	Number-of-visits bands (midpoints); top bin 16+ -> 16.
+visit_count_band_midpoint	10-12	11.0	medium	Number-of-visits bands (midpoints); top bin 16+ -> 16.
+visit_count_band_midpoint	13-15	14.0	medium	Number-of-visits bands (midpoints); top bin 16+ -> 16.
+visit_count_band_midpoint	16 or more	16.0	medium	Number-of-visits bands (midpoints); top bin 16+ -> 16.
