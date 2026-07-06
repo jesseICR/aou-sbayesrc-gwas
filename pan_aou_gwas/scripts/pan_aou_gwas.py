@@ -307,21 +307,33 @@ PFHH_SCREEN_QID = {
     "Added skeletal/pain/injury": "702786",
 }
 
+# Family-history burden weights = coefficient of relationship (r) to the
+# participant: self = 1, first-degree (parent/sibling/child) = 0.5,
+# second-degree (grandparent, half-sibling) = 0.25. The burden phenotype is the
+# sum of these weights over the relations the participant selected for a
+# condition, so it is a within-family genetic-liability proxy for that condition.
+PFHH_RELATION_WEIGHT = {
+    "self": 1.0,
+    "father": 0.5,
+    "mother": 0.5,
+    "parent": 0.5,
+    "sibling": 0.5,
+    "brother": 0.5,
+    "sister": 0.5,
+    "son": 0.5,
+    "daughter": 0.5,
+    "child": 0.5,
+    "grandparent": 0.25,
+    "grandmother": 0.25,
+    "grandfather": 0.25,
+    "half-sibling": 0.25,
+    "half sibling": 0.25,
+    "none": 0.0,  # explicit "no one" -> 0, distinct from unknown
+}
 
-def build_pfhh_phenotypes(questions, allowlist_path):
-    """Yield the 33 self_has_<condition> binary phenotypes (self-only).
 
-    case    = participant selected "Self" on the condition question
-    control = completed the relevant category screen and did not self-report it
-    Broad family-history and non-self relatives are never phenotypes.
-    """
-    if not allowlist_path or not Path(allowlist_path).exists():
-        return
-    with open(allowlist_path, newline="") as f:
-        allow = list(csv.DictReader(f, delimiter="\t"))
-
-    # screen completers = anyone with a non-missing answer to the screen question
-    screen_completers = {}
+def _pfhh_screen_completers(questions):
+    out = {}
     for grp, sqid in PFHH_SCREEN_QID.items():
         pids = {}
         q = questions.get(sqid)
@@ -329,28 +341,71 @@ def build_pfhh_phenotypes(questions, allowlist_path):
             for pid, (age, answers) in q["responses"].items():
                 if any(not R.is_missing(a) for a in answers):
                     pids[pid] = age
-        screen_completers[grp] = pids
+        out[grp] = pids
+    return out
+
+
+def build_pfhh_phenotypes(questions, allowlist_path):
+    """Yield, per allowlisted PFHH condition, TWO phenotypes:
+
+      pfhh_self_has_<cond>   binary  self-only
+          case    = participant selected "Self"
+          control = completed the relevant category screen, did not self-report
+      pfhh_burden_<cond>     quant   genetic-relatedness-weighted family burden
+          score   = sum of PFHH_RELATION_WEIGHT over selected relations
+                    (self 1, first-degree 0.5, grandparent 0.25); "None"/not
+                    shown after completing the screen -> 0; PMI-only -> missing
+
+    Broad family-history phenotypes and non-self relative indicators are never
+    run on their own; the burden score is an aggregate liability proxy, not a
+    phenotype about any individual relative.
+    """
+    if not allowlist_path or not Path(allowlist_path).exists():
+        return
+    with open(allowlist_path, newline="") as f:
+        allow = list(csv.DictReader(f, delimiter="\t"))
+
+    screen_completers = _pfhh_screen_completers(questions)
 
     for row in allow:
         qid = row["question_concept_id"].strip()
         grp = row["pfhh_group"].strip()
         pheno_id = row["phenotype_id"].strip()
+        cond = pheno_id.replace("self_has_", "")
         q = questions.get(qid)
         if q is None:
             continue
+
+        # --- binary self_has ------------------------------------------------
         cases = {}
         for pid, (age, answers) in q["responses"].items():
             if any(R.norm(a) == "self" for a in answers):
                 cases[pid] = age
-        values = {pid: (1.0, age) for pid, age in cases.items()}
+        bin_values = {pid: (1.0, age) for pid, age in cases.items()}
         for pid, age in screen_completers.get(grp, {}).items():
             if pid not in cases:
-                values[pid] = (0.0, age)
-        yield f"pfhh_{pheno_id}", "binary", "binary", values, {
+                bin_values[pid] = (0.0, age)
+        yield f"pfhh_{pheno_id}", "binary", "binary", bin_values, {
             "question_concept_id": qid,
             "question": row.get("question", ""),
             "answer": "Self",
             "ordinal_rule": "",
+        }
+
+        # --- quantitative family-burden sumscore ---------------------------
+        burden = {pid: (0.0, age) for pid, age in screen_completers.get(grp, {}).items()}
+        for pid, (age, answers) in q["responses"].items():
+            non_missing = [a for a in answers if not R.is_missing(a)]
+            if not non_missing:
+                burden.pop(pid, None)  # answered only PMI -> drop from denominator
+                continue
+            score = sum(PFHH_RELATION_WEIGHT.get(R.norm(a), 0.0) for a in non_missing)
+            burden[pid] = (score, age)
+        yield f"pfhh_burden_{cond}", "pfhh_sumscore", "quant", burden, {
+            "question_concept_id": qid,
+            "question": row.get("question", ""),
+            "answer": "relatedness-weighted burden (self=1, 1st-deg=0.5, grandparent=0.25)",
+            "ordinal_rule": "pfhh_relatedness_burden",
         }
 
 

@@ -34,6 +34,9 @@ bfile was built in the AoU environment.
    be put on an ordinal scale is mapped. The mappings are machine-readable data files (§6, §7).
    Sensitive and stretched/uncertain questions are flagged, never silently dropped (§9).
 7. **Downstream LDSC/rg (draft §21) is out of scope for this run.** We stop at summary statistics.
+8. **PFHH conditions also get a genetic-relatedness-weighted family-burden sumscore** (self = 1,
+   first-degree = 0.5, grandparent = 0.25, summed) as a quantitative liability-proxy phenotype
+   alongside the binary `self_has_<condition>` (§11.2).
 
 ---
 
@@ -364,7 +367,11 @@ participant), using a visit-level pregnancy flag or same-day pregnancy-status ob
 
 ## 11. PFHH self-history allowlist
 
-`metadata/pfhh_self_allowlist.tsv` — 33 binary `self_has_<condition>` phenotypes:
+`metadata/pfhh_self_allowlist.tsv` — 33 allowlisted conditions (neuro/nervous-system,
+mental-health/substance-use, fibromyalgia, recent fracture). Each condition yields **two**
+phenotypes.
+
+### 11.1 `pfhh_self_has_<condition>` — binary (self-only)
 
 ```text
 case    = participant selected "Self" on "Including yourself, who in your family has had <condition>?"
@@ -372,8 +379,27 @@ control = completed the relevant PFHH category screen and did not self-report th
 missing = did not complete the section / refused / denominator unrecoverable
 ```
 
-Only `self_has_<condition>` is run — never mother/father/sibling/child/grandparent/any-family or
-age-at-diagnosis/treatment variants.
+### 11.2 `pfhh_burden_<condition>` — quantitative genetic-relatedness-weighted family burden
+
+An aggregate genetic-liability proxy: the sum, over the relations the participant selected for that
+condition, of each relation's coefficient of relationship to the participant.
+
+```text
+weight(Self)                                   = 1.00
+weight(first-degree: parent/sibling/son/daughter) = 0.50   each
+weight(second-degree: grandparent, half-sibling)  = 0.25   each
+score  = sum of selected relations' weights          e.g. Self + Mother + Grandparent = 1.75
+       = 0 for participants who completed the category screen but reported no one (or were not
+         shown the condition question because no family member has it)
+missing = answered only PMI (Skip/Prefer not/Don't know), or did not complete the screen
+```
+
+The score is then INT'd and residualized like any quantitative trait (§4.1). It is a within-family
+liability aggregate for the proband, **not** a phenotype about any individual relative — no
+mother/father/sibling GWAS is run on its own. Applied to all 33 allowlisted conditions (the same set
+as §11.1); trivially extends to the full PFHH condition list if the diagnosis restriction is lifted.
+The `pfhh_burden_*` phenotypes are heavily zero-inflated; IRNT handles the ties, and the ≥ 3 observed
+levels rule (§12) drops any condition too rare to score.
 
 ---
 
@@ -425,9 +451,12 @@ Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case 
 | Minute Survey on COVID-19 Vaccines | 72 | 499 | 3 | 0 | 502 |
 | Emotional Health History & Well-Being | 103 | 311 | 58 | 8 | 377 |
 | Behavioral Health & Personality | 60 | 176 | 25 | 9 | 210 |
-| PFHH self-history allowlist | 33 | 33 | 0 | 0 | 33 |
+| PFHH self-history allowlist (binary self_has) | 33 | 33 | 0 | 0 | 33 |
+| PFHH relatedness-burden sumscore (quant) | 33 | 0 | 33 | 0 | 33 |
 | Physical measurements | 7 | 0 | 0 | 7 | 7 |
-| **TOTAL** | **730** | **3010** | **345** | **60** | **3415** |
+| **TOTAL** | **763** | **3010** | **378** | **60** | **3448** |
+
+(The 33 `pfhh_burden_*` sumscores are counted in the "ordinal" column as quantitative traits.)
 
 ---
 

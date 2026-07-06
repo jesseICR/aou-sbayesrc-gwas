@@ -44,9 +44,12 @@ Broad disease / condition diagnoses are **not** run. The Personal Medical
 History, Family Health History, and broad Personal-and-Family-Health-History
 items (1,174 items) are all excluded. The **only** diagnosis phenotypes are the
 33 PFHH **self-history** items in `pfhh_self_allowlist.tsv` — neuro/nervous-system,
-mental-health/substance-use, plus fibromyalgia and recent fractured/broken bones —
-run as binary `self_has_<condition>` (case = "Self"; control = completed the
-category screen and did not self-report). See SPECSHEET §9.1 and §11.
+mental-health/substance-use, plus fibromyalgia and recent fractured/broken bones.
+Each condition yields two phenotypes: a binary `pfhh_self_has_<condition>` (case =
+"Self"; control = completed the category screen and did not self-report) **and** a
+quantitative `pfhh_burden_<condition>` genetic-relatedness-weighted family-history
+sumscore (self = 1, first-degree = 0.5, grandparent = 0.25, summed) as an aggregate
+liability proxy. See SPECSHEET §9.1 and §11.
 
 ## Run on the All of Us Researcher Workbench
 
