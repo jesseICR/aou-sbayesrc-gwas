@@ -31,6 +31,8 @@ metadata/                          generated manifests (see below)
 | `flagged_questions.tsv` | flagged question | sensitive + medium-confidence + uncertain-ordinal items for review |
 | `pfhh_self_allowlist.tsv` | condition | the 33 PFHH self-history conditions (binary + burden sumscore) |
 | `external_scores.tsv` | cognitive/proxy score | registry of ETM task + EA-proxy scores to GWAS (verify paths on platform) |
+| `composite_items_manifest.tsv` | (instrument, item, answer) | validated composite scores (GAD-7, PHQ-9, PSS, BFI-2, ...) item scoring |
+| `COMPOSITE_SCORES.md` | instrument | human-readable definition of each composite (items, scoring, combination) |
 
 Regenerate the manifests from the codebook (safe to run off-platform):
 

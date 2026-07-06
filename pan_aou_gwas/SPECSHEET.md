@@ -42,6 +42,12 @@ bfile was built in the AoU environment.
 10. **Cognitive + EA-proxy scores are GWASed** as external quantitative traits — the 4 ETM task
    scores plus teacher_z, SES-EA proxy, fine-tuned proxies, direct-XGBoost proxy, and the final
    g-EA proxy (§11b), residualized on sex + PCs.
+11. **Validated composite scores are built** from the codebook Scoring sheets — GAD-7, PHQ-9, PSS,
+   ACE, IES, ASRS, AUDIT-C, Everyday Discrimination, loneliness, social support, PROMIS, resilience,
+   spiritual experience, health literacy, and the BFI-2 Big Five domains (§11c), as prorated sums
+   with per-scale reverse-keying.
+12. **Wearable (Fitbit) phenotypes** — mean daily steps, sedentary/active minutes, sleep duration and
+   efficiency (§10b), on the Fitbit subcohort.
 
 ---
 
@@ -378,6 +384,23 @@ participant), using a visit-level pregnancy flag or same-day pregnancy-status ob
 
 ---
 
+## 10b. Wearable (Fitbit) phenotypes
+
+Per-person averages over the participant's Fitbit wear, requiring ≥ 10 valid days, run through the
+§4.1 continuous pipeline (residualized on the full covariate set; age at wear is known):
+
+```text
+fitbit_mean_daily_steps     mean daily step count (days with steps > 0)
+fitbit_sedentary_minutes    mean daily sedentary minutes
+fitbit_active_minutes       mean daily fairly+very active minutes
+fitbit_sleep_minutes        mean nightly minutes asleep (main sleep)
+fitbit_sleep_efficiency     mean minute_asleep / minute_in_bed
+```
+
+Sourced from the AoU `activity_summary` and `sleep_daily_summary` Fitbit tables (a smaller wearable
+subcohort). The orchestrator extracts them and skips gracefully if the tables are absent
+(`PAN_AOU_SKIP_FITBIT=1` to disable). Confirm the table/column names on-platform.
+
 ## 11. PFHH self-history allowlist
 
 `metadata/pfhh_self_allowlist.tsv` — 33 allowlisted conditions (neuro/nervous-system,
@@ -449,6 +472,170 @@ g4_finetuned_ea_proxy_z    SES-EA boosters fine-tuned toward the 4-domain ETM-g 
 gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z   the final selected g-EA proxy (headline).
 ```
 
+## 11c. Validated composite score definitions
+
+Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring ≥ 80% of items answered. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. Items are matched to survey responses by question text and merged across survey administrations. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
+
+### GAD-7 — Generalized Anxiety Disorder scale (anxiety)
+
+- **Items:** 7
+- **Per-item scoring:** Not at all = 0, Several days = 1, Over half the days = 2, Nearly all days = 3
+- **Total score:** prorated sum of 7 items; no reverse-keyed items
+- **Auto-built:** yes (comp_gad7_anxiety)
+- **Questions:**
+    - Feeling nervous, anxious, or on edge
+    - Not being able to stop or control worrying
+    - Worrying too much about different things
+    - Trouble relaxing
+    - Being so restless that it's hard to sit still
+    - Becoming easily annoyed or irritable
+    - Feeling afraid as if something awful might happen
+
+### PHQ-9 — Patient Health Questionnaire (depression)
+
+- **Items:** 9
+- **Per-item scoring:** Not at all = 0, Several days = 1, Over half the days = 2, Nearly all days = 3
+- **Total score:** prorated sum of 9 items; no reverse-keyed items
+- **Auto-built:** yes (comp_phq9_depression)
+- **Questions:**
+    - Little interest or pleasure in doing things
+    - Feeling down, depressed, or hopeless
+    - Trouble falling or staying asleep, or sleeping too much
+    - Feeling tired or having little energy
+    - Poor appetite or overeating
+    - Feeling bad about yourself or that you are a failure or have let yourself or your family down
+    - Trouble concentrating on things, such as reading the newspaper or watching television
+    - Moving or speaking so slowly that other people could have noticed? Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual
+    - Thoughts that you would be better off dead or of hurting yourself in some way
+
+### PSS — Perceived Stress Scale
+
+- **Items:** 10
+- **Per-item scoring:** 2 answer scales across items (shown per item below)
+- **Total score:** prorated sum of 10 items; 4 reverse-keyed
+- **Auto-built:** yes (comp_pss_perceived_stress)
+- **Questions:**
+    - In the last month, how often have you been upset because of something that happened unexpectedly?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you felt that you were unable to control the important things in your life?  — [Never=0.0, Almost never=1.0, Sometime=2.0, Fairly often=3.0, Often=4.0]
+    - In the last month, how often have you felt nervous and "stressed?"  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you felt confident about your ability to handle your personal problems? *(reverse-keyed)*  — [Never=0.0, Almost never=1.0, Sometime=2.0, Fairly often=3.0, Often=4.0]
+    - In the last month, how often have you felt that things were going your way? *(reverse-keyed)*  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you found that you could not cope with all the things that you had to do?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you been able to control irritations in your life? *(reverse-keyed)*  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you felt that you were on top of things? *(reverse-keyed)*  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you been angered because of things that were outside of your control?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+
+### ACE — Adverse Childhood Experiences
+
+- **Items:** 11
+- **Per-item scoring:** 3 answer scales across items (shown per item below)
+- **Total score:** prorated sum of 11 items; no reverse-keyed items
+- **Auto-built:** yes (comp_ace_adversity)
+- **Questions:**
+    - During your first 18 years of life, did you live with anyone who was depressed, mentally ill, or suicidal? (ACE category: Mentally ill household member)  — [Yes=1.0, No=0.0]
+    - During your first 18 years of life, did you live with anyone who was a problem drinker or alcoholic? (ACE category: Substance abuse in household)  — [Yes=1.0, No=0.0]
+    - During your first 18 years of life, did you live with anyone who used illegal street drugs or who abused prescription medications? (ACE category: Substance abuse in household)  — [Yes=1.0, No=0.0]
+    - During your first 18 years of life, did you live with anyone who served time or was sentenced to serve time in a prison, jail, or other correctional facility? (ACE category: Incarcerated household member)  — [Yes=1.0, No=0.0]
+    - During your first 18 years of life, were your parents separated or divorced? (ACE category: Parental separation/divorce)  — [Yes=1.0, No=0.0, Parents not married=0.0]
+    - During your first 18 years of life, how often did your parents or adults in your home ever slap, hit, kick, punch or beat each other up? (ACE category: Violence between adults in household)  — [Never=0.0, Once=1.0, More than once=1.0]
+    - Before age 18, how often did a parent or adult in your home ever hit, beat, kick, or physically hurt you in any way? Do not include spanking. (ACE category: Physical abuse)  — [Never=0.0, Once=1.0, More than once=1.0]
+    - During your first 18 years of life, how often did a parent or adult in your home ever swear at you, insult you, or put you down? (ACE category: Emotional abuse)  — [Never=0.0, Once=1.0, More than once=1.0]
+    - During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, ever touch you sexually? (ACE category: Sexual abuse)  — [Never=0.0, Once=1.0, More than once=1.0]
+    - During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, try to make you touch them sexually? (ACE category: Sexual abuse)  — [Never=0.0, Once=1.0, More than once=1.0]
+    - During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, force you to have sex? (ACE category: Sexual abuse)  — [Never=0.0, Once=1.0, More than once=1.0]
+
+### IES — Impact of Event Scale (event-related distress)
+
+- **Items:** 6
+- **Per-item scoring:** Not at all = 0, A little bit = 1, Moderately = 2, Quite a bit = 3, Extremely = 4
+- **Total score:** prorated sum of 6 items; no reverse-keyed items
+- **Auto-built:** yes (comp_ies_event_impact)
+- **Questions:**
+    - In the past 7 days, I thought about COVID-19 when I didn't mean to.
+    - In the past 7 days, I felt watchful or on-guard.
+    - In the past 7 days, other things kept making me think about COVID-19.
+    - In the past 7 days, I was aware that I still had a lot of feelings about COVID-19, but I didn't deal with them.
+    - In the past 7 days, I tried not to think about COVID-19.
+    - In the past 7 days, I had trouble concentrating.
+
+### ASRS — Adult ADHD Self-Report Scale (Part A screener)
+
+- **Items:** 6
+- **Per-item scoring:** 2 answer scales across items (shown per item below)
+- **Total score:** prorated sum of 6 items; no reverse-keyed items
+- **Auto-built:** yes (comp_asrs_adhd)
+- **Questions:**
+    - How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?  — [Never=0.0, Rarely=0.0, Sometimes=1.0, Often=1.0, Very often=1.0]
+    - How often do you have difficulty getting things in order when you have to do a task that requires organization?  — [Never=0.0, Rarely=0.0, Sometimes=1.0, Often=1.0, Very often=1.0]
+    - How often do you have problems remembering appointments or obligations?  — [Never=0.0, Rarely=0.0, Sometimes=1.0, Often=1.0, Very often=1.0]
+    - When you have a task that requires a lot of thought, how often do you avoid or delay getting started?  — [Never=0.0, Rarely=0.0, Sometimes=0.0, Often=1.0, Very often=1.0]
+    - How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?  — [Never=0.0, Rarely=0.0, Sometimes=0.0, Often=1.0, Very often=1.0]
+    - How often do you feel overly active and compelled to do things, like you were driven by a motor?  — [Never=0.0, Rarely=0.0, Sometimes=0.0, Often=1.0, Very often=1.0]
+
+### UCLA / ULS-8 — Loneliness
+
+- **Items:** 8
+- **Per-item scoring:** 2 answer scales across items (shown per item below)
+- **Total score:** prorated sum of 8 items; 2 reverse-keyed
+- **Auto-built:** yes (comp_ucla_loneliness)
+- **Questions:**
+    - I lack companionship  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+    - There is no one I can turn to  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+    - I am an outgoing person *(reverse-keyed)*  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0]
+    - I feel left out  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+    - I feel isolated from others  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+    - I can find companionship when I want it *(reverse-keyed)*  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0]
+    - I am unhappy being so withdrawn  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+    - People are around me but not with me  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+
+### Everyday Discrimination Scale
+
+- **Items:** 9
+- **Per-item scoring:** Almost everyday = 6, At least once a week = 5, A few times a month = 4, A few times a year = 3, Less than once a year = 2, Never = 1
+- **Total score:** prorated sum of 9 items; no reverse-keyed items
+- **Auto-built:** yes (comp_everyday_discrimination)
+- **Questions:**
+    - You are treated with less courtesy than other people are.
+    - You are treated with less respect than other people are.
+    - You receive poorer service than other people at restaurants or stores.
+    - People act as if they are afraid of you.
+    - People act as if they're better than you are.
+    - You are called names or insulted.
+    - You are threatened or harassed.
+    - People act as if they think you are not smart.
+    - People act as if they think you are dishonest.
+
+### MOS Social Support (RAND) + Tangible subscale
+
+- **Items:** 9
+- **Per-item scoring:** None of the time = 1, A little of the time = 2, Some of the time = 3, Most of the time = 4, All of the time = 5
+- **Total score:** prorated sum of 9 items; no reverse-keyed items
+- **Auto-built:** yes (comp_social_support)
+- **Questions:**
+    - Someone to help you if you were confined to bed
+    - Someone to take you to the doctor if you needed it
+    - Someone to prepare your meals if you were unable to do it yourself
+    - Someone to help with daily chores if you were sick
+    - Someone to take you to the doctor if you need it
+    - Someone to have a good time with
+    - Someone to turn to for suggestions about how to deal with a personal problem
+    - Someone who understands your problems
+    - Someone to love and make you feel wanted
+
+### Social Cohesion / Perceived Neighborhood Disorder
+
+- **Items:** 5
+- **Per-item scoring:** 2 answer scales across items (shown per item below)
+- **Total score:** prorated sum of 5 items; no reverse-keyed items
+- **Auto-built:** no — documented only; items are also GWASed individually as ordinal phenotypes
+- **Questions:**
+    - People around here are willing to help their neighbors.  — [Strongly Agree=5.0, Agree=4.0, Neutral (neither agree or disagree)=3.0, Disagree=2.0, Srongly Disagree=1.0]
+    - People in my neighborhood generally get along with each other.  — [Strongly Agree=5.0, Agree=4.0, Neutral (neither agree or disagree)=3.0, Disagree=2.0, Srongly Disagree=1.0]
+    - People in my neighborhood can be trusted.  — [Strongly Agree=5.0, Agree=4.0, Neutral (neither agree or disagree)=3.0, Disagree=2.0, Srongly Disagree=1.0]
+    - People in my neighborhood share the same values.  — [Strongly Agree=5.0, Agree=4.0, Neutral (neither agree or disagree)=3.0, Disagree=2.0, Srongly Disagree=1.0]
+    - There is a lot of graffiti in my neighborhood.  — [Strongly Agree=5.0, Agree=4.0, Disagree=2.0, Srongly Disagree=1.0]
+
 ## 12. Phenotype-eligibility thresholds
 
 ```text
@@ -501,7 +688,9 @@ Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case 
 | PFHH relatedness-burden sumscore (quant) | 33 | 0 | 33 | 0 | 33 |
 | Physical measurements | 9 | 0 | 0 | 9 | 9 |
 | Cognitive / EA-proxy external scores | 10 | 0 | 0 | 10 | 10 |
-| **TOTAL** | **~785** | **3016** | **379** | **73** | **3468** |
+| Validated composite scores (§11c) + BFI-2 Big Five | 21 | 0 | 21 | 0 | 21 |
+| Wearable (Fitbit) phenotypes (§10b) | 5 | 0 | 0 | 5 | 5 |
+| **TOTAL** | **~811** | **3016** | **400** | **78** | **3494** |
 
 (The 33 `pfhh_burden_*` sumscores and the 10 `cog_*` external scores are counted as
 quantitative traits. Physical measurements now include pulse pressure and MAP.)

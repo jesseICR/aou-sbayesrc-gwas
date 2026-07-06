@@ -1,0 +1,787 @@
+instrument	survey	item_code	question	answer_label	value
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_1	In the past 7 days, I thought about COVID-19 when I didn't mean to.	Not at all	0.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_1	In the past 7 days, I thought about COVID-19 when I didn't mean to.	A little bit	1.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_1	In the past 7 days, I thought about COVID-19 when I didn't mean to.	Moderately	2.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_1	In the past 7 days, I thought about COVID-19 when I didn't mean to.	Quite a bit	3.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_1	In the past 7 days, I thought about COVID-19 when I didn't mean to.	Extremely	4.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_2	In the past 7 days, I felt watchful or on-guard.	Not at all	0.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_2	In the past 7 days, I felt watchful or on-guard.	A little bit	1.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_2	In the past 7 days, I felt watchful or on-guard.	Moderately	2.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_2	In the past 7 days, I felt watchful or on-guard.	Quite a bit	3.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_2	In the past 7 days, I felt watchful or on-guard.	Extremely	4.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_3	In the past 7 days, other things kept making me think about COVID-19.	Not at all	0.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_3	In the past 7 days, other things kept making me think about COVID-19.	A little bit	1.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_3	In the past 7 days, other things kept making me think about COVID-19.	Moderately	2.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_3	In the past 7 days, other things kept making me think about COVID-19.	Quite a bit	3.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_3	In the past 7 days, other things kept making me think about COVID-19.	Extremely	4.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_4	In the past 7 days, I was aware that I still had a lot of feelings about COVID-19, but I didn't deal with them.	Not at all	0.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_4	In the past 7 days, I was aware that I still had a lot of feelings about COVID-19, but I didn't deal with them.	A little bit	1.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_4	In the past 7 days, I was aware that I still had a lot of feelings about COVID-19, but I didn't deal with them.	Moderately	2.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_4	In the past 7 days, I was aware that I still had a lot of feelings about COVID-19, but I didn't deal with them.	Quite a bit	3.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_4	In the past 7 days, I was aware that I still had a lot of feelings about COVID-19, but I didn't deal with them.	Extremely	4.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_5	In the past 7 days, I tried not to think about COVID-19.	Not at all	0.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_5	In the past 7 days, I tried not to think about COVID-19.	A little bit	1.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_5	In the past 7 days, I tried not to think about COVID-19.	Moderately	2.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_5	In the past 7 days, I tried not to think about COVID-19.	Quite a bit	3.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_5	In the past 7 days, I tried not to think about COVID-19.	Extremely	4.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_6	In the past 7 days, I had trouble concentrating.	Not at all	0.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_6	In the past 7 days, I had trouble concentrating.	A little bit	1.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_6	In the past 7 days, I had trouble concentrating.	Moderately	2.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_6	In the past 7 days, I had trouble concentrating.	Quite a bit	3.0
+IES	COVID-19 Participant Experience (COPE)	ies_r_6_6	In the past 7 days, I had trouble concentrating.	Extremely	4.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_1	Someone to help you if you were confined to bed	None of the time	1.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_1	Someone to help you if you were confined to bed	A little of the time	2.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_1	Someone to help you if you were confined to bed	Some of the time	3.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_1	Someone to help you if you were confined to bed	Most of the time	4.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_1	Someone to help you if you were confined to bed	All of the time	5.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_2	Someone to take you to the doctor if you needed it	None of the time	1.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_2	Someone to take you to the doctor if you needed it	A little of the time	2.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_2	Someone to take you to the doctor if you needed it	Some of the time	3.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_2	Someone to take you to the doctor if you needed it	Most of the time	4.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_2	Someone to take you to the doctor if you needed it	All of the time	5.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_3	Someone to prepare your meals if you were unable to do it yourself	None of the time	1.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_3	Someone to prepare your meals if you were unable to do it yourself	A little of the time	2.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_3	Someone to prepare your meals if you were unable to do it yourself	Some of the time	3.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_3	Someone to prepare your meals if you were unable to do it yourself	Most of the time	4.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_3	Someone to prepare your meals if you were unable to do it yourself	All of the time	5.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_4	Someone to help with daily chores if you were sick	None of the time	1.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_4	Someone to help with daily chores if you were sick	A little of the time	2.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_4	Someone to help with daily chores if you were sick	Some of the time	3.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_4	Someone to help with daily chores if you were sick	Most of the time	4.0
+MOS Social Support - Tangible Support	COVID-19 Participant Experience (COPE)	mos_ss_4	Someone to help with daily chores if you were sick	All of the time	5.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_1	Feeling nervous, anxious, or on edge	Not at all	0.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_1	Feeling nervous, anxious, or on edge	Several days	1.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_1	Feeling nervous, anxious, or on edge	Over half the days	2.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_1	Feeling nervous, anxious, or on edge	Nearly all days	3.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_2	Not being able to stop or control worrying	Not at all	0.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_2	Not being able to stop or control worrying	Several days	1.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_2	Not being able to stop or control worrying	Over half the days	2.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_2	Not being able to stop or control worrying	Nearly all days	3.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_3	Worrying too much about different things	Not at all	0.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_3	Worrying too much about different things	Several days	1.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_3	Worrying too much about different things	Over half the days	2.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_3	Worrying too much about different things	Nearly all days	3.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_4	Trouble relaxing	Not at all	0.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_4	Trouble relaxing	Several days	1.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_4	Trouble relaxing	Over half the days	2.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_4	Trouble relaxing	Nearly all days	3.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_5	Being so restless that it's hard to sit still	Not at all	0.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_5	Being so restless that it's hard to sit still	Several days	1.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_5	Being so restless that it's hard to sit still	Over half the days	2.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_5	Being so restless that it's hard to sit still	Nearly all days	3.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_6	Becoming easily annoyed or irritable	Not at all	0.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_6	Becoming easily annoyed or irritable	Several days	1.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_6	Becoming easily annoyed or irritable	Over half the days	2.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_6	Becoming easily annoyed or irritable	Nearly all days	3.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_7	Feeling afraid as if something awful might happen	Not at all	0.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_7	Feeling afraid as if something awful might happen	Several days	1.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_7	Feeling afraid as if something awful might happen	Over half the days	2.0
+GAD	COVID-19 Participant Experience (COPE)	gad_7_7	Feeling afraid as if something awful might happen	Nearly all days	3.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_1	Little interest or pleasure in doing things	Not at all	0.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_1	Little interest or pleasure in doing things	Several days	1.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_1	Little interest or pleasure in doing things	Over half the days	2.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_1	Little interest or pleasure in doing things	Nearly all days	3.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_2	Feeling down, depressed, or hopeless	Not at all	0.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_2	Feeling down, depressed, or hopeless	Several days	1.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_2	Feeling down, depressed, or hopeless	Over half the days	2.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_2	Feeling down, depressed, or hopeless	Nearly all days	3.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_3	Trouble falling or staying asleep, or sleeping too much	Not at all	0.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_3	Trouble falling or staying asleep, or sleeping too much	Several days	1.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_3	Trouble falling or staying asleep, or sleeping too much	Over half the days	2.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_3	Trouble falling or staying asleep, or sleeping too much	Nearly all days	3.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_4	Feeling tired or having little energy	Not at all	0.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_4	Feeling tired or having little energy	Several days	1.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_4	Feeling tired or having little energy	Over half the days	2.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_4	Feeling tired or having little energy	Nearly all days	3.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_5	Poor appetite or overeating	Not at all	0.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_5	Poor appetite or overeating	Several days	1.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_5	Poor appetite or overeating	Over half the days	2.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_5	Poor appetite or overeating	Nearly all days	3.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_6	Feeling bad about yourself or that you are a failure or have let yourself or your family down	Not at all	0.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_6	Feeling bad about yourself or that you are a failure or have let yourself or your family down	Several days	1.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_6	Feeling bad about yourself or that you are a failure or have let yourself or your family down	Over half the days	2.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_6	Feeling bad about yourself or that you are a failure or have let yourself or your family down	Nearly all days	3.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_7	Trouble concentrating on things, such as reading the newspaper or watching television	Not at all	0.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_7	Trouble concentrating on things, such as reading the newspaper or watching television	Several days	1.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_7	Trouble concentrating on things, such as reading the newspaper or watching television	Over half the days	2.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_7	Trouble concentrating on things, such as reading the newspaper or watching television	Nearly all days	3.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_8	Moving or speaking so slowly that other people could have noticed? Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual	Not at all	0.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_8	Moving or speaking so slowly that other people could have noticed? Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual	Several days	1.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_8	Moving or speaking so slowly that other people could have noticed? Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual	Over half the days	2.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_8	Moving or speaking so slowly that other people could have noticed? Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual	Nearly all days	3.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_9	Thoughts that you would be better off dead or of hurting yourself in some way	Not at all	0.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_9	Thoughts that you would be better off dead or of hurting yourself in some way	Several days	1.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_9	Thoughts that you would be better off dead or of hurting yourself in some way	Over half the days	2.0
+PHQ9	COVID-19 Participant Experience (COPE)	phq_9_9	Thoughts that you would be better off dead or of hurting yourself in some way	Nearly all days	3.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_1	In the last month, how often have you been upset because of something that happened unexpectedly?	Never	0.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_1	In the last month, how often have you been upset because of something that happened unexpectedly?	Almost never	1.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_1	In the last month, how often have you been upset because of something that happened unexpectedly?	Sometime	2.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_1	In the last month, how often have you been upset because of something that happened unexpectedly?	Fairly often	3.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_1	In the last month, how often have you been upset because of something that happened unexpectedly?	Often	4.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_2	In the last month, how often have you felt that you were unable to control the important things in your life?	Never	0.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_2	In the last month, how often have you felt that you were unable to control the important things in your life?	Almost never	1.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_2	In the last month, how often have you felt that you were unable to control the important things in your life?	Sometime	2.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_2	In the last month, how often have you felt that you were unable to control the important things in your life?	Fairly often	3.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_2	In the last month, how often have you felt that you were unable to control the important things in your life?	Often	4.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_3	"In the last month, how often have you felt nervous and ""stressed?"""	Never	0.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_3	"In the last month, how often have you felt nervous and ""stressed?"""	Almost never	1.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_3	"In the last month, how often have you felt nervous and ""stressed?"""	Sometime	2.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_3	"In the last month, how often have you felt nervous and ""stressed?"""	Fairly often	3.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_3	"In the last month, how often have you felt nervous and ""stressed?"""	Often	4.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_4	In the last month, how often have you felt confident about your ability to handle your personal problems?	Never	0.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_4	In the last month, how often have you felt confident about your ability to handle your personal problems?	Almost never	1.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_4	In the last month, how often have you felt confident about your ability to handle your personal problems?	Sometime	2.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_4	In the last month, how often have you felt confident about your ability to handle your personal problems?	Fairly often	3.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_4	In the last month, how often have you felt confident about your ability to handle your personal problems?	Often	4.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_5	In the last month, how often have you felt that things were going your way?	Never	0.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_5	In the last month, how often have you felt that things were going your way?	Almost never	1.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_5	In the last month, how often have you felt that things were going your way?	Sometime	2.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_5	In the last month, how often have you felt that things were going your way?	Fairly often	3.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_5	In the last month, how often have you felt that things were going your way?	Often	4.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_6	In the last month, how often have you found that you could not cope with all the things that you had to do?	Never	0.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_6	In the last month, how often have you found that you could not cope with all the things that you had to do?	Almost never	1.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_6	In the last month, how often have you found that you could not cope with all the things that you had to do?	Sometime	2.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_6	In the last month, how often have you found that you could not cope with all the things that you had to do?	Fairly often	3.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_6	In the last month, how often have you found that you could not cope with all the things that you had to do?	Often	4.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_7	In the last month, how often have you been able to control irritations in your life?	Never	0.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_7	In the last month, how often have you been able to control irritations in your life?	Almost never	1.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_7	In the last month, how often have you been able to control irritations in your life?	Sometime	2.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_7	In the last month, how often have you been able to control irritations in your life?	Fairly often	3.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_7	In the last month, how often have you been able to control irritations in your life?	Often	4.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_8	In the last month, how often have you felt that you were on top of things?	Never	0.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_8	In the last month, how often have you felt that you were on top of things?	Almost never	1.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_8	In the last month, how often have you felt that you were on top of things?	Sometime	2.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_8	In the last month, how often have you felt that you were on top of things?	Fairly often	3.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_8	In the last month, how often have you felt that you were on top of things?	Often	4.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_9	In the last month, how often have you been angered because of things that were outside of your control?	Never	0.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_9	In the last month, how often have you been angered because of things that were outside of your control?	Almost never	1.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_9	In the last month, how often have you been angered because of things that were outside of your control?	Sometime	2.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_9	In the last month, how often have you been angered because of things that were outside of your control?	Fairly often	3.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_9	In the last month, how often have you been angered because of things that were outside of your control?	Often	4.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_10	In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?	Never	0.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_10	In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?	Almost never	1.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_10	In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?	Sometime	2.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_10	In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?	Fairly often	3.0
+PSS	COVID-19 Participant Experience (COPE)	cpss_10	In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?	Often	4.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_2	I lack companionship	Often	3.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_2	I lack companionship	Sometime	2.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_2	I lack companionship	Rarely	1.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_2	I lack companionship	Never	0.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_3	There is no one I can turn to	Often	3.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_3	There is no one I can turn to	Sometime	2.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_3	There is no one I can turn to	Rarely	1.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_3	There is no one I can turn to	Never	0.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_9	I am an outgoing person	Often	3.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_9	I am an outgoing person	Sometime	2.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_9	I am an outgoing person	Rarely	1.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_9	I am an outgoing person	Never	0.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_11	I feel left out	Often	3.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_11	I feel left out	Sometime	2.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_11	I feel left out	Rarely	1.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_11	I feel left out	Never	0.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_14	I feel isolated from others	Often	3.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_14	I feel isolated from others	Sometime	2.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_14	I feel isolated from others	Rarely	1.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_14	I feel isolated from others	Never	0.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_15	I can find companionship when I want it	Often	3.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_15	I can find companionship when I want it	Sometime	2.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_15	I can find companionship when I want it	Rarely	1.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_15	I can find companionship when I want it	Never	0.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_17	I am unhappy being so withdrawn	Often	3.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_17	I am unhappy being so withdrawn	Sometime	2.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_17	I am unhappy being so withdrawn	Rarely	1.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_17	I am unhappy being so withdrawn	Never	0.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_18	People are around me but not with me	Often	3.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_18	People are around me but not with me	Sometime	2.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_18	People are around me but not with me	Rarely	1.0
+UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_18	People are around me but not with me	Never	0.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	Never	0.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	Monthly or less	1.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	Two to four times a month	2.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	Two to three times a week	3.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	Four or more times a week	4.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Never	0.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Monthly or less	1.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Two to four times a month	2.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Two to three times a week	3.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Four or more times a week	4.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	tsu_ds5_13_xx	In the past month, have you used any of the following drugs? Select all that apply.	Never	0.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	tsu_ds5_13_xx	In the past month, have you used any of the following drugs? Select all that apply.	Monthly or less	1.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	tsu_ds5_13_xx	In the past month, have you used any of the following drugs? Select all that apply.	Two to four times a month	2.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	tsu_ds5_13_xx	In the past month, have you used any of the following drugs? Select all that apply.	Two to three times a week	3.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	tsu_ds5_13_xx	In the past month, have you used any of the following drugs? Select all that apply.	Four or more times a week	4.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_1	I look for creative ways to alter difficult situations.	Does not describe me at all	1.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_1	I look for creative ways to alter difficult situations.	Does not describe me	2.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_1	I look for creative ways to alter difficult situations.	Neutral	3.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_1	I look for creative ways to alter difficult situations.	Describes me	4.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_1	I look for creative ways to alter difficult situations.	Describes me very well	5.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_2	Regardless of what happens to me, I believe I can control my reaction to it.	Does not describe me at all	1.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_2	Regardless of what happens to me, I believe I can control my reaction to it.	Does not describe me	2.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_2	Regardless of what happens to me, I believe I can control my reaction to it.	Neutral	3.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_2	Regardless of what happens to me, I believe I can control my reaction to it.	Describes me	4.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_2	Regardless of what happens to me, I believe I can control my reaction to it.	Describes me very well	5.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_3	I believe I can grow in positive ways by dealing with difficult situations.	Does not describe me at all	1.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_3	I believe I can grow in positive ways by dealing with difficult situations.	Does not describe me	2.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_3	I believe I can grow in positive ways by dealing with difficult situations.	Neutral	3.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_3	I believe I can grow in positive ways by dealing with difficult situations.	Describes me	4.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_3	I believe I can grow in positive ways by dealing with difficult situations.	Describes me very well	5.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_4	I actively look for ways to replace the losses I encounter in life.	Does not describe me at all	1.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_4	I actively look for ways to replace the losses I encounter in life.	Does not describe me	2.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_4	I actively look for ways to replace the losses I encounter in life.	Neutral	3.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_4	I actively look for ways to replace the losses I encounter in life.	Describes me	4.0
+BRCS	COVID-19 Participant Experience (COPE)	brcs_4	I actively look for ways to replace the losses I encounter in life.	Describes me very well	5.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_1	You are treated with less courtesy than other people are.	Almost everyday	5.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_1	You are treated with less courtesy than other people are.	At least once a week	4.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_1	You are treated with less courtesy than other people are.	A few times a month	3.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_1	You are treated with less courtesy than other people are.	A few times a year	2.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_1	You are treated with less courtesy than other people are.	Less than once a year	1.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_1	You are treated with less courtesy than other people are.	Never	0.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_2	You are treated with less respect than other people are.	Almost everyday	5.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_2	You are treated with less respect than other people are.	At least once a week	4.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_2	You are treated with less respect than other people are.	A few times a month	3.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_2	You are treated with less respect than other people are.	A few times a year	2.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_2	You are treated with less respect than other people are.	Less than once a year	1.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_2	You are treated with less respect than other people are.	Never	0.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_3	You receive poorer service than other people at restaurants or stores.	Almost everyday	5.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_3	You receive poorer service than other people at restaurants or stores.	At least once a week	4.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_3	You receive poorer service than other people at restaurants or stores.	A few times a month	3.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_3	You receive poorer service than other people at restaurants or stores.	A few times a year	2.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_3	You receive poorer service than other people at restaurants or stores.	Less than once a year	1.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_3	You receive poorer service than other people at restaurants or stores.	Never	0.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	Almost everyday	5.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	At least once a week	4.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	A few times a month	3.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	A few times a year	2.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	Less than once a year	1.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	Never	0.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_7	People act as if they're better than you are.	Almost everyday	5.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_7	People act as if they're better than you are.	At least once a week	4.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_7	People act as if they're better than you are.	A few times a month	3.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_7	People act as if they're better than you are.	A few times a year	2.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_7	People act as if they're better than you are.	Less than once a year	1.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_7	People act as if they're better than you are.	Never	0.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_8	You are called names or insulted.	Almost everyday	5.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_8	You are called names or insulted.	At least once a week	4.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_8	You are called names or insulted.	A few times a month	3.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_8	You are called names or insulted.	A few times a year	2.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_8	You are called names or insulted.	Less than once a year	1.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_8	You are called names or insulted.	Never	0.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_9	You are threatened or harassed.	Almost everyday	5.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_9	You are threatened or harassed.	At least once a week	4.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_9	You are threatened or harassed.	A few times a month	3.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_9	You are threatened or harassed.	A few times a year	2.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_9	You are threatened or harassed.	Less than once a year	1.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_9	You are threatened or harassed.	Never	0.0
+Promis Physical Health	Overall Health	OverallHealth_GeneralPhysicalHealth	In general, how would you rate your physical health?	Excellent	5.0
+Promis Physical Health	Overall Health	OverallHealth_GeneralPhysicalHealth	In general, how would you rate your physical health?	Very Good	4.0
+Promis Physical Health	Overall Health	OverallHealth_GeneralPhysicalHealth	In general, how would you rate your physical health?	Good	3.0
+Promis Physical Health	Overall Health	OverallHealth_GeneralPhysicalHealth	In general, how would you rate your physical health?	Fair	2.0
+Promis Physical Health	Overall Health	OverallHealth_GeneralPhysicalHealth	In general, how would you rate your physical health?	Poor	1.0
+Promis Physical Health	Overall Health	OverallHealth_EverydayActivities	To what extent are you able to carry out your everyday physical activities such as walking, climbing stairs, carrying groceries, or moving a chair?	Completely	5.0
+Promis Physical Health	Overall Health	OverallHealth_EverydayActivities	To what extent are you able to carry out your everyday physical activities such as walking, climbing stairs, carrying groceries, or moving a chair?	Mostly	4.0
+Promis Physical Health	Overall Health	OverallHealth_EverydayActivities	To what extent are you able to carry out your everyday physical activities such as walking, climbing stairs, carrying groceries, or moving a chair?	Moderately	3.0
+Promis Physical Health	Overall Health	OverallHealth_EverydayActivities	To what extent are you able to carry out your everyday physical activities such as walking, climbing stairs, carrying groceries, or moving a chair?	A Little	2.0
+Promis Physical Health	Overall Health	OverallHealth_EverydayActivities	To what extent are you able to carry out your everyday physical activities such as walking, climbing stairs, carrying groceries, or moving a chair?	Not At All	1.0
+PROMIS Mental Health	Overall Health	OverallHealth_GeneralMentalHealth	In general, how would you rate your mental health, including your mood and your ability to think?	Excellent	5.0
+PROMIS Mental Health	Overall Health	OverallHealth_GeneralMentalHealth	In general, how would you rate your mental health, including your mood and your ability to think?	Very Good	4.0
+PROMIS Mental Health	Overall Health	OverallHealth_GeneralMentalHealth	In general, how would you rate your mental health, including your mood and your ability to think?	Good	3.0
+PROMIS Mental Health	Overall Health	OverallHealth_GeneralMentalHealth	In general, how would you rate your mental health, including your mood and your ability to think?	Fair	2.0
+PROMIS Mental Health	Overall Health	OverallHealth_GeneralMentalHealth	In general, how would you rate your mental health, including your mood and your ability to think?	Poor	1.0
+PROMIS Mental Health	Overall Health	OverallHealth_SocialSatisfaction	In general, how would you rate your satisfaction with your social activities and relationships?	Excellent	5.0
+PROMIS Mental Health	Overall Health	OverallHealth_SocialSatisfaction	In general, how would you rate your satisfaction with your social activities and relationships?	Very Good	4.0
+PROMIS Mental Health	Overall Health	OverallHealth_SocialSatisfaction	In general, how would you rate your satisfaction with your social activities and relationships?	Good	3.0
+PROMIS Mental Health	Overall Health	OverallHealth_SocialSatisfaction	In general, how would you rate your satisfaction with your social activities and relationships?	Fair	2.0
+PROMIS Mental Health	Overall Health	OverallHealth_SocialSatisfaction	In general, how would you rate your satisfaction with your social activities and relationships?	Poor	1.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_MedicalFormConfidence	How confident are you filling out medical forms by yourself?	Extremely	5.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_MedicalFormConfidence	How confident are you filling out medical forms by yourself?	Quite A Bit	4.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_MedicalFormConfidence	How confident are you filling out medical forms by yourself?	Somewhat	3.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_MedicalFormConfidence	How confident are you filling out medical forms by yourself?	A Little Bit	2.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_MedicalFormConfidence	How confident are you filling out medical forms by yourself?	Not At All	1.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_HealthMaterialAssistance	How often do you have someone help you read health-related materials?	Always	1.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_HealthMaterialAssistance	How often do you have someone help you read health-related materials?	Often	2.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_HealthMaterialAssistance	How often do you have someone help you read health-related materials?	Sometimes	3.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_HealthMaterialAssistance	How often do you have someone help you read health-related materials?	Occasionally	4.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_HealthMaterialAssistance	How often do you have someone help you read health-related materials?	Never	5.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_DifficultUnderstandInfo	How often do you have problems learning about your medical condition because of difficulty understanding written information?	Always	1.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_DifficultUnderstandInfo	How often do you have problems learning about your medical condition because of difficulty understanding written information?	Often	2.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_DifficultUnderstandInfo	How often do you have problems learning about your medical condition because of difficulty understanding written information?	Sometimes	3.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_DifficultUnderstandInfo	How often do you have problems learning about your medical condition because of difficulty understanding written information?	Occasionally	4.0
+Brief Health Literacy Scale	Overall Health	OverallHealth_DifficultUnderstandInfo	How often do you have problems learning about your medical condition because of difficulty understanding written information?	Never	5.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_DrinkFrequencyPastYear	How often did you have a drink containing alcohol in the past year?	Never	0.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_DrinkFrequencyPastYear	How often did you have a drink containing alcohol in the past year?	Monthly or less	1.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_DrinkFrequencyPastYear	How often did you have a drink containing alcohol in the past year?	Two to four times a month	2.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_DrinkFrequencyPastYear	How often did you have a drink containing alcohol in the past year?	Two to three times a week	3.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_DrinkFrequencyPastYear	How often did you have a drink containing alcohol in the past year?	Four or more times a week	4.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_AverageDailyDrinkCount	On a typical day when you drink, how many drinks do you have?	1 or 2	0.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_AverageDailyDrinkCount	On a typical day when you drink, how many drinks do you have?	3 or 4	1.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_AverageDailyDrinkCount	On a typical day when you drink, how many drinks do you have?	5 or 6	2.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_AverageDailyDrinkCount	On a typical day when you drink, how many drinks do you have?	7 to 9	3.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_AverageDailyDrinkCount	On a typical day when you drink, how many drinks do you have?	10 or more	4.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Less than monthly	0.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Monthly	1.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Weekly	2.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Daily or almost daily	3.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Never in the last year	4.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_2	I lack companionship	Never	0.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_2	I lack companionship	Rarely	1.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_2	I lack companionship	Sometimes	2.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_2	I lack companionship	Often	3.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_3	There is no one I can turn to	Never	0.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_3	There is no one I can turn to	Rarely	1.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_3	There is no one I can turn to	Sometimes	2.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_3	There is no one I can turn to	Often	3.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_11	I feel left out	Never	0.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_11	I feel left out	Rarely	1.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_11	I feel left out	Sometimes	2.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_11	I feel left out	Often	3.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_14	I feel isolated from others	Never	0.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_14	I feel isolated from others	Rarely	1.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_14	I feel isolated from others	Sometimes	2.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_14	I feel isolated from others	Often	3.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Never	0.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Rarely	1.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Sometimes	2.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Often	3.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Never	0.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Rarely	1.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Sometimes	2.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Often	3.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Never	0.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Rarely	1.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Sometimes	2.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Often	3.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Never	0.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Rarely	1.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Sometimes	2.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Often	3.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_18	People are around me but not with me	Never	0.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_18	People are around me but not with me	Rarely	1.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_18	People are around me but not with me	Sometimes	2.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_18	People are around me but not with me	Often	3.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_1	In the last month, how often have you been upset because of something that happened unexpectedly?.....	Never	0.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_1	In the last month, how often have you been upset because of something that happened unexpectedly?.....	Almost Never	1.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_1	In the last month, how often have you been upset because of something that happened unexpectedly?.....	Sometimes	2.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_1	In the last month, how often have you been upset because of something that happened unexpectedly?.....	Fairly Often	3.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_1	In the last month, how often have you been upset because of something that happened unexpectedly?.....	Very Often	4.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_3	In the last month, how often have you felt nervous and “stressed”?	Never	0.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_3	In the last month, how often have you felt nervous and “stressed”?	Almost Never	1.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_3	In the last month, how often have you felt nervous and “stressed”?	Sometimes	2.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_3	In the last month, how often have you felt nervous and “stressed”?	Fairly Often	3.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_3	In the last month, how often have you felt nervous and “stressed”?	Very Often	4.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_3	In the last month, how often have you felt nervous and “stressed”?	Never	0.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_3	In the last month, how often have you felt nervous and “stressed”?	Almost Never	1.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_3	In the last month, how often have you felt nervous and “stressed”?	Sometimes	2.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_3	In the last month, how often have you felt nervous and “stressed”?	Fairly Often	3.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_3	In the last month, how often have you felt nervous and “stressed”?	Very Often	4.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_5	In the last month, how often have you felt that things were going your way?	Never	0.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_5	In the last month, how often have you felt that things were going your way?	Almost Never	1.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_5	In the last month, how often have you felt that things were going your way?	Sometimes	2.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_5	In the last month, how often have you felt that things were going your way?	Fairly Often	3.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_5	In the last month, how often have you felt that things were going your way?	Very Often	4.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_6	In the last month, how often have you found that you could not cope with all the things that you had to do?	Never	0.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_6	In the last month, how often have you found that you could not cope with all the things that you had to do?	Almost Never	1.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_6	In the last month, how often have you found that you could not cope with all the things that you had to do?	Sometimes	2.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_6	In the last month, how often have you found that you could not cope with all the things that you had to do?	Fairly Often	3.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_6	In the last month, how often have you found that you could not cope with all the things that you had to do?	Very Often	4.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_7	In the last month, how often have you been able to control irritations in your life?	Never	0.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_7	In the last month, how often have you been able to control irritations in your life?	Almost Never	1.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_7	In the last month, how often have you been able to control irritations in your life?	Sometimes	2.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_7	In the last month, how often have you been able to control irritations in your life?	Fairly Often	3.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_7	In the last month, how often have you been able to control irritations in your life?	Very Often	4.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_8	In the last month, how often have you felt that you were on top of things?	Never	0.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_8	In the last month, how often have you felt that you were on top of things?	Almost Never	1.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_8	In the last month, how often have you felt that you were on top of things?	Sometimes	2.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_8	In the last month, how often have you felt that you were on top of things?	Fairly Often	3.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_8	In the last month, how often have you felt that you were on top of things?	Very Often	4.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_9	In the last month, how often have you been angered because of things that were outside of your control?	Never	0.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_9	In the last month, how often have you been angered because of things that were outside of your control?	Almost Never	1.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_9	In the last month, how often have you been angered because of things that were outside of your control?	Sometimes	2.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_9	In the last month, how often have you been angered because of things that were outside of your control?	Fairly Often	3.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_9	In the last month, how often have you been angered because of things that were outside of your control?	Very Often	4.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_10	In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?	Never	0.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_10	In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?	Almost Never	1.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_10	In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?	Sometimes	2.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_10	In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?	Fairly Often	3.0
+Perceived Stress Scale	Social Determinants of Health	sdoh_cpss_10	In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?	Very Often	4.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_1	People around here are willing to help their neighbors.	Strongly Agree	5.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_1	People around here are willing to help their neighbors.	Agree	4.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_1	People around here are willing to help their neighbors.	Neutral (neither agree or disagree)	3.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_1	People around here are willing to help their neighbors.	Disagree	2.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_1	People around here are willing to help their neighbors.	Srongly Disagree	1.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_2	People in my neighborhood generally get along with each other.	Strongly Agree	5.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_2	People in my neighborhood generally get along with each other.	Agree	4.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_2	People in my neighborhood generally get along with each other.	Neutral (neither agree or disagree)	3.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_2	People in my neighborhood generally get along with each other.	Disagree	2.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_2	People in my neighborhood generally get along with each other.	Srongly Disagree	1.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_3	People in my neighborhood can be trusted.	Strongly Agree	5.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_3	People in my neighborhood can be trusted.	Agree	4.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_3	People in my neighborhood can be trusted.	Neutral (neither agree or disagree)	3.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_3	People in my neighborhood can be trusted.	Disagree	2.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_3	People in my neighborhood can be trusted.	Srongly Disagree	1.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_4	People in my neighborhood share the same values.	Strongly Agree	5.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_4	People in my neighborhood share the same values.	Agree	4.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_4	People in my neighborhood share the same values.	Neutral (neither agree or disagree)	3.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_4	People in my neighborhood share the same values.	Disagree	2.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	scns_4	People in my neighborhood share the same values.	Srongly Disagree	1.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	nds_1	There is a lot of graffiti in my neighborhood.	Strongly Agree	5.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	nds_1	There is a lot of graffiti in my neighborhood.	Agree	4.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	nds_1	There is a lot of graffiti in my neighborhood.	Disagree	2.0
+Social Cohesion Neighborhood Scale	Social Determinants of Health	nds_1	There is a lot of graffiti in my neighborhood.	Srongly Disagree	1.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_1	Someone to help you if you were confined to bed	None of the time	1.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_1	Someone to help you if you were confined to bed	A little of the time	2.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_1	Someone to help you if you were confined to bed	Some of the time	3.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_1	Someone to help you if you were confined to bed	Most of the time	4.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_1	Someone to help you if you were confined to bed	All of the time	5.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_2	Someone to take you to the doctor if you need it	None of the time	1.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_2	Someone to take you to the doctor if you need it	A little of the time	2.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_2	Someone to take you to the doctor if you need it	Some of the time	3.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_2	Someone to take you to the doctor if you need it	Most of the time	4.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_2	Someone to take you to the doctor if you need it	All of the time	5.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_3	Someone to prepare your meals if you were unable to do it yourself	None of the time	1.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_3	Someone to prepare your meals if you were unable to do it yourself	A little of the time	2.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_3	Someone to prepare your meals if you were unable to do it yourself	Some of the time	3.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_3	Someone to prepare your meals if you were unable to do it yourself	Most of the time	4.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_3	Someone to prepare your meals if you were unable to do it yourself	All of the time	5.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_4	Someone to help with daily chores if you were sick	None of the time	1.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_4	Someone to help with daily chores if you were sick	A little of the time	2.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_4	Someone to help with daily chores if you were sick	Some of the time	3.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_4	Someone to help with daily chores if you were sick	Most of the time	4.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_4	Someone to help with daily chores if you were sick	All of the time	5.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_5	Someone to have a good time with	None of the time	1.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_5	Someone to have a good time with	A little of the time	2.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_5	Someone to have a good time with	Some of the time	3.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_5	Someone to have a good time with	Most of the time	4.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_5	Someone to have a good time with	All of the time	5.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_6	Someone to turn to for suggestions about how to deal with a personal problem	None of the time	1.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_6	Someone to turn to for suggestions about how to deal with a personal problem	A little of the time	2.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_6	Someone to turn to for suggestions about how to deal with a personal problem	Some of the time	3.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_6	Someone to turn to for suggestions about how to deal with a personal problem	Most of the time	4.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_6	Someone to turn to for suggestions about how to deal with a personal problem	All of the time	5.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_7	Someone who understands your problems	None of the time	1.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_7	Someone who understands your problems	A little of the time	2.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_7	Someone who understands your problems	Some of the time	3.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_7	Someone who understands your problems	Most of the time	4.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_7	Someone who understands your problems	All of the time	5.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_8	Someone to love and make you feel wanted	None of the time	1.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_8	Someone to love and make you feel wanted	A little of the time	2.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_8	Someone to love and make you feel wanted	Some of the time	3.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_8	Someone to love and make you feel wanted	Most of the time	4.0
+RAND Moss Social Support Survey	Social Determinants of Health	sdoh_mos_ss_8	Someone to love and make you feel wanted	All of the time	5.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_1	I feel God's (or a higher power's) presence	Many times a day	1.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_1	I feel God's (or a higher power's) presence	Every day	2.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_1	I feel God's (or a higher power's) presence	Most days	3.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_1	I feel God's (or a higher power's) presence	Some days	4.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_1	I feel God's (or a higher power's) presence	Once in a while	5.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_1	I feel God's (or a higher power's) presence	Never or almost never	6.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Many times a day	1.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Every day	2.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Most days	3.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Some days	4.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Once in a while	5.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Never or almost never	6.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_3	I feel deep inner peace or harmony	Many times a day	1.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_3	I feel deep inner peace or harmony	Every day	2.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_3	I feel deep inner peace or harmony	Most days	3.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_3	I feel deep inner peace or harmony	Some days	4.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_3	I feel deep inner peace or harmony	Once in a while	5.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_3	I feel deep inner peace or harmony	Never or almost never	6.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_4	I desire to be closer to or in union with God (or a higher power)	Many times a day	1.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_4	I desire to be closer to or in union with God (or a higher power)	Every day	2.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_4	I desire to be closer to or in union with God (or a higher power)	Most days	3.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_4	I desire to be closer to or in union with God (or a higher power)	Some days	4.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_4	I desire to be closer to or in union with God (or a higher power)	Once in a while	5.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_4	I desire to be closer to or in union with God (or a higher power)	Never or almost never	6.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Many times a day	1.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Every day	2.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Most days	3.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Some days	4.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Once in a while	5.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Never or almost never	6.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_6	I am spiritually touched by the beauty of creation	Many times a day	1.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_6	I am spiritually touched by the beauty of creation	Every day	2.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_6	I am spiritually touched by the beauty of creation	Most days	3.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_6	I am spiritually touched by the beauty of creation	Some days	4.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_6	I am spiritually touched by the beauty of creation	Once in a while	5.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_6	I am spiritually touched by the beauty of creation	Never or almost never	6.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_1	You are treated with less courtesy than other people are.	Almost everyday	6.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_1	You are treated with less courtesy than other people are.	At least once a week	5.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_1	You are treated with less courtesy than other people are.	A few times a month	4.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_1	You are treated with less courtesy than other people are.	A few times a year	3.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_1	You are treated with less courtesy than other people are.	Less than once a year	2.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_1	You are treated with less courtesy than other people are.	Never	1.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_2	You are treated with less respect than other people are.	Almost everyday	6.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_2	You are treated with less respect than other people are.	At least once a week	5.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_2	You are treated with less respect than other people are.	A few times a month	4.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_2	You are treated with less respect than other people are.	A few times a year	3.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_2	You are treated with less respect than other people are.	Less than once a year	2.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_2	You are treated with less respect than other people are.	Never	1.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_3	You receive poorer service than other people at restaurants or stores.	Almost everyday	6.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_3	You receive poorer service than other people at restaurants or stores.	At least once a week	5.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_3	You receive poorer service than other people at restaurants or stores.	A few times a month	4.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_3	You receive poorer service than other people at restaurants or stores.	A few times a year	3.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_3	You receive poorer service than other people at restaurants or stores.	Less than once a year	2.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_3	You receive poorer service than other people at restaurants or stores.	Never	1.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_4	People act as if they think you are not smart.	Almost everyday	6.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_4	People act as if they think you are not smart.	At least once a week	5.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_4	People act as if they think you are not smart.	A few times a month	4.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_4	People act as if they think you are not smart.	A few times a year	3.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_4	People act as if they think you are not smart.	Less than once a year	2.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_4	People act as if they think you are not smart.	Never	1.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_5	People act as if they are afraid of you.	Almost everyday	6.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_5	People act as if they are afraid of you.	At least once a week	5.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_5	People act as if they are afraid of you.	A few times a month	4.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_5	People act as if they are afraid of you.	A few times a year	3.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_5	People act as if they are afraid of you.	Less than once a year	2.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_5	People act as if they are afraid of you.	Never	1.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_6	People act as if they think you are dishonest.	Almost everyday	6.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_6	People act as if they think you are dishonest.	At least once a week	5.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_6	People act as if they think you are dishonest.	A few times a month	4.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_6	People act as if they think you are dishonest.	A few times a year	3.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_6	People act as if they think you are dishonest.	Less than once a year	2.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_6	People act as if they think you are dishonest.	Never	1.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_7	People act as if they're better than you are.	Almost everyday	6.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_7	People act as if they're better than you are.	At least once a week	5.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_7	People act as if they're better than you are.	A few times a month	4.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_7	People act as if they're better than you are.	A few times a year	3.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_7	People act as if they're better than you are.	Less than once a year	2.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_7	People act as if they're better than you are.	Never	1.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_8	You are called names or insulted.	Almost everyday	6.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_8	You are called names or insulted.	At least once a week	5.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_8	You are called names or insulted.	A few times a month	4.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_8	You are called names or insulted.	A few times a year	3.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_8	You are called names or insulted.	Less than once a year	2.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_8	You are called names or insulted.	Never	1.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_9	You are threatened or harassed.	Almost everyday	6.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_9	You are threatened or harassed.	At least once a week	5.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_9	You are threatened or harassed.	A few times a month	4.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_9	You are threatened or harassed.	A few times a year	3.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_9	You are threatened or harassed.	Less than once a year	2.0
+Everyday Discrimination Scale	Social Determinants of Health	sdoh_eds_9	You are threatened or harassed.	Never	1.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_3	It is within a 10-15 minute walk to a transit stop (such as bus, train, trolley, or tram) from my home. Would you say that you...	Strongly disagree	1.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_3	It is within a 10-15 minute walk to a transit stop (such as bus, train, trolley, or tram) from my home. Would you say that you...	Somewhat disagree	2.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_3	It is within a 10-15 minute walk to a transit stop (such as bus, train, trolley, or tram) from my home. Would you say that you...	Somewhat agree	3.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_3	It is within a 10-15 minute walk to a transit stop (such as bus, train, trolley, or tram) from my home. Would you say that you...	Strongly agree	4.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_3	It is within a 10-15 minute walk to a transit stop (such as bus, train, trolley, or tram) from my home. Would you say that you...	Don't know/Not sure	77.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_4	There are sidewalks on most of the streets in my neighborhood. Would you say that you...	Strongly disagree	1.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_4	There are sidewalks on most of the streets in my neighborhood. Would you say that you...	Somewhat disagree	2.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_4	There are sidewalks on most of the streets in my neighborhood. Would you say that you...	Somewhat agree	3.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_4	There are sidewalks on most of the streets in my neighborhood. Would you say that you...	Strongly agree	4.0
+PANES IPS on Physical Activity	Social Determinants of Health	SDOH_9	Does not apply to my neighborhood	Don't know/Not sure	77.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_5	There are facilities to bicycle in or near my neighborhood, such as special lanes, separate paths or trails, or shared use paths for cycles and pedestrians. Would you say that you...	Strongly disagree	1.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_5	There are facilities to bicycle in or near my neighborhood, such as special lanes, separate paths or trails, or shared use paths for cycles and pedestrians. Would you say that you...	Somewhat disagree	2.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_5	There are facilities to bicycle in or near my neighborhood, such as special lanes, separate paths or trails, or shared use paths for cycles and pedestrians. Would you say that you...	Somewhat agree	3.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_5	There are facilities to bicycle in or near my neighborhood, such as special lanes, separate paths or trails, or shared use paths for cycles and pedestrians. Would you say that you...	Strongly agree	4.0
+PANES IPS on Physical Activity	Social Determinants of Health	SDOH_9	Does not apply to my neighborhood	Don't know/Not sure	77.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_6	My neighborhood has several free or low-cost recreation facilities, such as parks, walking trails, bike paths, recreation centers, playgrounds, public swimming pools, etc. Would you say that you...	Strongly disagree	1.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_6	My neighborhood has several free or low-cost recreation facilities, such as parks, walking trails, bike paths, recreation centers, playgrounds, public swimming pools, etc. Would you say that you...	Somewhat disagree	2.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_6	My neighborhood has several free or low-cost recreation facilities, such as parks, walking trails, bike paths, recreation centers, playgrounds, public swimming pools, etc. Would you say that you...	Somewhat agree	3.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_6	My neighborhood has several free or low-cost recreation facilities, such as parks, walking trails, bike paths, recreation centers, playgrounds, public swimming pools, etc. Would you say that you...	Strongly agree	4.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_6	My neighborhood has several free or low-cost recreation facilities, such as parks, walking trails, bike paths, recreation centers, playgrounds, public swimming pools, etc. Would you say that you...	Don't know/Not sure	77.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_7	The crime rate in my neighborhood makes it unsafe to go on walks at night. Would you say that you...	Strongly disagree	1.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_7	The crime rate in my neighborhood makes it unsafe to go on walks at night. Would you say that you...	Somewhat disagree	2.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_7	The crime rate in my neighborhood makes it unsafe to go on walks at night. Would you say that you...	Somewhat agree	3.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_7	The crime rate in my neighborhood makes it unsafe to go on walks at night. Would you say that you...	Strongly agree	4.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_7	The crime rate in my neighborhood makes it unsafe to go on walks at night. Would you say that you...	Don't know/Not sure	77.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_16	The crime rate in my neighborhood makes it unsafe to go on walks during the day. Would you say that you...	Strongly disagree	1.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_16	The crime rate in my neighborhood makes it unsafe to go on walks during the day. Would you say that you...	Somewhat disagree	2.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_16	The crime rate in my neighborhood makes it unsafe to go on walks during the day. Would you say that you...	Somewhat agree	3.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_16	The crime rate in my neighborhood makes it unsafe to go on walks during the day. Would you say that you...	Strongly agree	4.0
+PANES IPS on Physical Activity	Social Determinants of Health	ips_16	The crime rate in my neighborhood makes it unsafe to go on walks during the day. Would you say that you...	Don't know/Not sure	77.0
+GAD	Emotional Health History and Well-Being	gad7_1	Feeling nervous, anxious, or on edge	Not at all	0.0
+GAD	Emotional Health History and Well-Being	gad7_1	Feeling nervous, anxious, or on edge	Several days	1.0
+GAD	Emotional Health History and Well-Being	gad7_1	Feeling nervous, anxious, or on edge	Over half the days	2.0
+GAD	Emotional Health History and Well-Being	gad7_1	Feeling nervous, anxious, or on edge	Nearly all days	3.0
+GAD	Emotional Health History and Well-Being	gad7_2	Not being able to stop or control worrying	Not at all	0.0
+GAD	Emotional Health History and Well-Being	gad7_2	Not being able to stop or control worrying	Several days	1.0
+GAD	Emotional Health History and Well-Being	gad7_2	Not being able to stop or control worrying	Over half the days	2.0
+GAD	Emotional Health History and Well-Being	gad7_2	Not being able to stop or control worrying	Nearly all days	3.0
+GAD	Emotional Health History and Well-Being	gad7_3	Worrying too much about different things	Not at all	0.0
+GAD	Emotional Health History and Well-Being	gad7_3	Worrying too much about different things	Several days	1.0
+GAD	Emotional Health History and Well-Being	gad7_3	Worrying too much about different things	Over half the days	2.0
+GAD	Emotional Health History and Well-Being	gad7_3	Worrying too much about different things	Nearly all days	3.0
+GAD	Emotional Health History and Well-Being	gad7_4	Trouble relaxing	Not at all	0.0
+GAD	Emotional Health History and Well-Being	gad7_4	Trouble relaxing	Several days	1.0
+GAD	Emotional Health History and Well-Being	gad7_4	Trouble relaxing	Over half the days	2.0
+GAD	Emotional Health History and Well-Being	gad7_4	Trouble relaxing	Nearly all days	3.0
+GAD	Emotional Health History and Well-Being	gad7_5	Being so restless that it's hard to sit still	Not at all	0.0
+GAD	Emotional Health History and Well-Being	gad7_5	Being so restless that it's hard to sit still	Several days	1.0
+GAD	Emotional Health History and Well-Being	gad7_5	Being so restless that it's hard to sit still	Over half the days	2.0
+GAD	Emotional Health History and Well-Being	gad7_5	Being so restless that it's hard to sit still	Nearly all days	3.0
+GAD	Emotional Health History and Well-Being	gad7_6	Becoming easily annoyed or irritable	Not at all	0.0
+GAD	Emotional Health History and Well-Being	gad7_6	Becoming easily annoyed or irritable	Several days	1.0
+GAD	Emotional Health History and Well-Being	gad7_6	Becoming easily annoyed or irritable	Over half the days	2.0
+GAD	Emotional Health History and Well-Being	gad7_6	Becoming easily annoyed or irritable	Nearly all days	3.0
+GAD	Emotional Health History and Well-Being	gad7_7	Feeling afraid as if something awful might happen	Not at all	0.0
+GAD	Emotional Health History and Well-Being	gad7_7	Feeling afraid as if something awful might happen	Several days	1.0
+GAD	Emotional Health History and Well-Being	gad7_7	Feeling afraid as if something awful might happen	Over half the days	2.0
+GAD	Emotional Health History and Well-Being	gad7_7	Feeling afraid as if something awful might happen	Nearly all days	3.0
+PHQ9	Emotional Health History and Well-Being	phq9_1	Little interest or pleasure in doing things	Not at all	0.0
+PHQ9	Emotional Health History and Well-Being	phq9_1	Little interest or pleasure in doing things	Several days	1.0
+PHQ9	Emotional Health History and Well-Being	phq9_1	Little interest or pleasure in doing things	Over half the days	2.0
+PHQ9	Emotional Health History and Well-Being	phq9_1	Little interest or pleasure in doing things	Nearly all days	3.0
+PHQ9	Emotional Health History and Well-Being	phq9_2	Feeling down, depressed, or hopeless	Not at all	0.0
+PHQ9	Emotional Health History and Well-Being	phq9_2	Feeling down, depressed, or hopeless	Several days	1.0
+PHQ9	Emotional Health History and Well-Being	phq9_2	Feeling down, depressed, or hopeless	Over half the days	2.0
+PHQ9	Emotional Health History and Well-Being	phq9_2	Feeling down, depressed, or hopeless	Nearly all days	3.0
+PHQ9	Emotional Health History and Well-Being	phq9_3	Trouble falling or staying asleep, or sleeping too much	Not at all	0.0
+PHQ9	Emotional Health History and Well-Being	phq9_3	Trouble falling or staying asleep, or sleeping too much	Several days	1.0
+PHQ9	Emotional Health History and Well-Being	phq9_3	Trouble falling or staying asleep, or sleeping too much	Over half the days	2.0
+PHQ9	Emotional Health History and Well-Being	phq9_3	Trouble falling or staying asleep, or sleeping too much	Nearly all days	3.0
+PHQ9	Emotional Health History and Well-Being	phq9_4	Feeling tired or having little energy	Not at all	0.0
+PHQ9	Emotional Health History and Well-Being	phq9_4	Feeling tired or having little energy	Several days	1.0
+PHQ9	Emotional Health History and Well-Being	phq9_4	Feeling tired or having little energy	Over half the days	2.0
+PHQ9	Emotional Health History and Well-Being	phq9_4	Feeling tired or having little energy	Nearly all days	3.0
+PHQ9	Emotional Health History and Well-Being	phq9_5	Poor appetite or overeating	Not at all	0.0
+PHQ9	Emotional Health History and Well-Being	phq9_5	Poor appetite or overeating	Several days	1.0
+PHQ9	Emotional Health History and Well-Being	phq9_5	Poor appetite or overeating	Over half the days	2.0
+PHQ9	Emotional Health History and Well-Being	phq9_5	Poor appetite or overeating	Nearly all days	3.0
+PHQ9	Emotional Health History and Well-Being	phq9_6	Feeling bad about yourself or that you are a failure or have let yourself or your family down	Not at all	0.0
+PHQ9	Emotional Health History and Well-Being	phq9_6	Feeling bad about yourself or that you are a failure or have let yourself or your family down	Several days	1.0
+PHQ9	Emotional Health History and Well-Being	phq9_6	Feeling bad about yourself or that you are a failure or have let yourself or your family down	Over half the days	2.0
+PHQ9	Emotional Health History and Well-Being	phq9_6	Feeling bad about yourself or that you are a failure or have let yourself or your family down	Nearly all days	3.0
+PHQ9	Emotional Health History and Well-Being	phq9_7	Trouble concentrating on things, such as reading the newspaper or watching television	Not at all	0.0
+PHQ9	Emotional Health History and Well-Being	phq9_7	Trouble concentrating on things, such as reading the newspaper or watching television	Several days	1.0
+PHQ9	Emotional Health History and Well-Being	phq9_7	Trouble concentrating on things, such as reading the newspaper or watching television	Over half the days	2.0
+PHQ9	Emotional Health History and Well-Being	phq9_7	Trouble concentrating on things, such as reading the newspaper or watching television	Nearly all days	3.0
+PHQ9	Emotional Health History and Well-Being	phq9_8	Moving or speaking so slowly that other people could have noticed? Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual	Not at all	0.0
+PHQ9	Emotional Health History and Well-Being	phq9_8	Moving or speaking so slowly that other people could have noticed? Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual	Several days	1.0
+PHQ9	Emotional Health History and Well-Being	phq9_8	Moving or speaking so slowly that other people could have noticed? Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual	Over half the days	2.0
+PHQ9	Emotional Health History and Well-Being	phq9_8	Moving or speaking so slowly that other people could have noticed? Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual	Nearly all days	3.0
+PHQ9	Emotional Health History and Well-Being	phq9_9	Thoughts that you would be better off dead or of hurting yourself in some way	Not at all	0.0
+PHQ9	Emotional Health History and Well-Being	phq9_9	Thoughts that you would be better off dead or of hurting yourself in some way	Several days	1.0
+PHQ9	Emotional Health History and Well-Being	phq9_9	Thoughts that you would be better off dead or of hurting yourself in some way	Over half the days	2.0
+PHQ9	Emotional Health History and Well-Being	phq9_9	Thoughts that you would be better off dead or of hurting yourself in some way	Nearly all days	3.0
+ACE	Emotional Health History and Well-Being	ace_1	During your first 18 years of life, did you live with anyone who was depressed, mentally ill, or suicidal? (ACE category: Mentally ill household member)	Yes	1.0
+ACE	Emotional Health History and Well-Being	ace_1	During your first 18 years of life, did you live with anyone who was depressed, mentally ill, or suicidal? (ACE category: Mentally ill household member)	No	0.0
+ACE	Emotional Health History and Well-Being	ace_2	During your first 18 years of life, did you live with anyone who was a problem drinker or alcoholic? (ACE category: Substance abuse in household)	Yes	1.0
+ACE	Emotional Health History and Well-Being	ace_2	During your first 18 years of life, did you live with anyone who was a problem drinker or alcoholic? (ACE category: Substance abuse in household)	No	0.0
+ACE	Emotional Health History and Well-Being	ace_3	During your first 18 years of life, did you live with anyone who used illegal street drugs or who abused prescription medications? (ACE category: Substance abuse in household)	Yes	1.0
+ACE	Emotional Health History and Well-Being	ace_3	During your first 18 years of life, did you live with anyone who used illegal street drugs or who abused prescription medications? (ACE category: Substance abuse in household)	No	0.0
+ACE	Emotional Health History and Well-Being	ace_4	During your first 18 years of life, did you live with anyone who served time or was sentenced to serve time in a prison, jail, or other correctional facility? (ACE category: Incarcerated household member)	Yes	1.0
+ACE	Emotional Health History and Well-Being	ace_4	During your first 18 years of life, did you live with anyone who served time or was sentenced to serve time in a prison, jail, or other correctional facility? (ACE category: Incarcerated household member)	No	0.0
+ACE	Emotional Health History and Well-Being	ace_5	During your first 18 years of life, were your parents separated or divorced? (ACE category: Parental separation/divorce)	Yes	1.0
+ACE	Emotional Health History and Well-Being	ace_5	During your first 18 years of life, were your parents separated or divorced? (ACE category: Parental separation/divorce)	No	0.0
+ACE	Emotional Health History and Well-Being	ace_5	During your first 18 years of life, were your parents separated or divorced? (ACE category: Parental separation/divorce)	Parents not married	0.0
+ACE	Emotional Health History and Well-Being	ace_6	During your first 18 years of life, how often did your parents or adults in your home ever slap, hit, kick, punch or beat each other up? (ACE category: Violence between adults in household)	Never	0.0
+ACE	Emotional Health History and Well-Being	ace_6	During your first 18 years of life, how often did your parents or adults in your home ever slap, hit, kick, punch or beat each other up? (ACE category: Violence between adults in household)	Once	1.0
+ACE	Emotional Health History and Well-Being	ace_6	During your first 18 years of life, how often did your parents or adults in your home ever slap, hit, kick, punch or beat each other up? (ACE category: Violence between adults in household)	More than once	1.0
+ACE	Emotional Health History and Well-Being	ace_7	Before age 18, how often did a parent or adult in your home ever hit, beat, kick, or physically hurt you in any way? Do not include spanking. (ACE category: Physical abuse)	Never	0.0
+ACE	Emotional Health History and Well-Being	ace_7	Before age 18, how often did a parent or adult in your home ever hit, beat, kick, or physically hurt you in any way? Do not include spanking. (ACE category: Physical abuse)	Once	1.0
+ACE	Emotional Health History and Well-Being	ace_7	Before age 18, how often did a parent or adult in your home ever hit, beat, kick, or physically hurt you in any way? Do not include spanking. (ACE category: Physical abuse)	More than once	1.0
+ACE	Emotional Health History and Well-Being	ace_8	During your first 18 years of life, how often did a parent or adult in your home ever swear at you, insult you, or put you down? (ACE category: Emotional abuse)	Never	0.0
+ACE	Emotional Health History and Well-Being	ace_8	During your first 18 years of life, how often did a parent or adult in your home ever swear at you, insult you, or put you down? (ACE category: Emotional abuse)	Once	1.0
+ACE	Emotional Health History and Well-Being	ace_8	During your first 18 years of life, how often did a parent or adult in your home ever swear at you, insult you, or put you down? (ACE category: Emotional abuse)	More than once	1.0
+ACE	Emotional Health History and Well-Being	ace_9	During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, ever touch you sexually? (ACE category: Sexual abuse)	Never	0.0
+ACE	Emotional Health History and Well-Being	ace_9	During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, ever touch you sexually? (ACE category: Sexual abuse)	Once	1.0
+ACE	Emotional Health History and Well-Being	ace_9	During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, ever touch you sexually? (ACE category: Sexual abuse)	More than once	1.0
+ACE	Emotional Health History and Well-Being	ace_10	During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, try to make you touch them sexually? (ACE category: Sexual abuse)	Never	0.0
+ACE	Emotional Health History and Well-Being	ace_10	During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, try to make you touch them sexually? (ACE category: Sexual abuse)	Once	1.0
+ACE	Emotional Health History and Well-Being	ace_10	During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, try to make you touch them sexually? (ACE category: Sexual abuse)	More than once	1.0
+ACE	Emotional Health History and Well-Being	ace_11	During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, force you to have sex? (ACE category: Sexual abuse)	Never	0.0
+ACE	Emotional Health History and Well-Being	ace_11	During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, force you to have sex? (ACE category: Sexual abuse)	Once	1.0
+ACE	Emotional Health History and Well-Being	ace_11	During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, force you to have sex? (ACE category: Sexual abuse)	More than once	1.0
+ASRS	Behavioral Health and Personality	asrs_1	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?	Never	0.0
+ASRS	Behavioral Health and Personality	asrs_1	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?	Rarely	0.0
+ASRS	Behavioral Health and Personality	asrs_1	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?	Sometimes	1.0
+ASRS	Behavioral Health and Personality	asrs_1	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?	Often	1.0
+ASRS	Behavioral Health and Personality	asrs_1	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?	Very often	1.0
+ASRS	Behavioral Health and Personality	asrs_2	How often do you have difficulty getting things in order when you have to do a task that requires organization?	Never	0.0
+ASRS	Behavioral Health and Personality	asrs_2	How often do you have difficulty getting things in order when you have to do a task that requires organization?	Rarely	0.0
+ASRS	Behavioral Health and Personality	asrs_2	How often do you have difficulty getting things in order when you have to do a task that requires organization?	Sometimes	1.0
+ASRS	Behavioral Health and Personality	asrs_2	How often do you have difficulty getting things in order when you have to do a task that requires organization?	Often	1.0
+ASRS	Behavioral Health and Personality	asrs_2	How often do you have difficulty getting things in order when you have to do a task that requires organization?	Very often	1.0
+ASRS	Behavioral Health and Personality	asrs_3	How often do you have problems remembering appointments or obligations?	Never	0.0
+ASRS	Behavioral Health and Personality	asrs_3	How often do you have problems remembering appointments or obligations?	Rarely	0.0
+ASRS	Behavioral Health and Personality	asrs_3	How often do you have problems remembering appointments or obligations?	Sometimes	1.0
+ASRS	Behavioral Health and Personality	asrs_3	How often do you have problems remembering appointments or obligations?	Often	1.0
+ASRS	Behavioral Health and Personality	asrs_3	How often do you have problems remembering appointments or obligations?	Very often	1.0
+ASRS	Behavioral Health and Personality	asrs_4	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?	Never	0.0
+ASRS	Behavioral Health and Personality	asrs_4	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?	Rarely	0.0
+ASRS	Behavioral Health and Personality	asrs_4	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?	Sometimes	0.0
+ASRS	Behavioral Health and Personality	asrs_4	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?	Often	1.0
+ASRS	Behavioral Health and Personality	asrs_4	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?	Very often	1.0
+ASRS	Behavioral Health and Personality	asrs_5	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?	Never	0.0
+ASRS	Behavioral Health and Personality	asrs_5	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?	Rarely	0.0
+ASRS	Behavioral Health and Personality	asrs_5	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?	Sometimes	0.0
+ASRS	Behavioral Health and Personality	asrs_5	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?	Often	1.0
+ASRS	Behavioral Health and Personality	asrs_5	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?	Very often	1.0
+ASRS	Behavioral Health and Personality	asrs_6	How often do you feel overly active and compelled to do things, like you were driven by a motor?	Never	0.0
+ASRS	Behavioral Health and Personality	asrs_6	How often do you feel overly active and compelled to do things, like you were driven by a motor?	Rarely	0.0
+ASRS	Behavioral Health and Personality	asrs_6	How often do you feel overly active and compelled to do things, like you were driven by a motor?	Sometimes	0.0
+ASRS	Behavioral Health and Personality	asrs_6	How often do you feel overly active and compelled to do things, like you were driven by a motor?	Often	1.0
+ASRS	Behavioral Health and Personality	asrs_6	How often do you feel overly active and compelled to do things, like you were driven by a motor?	Very often	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_1	I am someone who tends to be quiet.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_1	I am someone who tends to be quiet.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_1	I am someone who tends to be quiet.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_1	I am someone who tends to be quiet.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_1	I am someone who tends to be quiet.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_2	I am someone who is compassionate, has a soft heart.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_2	I am someone who is compassionate, has a soft heart.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_2	I am someone who is compassionate, has a soft heart.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_2	I am someone who is compassionate, has a soft heart.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_2	I am someone who is compassionate, has a soft heart.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_3	I am someone who tends to be disorganized.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_3	I am someone who tends to be disorganized.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_3	I am someone who tends to be disorganized.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_3	I am someone who tends to be disorganized.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_3	I am someone who tends to be disorganized.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_4	I am someone who worries a lot.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_4	I am someone who worries a lot.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_4	I am someone who worries a lot.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_4	I am someone who worries a lot.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_4	I am someone who worries a lot.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_5	I am someone who is fascinated by art, music, or literature.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_5	I am someone who is fascinated by art, music, or literature.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_5	I am someone who is fascinated by art, music, or literature.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_5	I am someone who is fascinated by art, music, or literature.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_5	I am someone who is fascinated by art, music, or literature.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_6	I am someone who is dominant, acts as a leader.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_6	I am someone who is dominant, acts as a leader.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_6	I am someone who is dominant, acts as a leader.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_6	I am someone who is dominant, acts as a leader.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_6	I am someone who is dominant, acts as a leader.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_7	I am someone who is sometimes rude to others.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_7	I am someone who is sometimes rude to others.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_7	I am someone who is sometimes rude to others.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_7	I am someone who is sometimes rude to others.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_7	I am someone who is sometimes rude to others.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_8	I am someone who has difficulty getting started on tasks.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_8	I am someone who has difficulty getting started on tasks.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_8	I am someone who has difficulty getting started on tasks.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_8	I am someone who has difficulty getting started on tasks.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_8	I am someone who has difficulty getting started on tasks.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_9	I am someone who tends to feel depressed, blue.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_9	I am someone who tends to feel depressed, blue.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_9	I am someone who tends to feel depressed, blue.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_9	I am someone who tends to feel depressed, blue.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_9	I am someone who tends to feel depressed, blue.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_10	I am someone who has little interest in abstract ideas.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_10	I am someone who has little interest in abstract ideas.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_10	I am someone who has little interest in abstract ideas.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_10	I am someone who has little interest in abstract ideas.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_10	I am someone who has little interest in abstract ideas.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_11	I am someone who is full of energy.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_11	I am someone who is full of energy.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_11	I am someone who is full of energy.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_11	I am someone who is full of energy.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_11	I am someone who is full of energy.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_12	I am someone who assumes the best about people.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_12	I am someone who assumes the best about people.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_12	I am someone who assumes the best about people.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_12	I am someone who assumes the best about people.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_12	I am someone who assumes the best about people.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_13	I am someone who is reliable, can always be counted on.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_13	I am someone who is reliable, can always be counted on.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_13	I am someone who is reliable, can always be counted on.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_13	I am someone who is reliable, can always be counted on.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_13	I am someone who is reliable, can always be counted on.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_14	I am someone who is emotionally stable, not easily upset.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_14	I am someone who is emotionally stable, not easily upset.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_14	I am someone who is emotionally stable, not easily upset.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_14	I am someone who is emotionally stable, not easily upset.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_14	I am someone who is emotionally stable, not easily upset.	Agree strongly	5.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_15	I am someone who is original, comes up with new ideas.	Disagree strongly	1.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_15	I am someone who is original, comes up with new ideas.	Disagree a little	2.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_15	I am someone who is original, comes up with new ideas.	Neutral; no opinion	3.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_15	I am someone who is original, comes up with new ideas.	Agree a little	4.0
+BFI-2-XS	Behavioral Health and Personality	bfi2xs_15	I am someone who is original, comes up with new ideas.	Agree strongly	5.0

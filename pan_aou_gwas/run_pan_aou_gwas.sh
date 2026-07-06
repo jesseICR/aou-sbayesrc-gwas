@@ -175,6 +175,42 @@ if [[ ! -s "${MEAS_CSV}" || "${FORCE}" == 1 ]]; then
   echo "  wrote ${MEAS_CSV} ($(wc -l < "${MEAS_CSV}") lines)"
 fi
 
+# --- 3b. extract Fitbit activity + sleep (optional) ------------------------ #
+FITBIT_ACT_CSV="${EXTRACT_DIR}/fitbit_activity.csv"
+FITBIT_SLEEP_CSV="${EXTRACT_DIR}/fitbit_sleep.csv"
+if [[ "${PAN_AOU_SKIP_FITBIT:-0}" != 1 ]]; then
+  if [[ ( ! -s "${FITBIT_ACT_CSV}" || "${FORCE}" == 1 ) ]] && \
+     bq --project_id="${GOOGLE_PROJECT}" show "${WORKSPACE_CDR/./:}.activity_summary" >/dev/null 2>&1; then
+    echo "Extracting Fitbit daily activity ..."
+    bq --project_id="${GOOGLE_PROJECT}" query --nouse_legacy_sql --format=csv --max_rows=1000000000 "
+      SELECT
+        CAST(a.person_id AS STRING) AS person_id,
+        a.steps                      AS steps,
+        a.sedentary_minutes          AS sedentary_minutes,
+        (a.fairly_active_minutes + a.very_active_minutes) AS active_minutes,
+        DATE_DIFF(a.date, DATE(p.birth_datetime), DAY)/365.25 AS age
+      FROM \`${WORKSPACE_CDR}.activity_summary\` a
+      JOIN \`${WORKSPACE_CDR}.person\` p USING (person_id)
+      WHERE a.steps IS NOT NULL AND a.steps > 0
+    " > "${FITBIT_ACT_CSV}" || echo "  WARN: Fitbit activity extract failed."
+  fi
+  if [[ ( ! -s "${FITBIT_SLEEP_CSV}" || "${FORCE}" == 1 ) ]] && \
+     bq --project_id="${GOOGLE_PROJECT}" show "${WORKSPACE_CDR/./:}.sleep_daily_summary" >/dev/null 2>&1; then
+    echo "Extracting Fitbit daily sleep ..."
+    bq --project_id="${GOOGLE_PROJECT}" query --nouse_legacy_sql --format=csv --max_rows=1000000000 "
+      SELECT
+        CAST(s.person_id AS STRING) AS person_id,
+        s.minute_asleep              AS minute_asleep,
+        SAFE_DIVIDE(s.minute_asleep, NULLIF(s.minute_in_bed, 0)) AS sleep_efficiency,
+        DATE_DIFF(s.sleep_date, DATE(p.birth_datetime), DAY)/365.25 AS age
+      FROM \`${WORKSPACE_CDR}.sleep_daily_summary\` s
+      JOIN \`${WORKSPACE_CDR}.person\` p USING (person_id)
+      WHERE s.is_main_sleep = true AND s.minute_asleep IS NOT NULL
+    " > "${FITBIT_SLEEP_CSV}" || echo "  WARN: Fitbit sleep extract failed."
+  fi
+  [[ -s "${FITBIT_ACT_CSV}" ]] || echo "  (no Fitbit activity; set PAN_AOU_SKIP_FITBIT=1 to silence)"
+fi
+
 # --- 4. build phenotypes + run GWAS ---------------------------------------- #
 PY_ARGS=(
   --bfile "${HM3_BFILE}"
@@ -184,9 +220,12 @@ PY_ARGS=(
   --survey-csv "${SURVEY_CSV}"
   --bhp-csv "${BHP_CSV}"
   --measurements-csv "${MEAS_CSV}"
+  --fitbit-activity-csv "${FITBIT_ACT_CSV}"
+  --fitbit-sleep-csv "${FITBIT_SLEEP_CSV}"
   --question-manifest "${SCRIPT_DIR}/metadata/survey_question_manifest.tsv"
   --ordinal-manifest "${SCRIPT_DIR}/metadata/ordinal_mapping_manifest.tsv"
   --pfhh-allowlist "${SCRIPT_DIR}/metadata/pfhh_self_allowlist.tsv"
+  --composite-manifest "${SCRIPT_DIR}/metadata/composite_items_manifest.tsv"
   --external-scores "${SCRIPT_DIR}/metadata/external_scores.tsv"
   --outdir "${SCRIPT_DIR}"
 )

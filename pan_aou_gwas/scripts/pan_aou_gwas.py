@@ -64,7 +64,8 @@ def log(msg: str) -> None:
 
 def norm_q(text: str) -> str:
     text = re.sub(r"<[^>]+>", " ", str(text or ""))
-    text = re.sub(r"\s+", " ", text).strip().lower().rstrip("?.").strip()
+    text = text.translate(str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'}))
+    text = re.sub(r"\s+", " ", text).strip().lower().strip(" ?.\"'")
     return text
 
 
@@ -429,6 +430,164 @@ def build_pfhh_phenotypes(questions, allowlist_path):
         }
 
 
+def build_composite_phenotypes(questions, manifest_path):
+    """Yield validated composite scores (GAD-7, PHQ-9, PSS, BFI-2 Big Five, ...).
+
+    Each composite is a prorated sum over its items (matched to survey responses
+    by question text, reverse-keyed per composite_rules), requiring >= 80% of
+    items answered. Residualized on the full covariate set (survey age is known).
+    """
+    import composite_rules as CR
+
+    if not manifest_path or not Path(manifest_path).exists():
+        return
+    with open(manifest_path, newline="") as f:
+        rows = list(csv.DictReader(f, delimiter="\t"))
+
+    qtext_to_qid = {}
+    for qid, q in questions.items():
+        qtext_to_qid.setdefault(norm_q(q["question"]), qid)
+
+    # per instrument slug: {norm_question: {norm_answer: value}} merged across
+    # administrations; plus per item_code answer maps for BFI-2.
+    inst_items = defaultdict(dict)
+    code_answer = defaultdict(dict)
+    code_q = {}
+    for r in rows:
+        try:
+            val = float(r["value"])
+        except (ValueError, TypeError):
+            continue
+        ans = R.norm(r["answer_label"])
+        code_answer[r["item_code"]][ans] = val
+        code_q[r["item_code"]] = r["question"]
+        slug = CR.SUM_INSTRUMENTS.get(r["instrument"])
+        if slug:
+            inst_items[slug].setdefault(norm_q(r["question"]), {})[ans] = val
+
+    def score_items(item_list):
+        """item_list: [(qid, ans_map, reverse, lo, hi)]. Yield {pid:(score,age)}."""
+        n_items = len(item_list)
+        need = math.ceil(CR.MIN_ITEM_FRACTION * n_items)
+        pids = set()
+        for qid, *_ in item_list:
+            pids |= set(questions[qid]["responses"].keys())
+        out = {}
+        for pid in pids:
+            got, age = [], None
+            for qid, ans_map, rev, lo, hi in item_list:
+                resp = questions[qid]["responses"].get(pid)
+                if not resp:
+                    continue
+                answers = [a for a in resp[1] if not R.is_missing(a)]
+                if len(answers) != 1:
+                    continue
+                v = ans_map.get(R.norm(answers[0]))
+                if v is None:
+                    continue
+                if rev:
+                    v = lo + hi - v
+                got.append(v)
+                age = resp[0]
+            if len(got) >= need and age is not None and not math.isnan(age):
+                out[pid] = (sum(got) / len(got) * n_items, age)  # prorated sum
+        return out, n_items
+
+    # merged-by-text sum instruments
+    for slug, items in inst_items.items():
+        item_list = []
+        for nq, ans_map in items.items():
+            qid = qtext_to_qid.get(nq)
+            if qid is None or not ans_map:
+                continue
+            rev = any(frag in nq for frag in CR.REVERSE_TEXT_FRAGMENTS)
+            item_list.append((qid, ans_map, rev, min(ans_map.values()), max(ans_map.values())))
+        if len(item_list) < 2:
+            continue
+        vals, n_items = score_items(item_list)
+        yield f"comp_{slug}", "composite", "quant", vals, {
+            "question_concept_id": "", "question": slug,
+            "answer": f"{n_items}-item prorated sum", "ordinal_rule": "composite",
+            "covar_mode": "full",
+        }
+
+    # BFI-2-XS Big Five domains
+    for dom, spec in CR.BFI2_DOMAINS.items():
+        item_list = []
+        for code, rev in spec:
+            q, amap = code_q.get(code), code_answer.get(code)
+            if not q or not amap:
+                continue
+            qid = qtext_to_qid.get(norm_q(q))
+            if qid is None:
+                continue
+            item_list.append((qid, amap, rev, min(amap.values()), max(amap.values())))
+        if len(item_list) < 2:
+            continue
+        vals, n_items = score_items(item_list)
+        yield f"comp_{dom}", "composite", "quant", vals, {
+            "question_concept_id": "", "question": dom,
+            "answer": f"{n_items}-item BFI-2-XS domain", "ordinal_rule": "composite",
+            "covar_mode": "full",
+        }
+
+
+FITBIT_MIN_DAYS = 10
+
+
+def _fitbit_person_means(csv_path, keep, cols):
+    """Return {pid: {col: [values...], 'age': [ages...]}} for retained samples."""
+    agg = defaultdict(lambda: defaultdict(list))
+    if not csv_path or not Path(csv_path).exists() or Path(csv_path).stat().st_size == 0:
+        return agg
+    with open(csv_path, newline="") as f:
+        for row in csv.DictReader(f):
+            pid = (row.get("person_id") or "").strip()
+            if pid not in keep:
+                continue
+            for c in cols:
+                try:
+                    agg[pid][c].append(float(row[c]))
+                except (KeyError, ValueError, TypeError):
+                    pass
+            try:
+                agg[pid]["age"].append(float(row["age"]))
+            except (KeyError, ValueError, TypeError):
+                pass
+    return agg
+
+
+def build_fitbit_phenotypes(activity_csv, sleep_csv, keep):
+    """Per-person Fitbit averages (>= FITBIT_MIN_DAYS valid days) as quant traits.
+
+    Fitbit-worn behavioural/physiological traits: mean daily steps, sedentary and
+    active minutes, sleep duration and efficiency. Residualized on the full
+    covariate set (age at wear is known). Requires the AoU Fitbit tables; the
+    orchestrator extracts them and skips gracefully if absent.
+    """
+    act = _fitbit_person_means(activity_csv, keep, ["steps", "sedentary_minutes", "active_minutes"])
+    slp = _fitbit_person_means(sleep_csv, keep, ["minute_asleep", "sleep_efficiency"])
+
+    specs = [
+        ("fitbit_mean_daily_steps", act, "steps"),
+        ("fitbit_sedentary_minutes", act, "sedentary_minutes"),
+        ("fitbit_active_minutes", act, "active_minutes"),
+        ("fitbit_sleep_minutes", slp, "minute_asleep"),
+        ("fitbit_sleep_efficiency", slp, "sleep_efficiency"),
+    ]
+    for pheno_id, agg, col in specs:
+        values = {}
+        for pid, d in agg.items():
+            vals = d.get(col, [])
+            if len(vals) < FITBIT_MIN_DAYS or not d.get("age"):
+                continue
+            values[pid] = (sum(vals) / len(vals), sum(d["age"]) / len(d["age"]))
+        yield pheno_id, "fitbit", "quant", values, {
+            "question_concept_id": "", "question": pheno_id, "answer": f">= {FITBIT_MIN_DAYS} valid days",
+            "ordinal_rule": "", "covar_mode": "full",
+        }
+
+
 def build_external_score_phenotypes(config_path, keep):
     """Yield pre-computed continuous scores (ETM cognitive tasks + EA/SES proxies).
 
@@ -654,9 +813,13 @@ def main() -> None:
     ap.add_argument("--survey-csv", type=Path, required=True)
     ap.add_argument("--bhp-csv", type=Path, default=None)
     ap.add_argument("--measurements-csv", type=Path, default=None)
+    ap.add_argument("--fitbit-activity-csv", type=Path, default=None)
+    ap.add_argument("--fitbit-sleep-csv", type=Path, default=None)
     ap.add_argument("--question-manifest", type=Path, required=True)
     ap.add_argument("--ordinal-manifest", type=Path, required=True)
     ap.add_argument("--pfhh-allowlist", type=Path, default=None)
+    ap.add_argument("--composite-manifest", type=Path, default=None,
+                    help="composite_items_manifest.tsv (validated sum/domain scores).")
     ap.add_argument("--external-scores", type=Path, default=None,
                     help="registry TSV of pre-computed cognitive/EA-proxy scores to GWAS.")
     ap.add_argument("--outdir", type=Path, required=True)
@@ -688,7 +851,9 @@ def main() -> None:
         build_survey_phenotypes(questions, qman, ord_lookup),
         build_numeric_phenotypes(questions, qman),
         build_pfhh_phenotypes(questions, args.pfhh_allowlist),
+        build_composite_phenotypes(questions, args.composite_manifest),
         build_measurement_phenotypes(args.measurements_csv, keep),
+        build_fitbit_phenotypes(args.fitbit_activity_csv, args.fitbit_sleep_csv, keep),
         build_external_score_phenotypes(args.external_scores, keep),
     ]
 
