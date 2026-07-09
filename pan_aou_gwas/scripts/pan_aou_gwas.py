@@ -216,6 +216,17 @@ AUTOSOME_UNINFORMATIVE_ITEM_CONCEPTS = {
     "biologicalsexatbirth_sexatbirth",
 }
 
+REUSED_ITEM_CONCEPTS_REQUIRE_QID = {
+    # REDCap/codebook item codes reused for distinct same-survey follow-up
+    # questions.  These must not merge; the live question_concept_id keeps each
+    # phenotype ID unique while preserving stable names for ordinary items.
+    "mhqukb_50",
+    "mhqukb_25_number",
+    "mhqukb_26_age",
+    "ipaq_1_cope_a_24",
+    "copect_50_xx19_cope_a_152",
+}
+
 
 def log(msg: str) -> None:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
@@ -861,6 +872,10 @@ def is_missing_answer(text: str) -> bool:
 def manifest_item_id(man: dict, fallback: str) -> str:
     """Stable codebook-backed identifier used in phenotype IDs."""
     item = (man.get("item_concept") or "").strip()
+    if item in REUSED_ITEM_CONCEPTS_REQUIRE_QID:
+        qid = (man.get("question_concept_id") or fallback or "").strip()
+        if qid:
+            return slug(f"{item}_q{qid}")
     return slug(item or fallback)
 
 

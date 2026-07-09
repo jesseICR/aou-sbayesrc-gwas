@@ -105,6 +105,8 @@ later skip/prefer-not-to-answer response does not mask an earlier valid response
 Two-answer single-select questions emit only one binary GWAS because the two
 one-vs-rest encodings are exact complements; the omitted side is listed as
 `redundant_binary_complement` in `skipped_phenotypes.tsv`.
+Same-survey reused codebook item labels are disambiguated with `_q<question_id>`
+in the phenotype ID when the shared label refers to distinct follow-up questions.
 PHQ-9 and GAD-7 item and sumscore GWAS pool EHHWB with COPE using EHHWB priority.
 PSS-10 item and sumscore GWAS pool SDOH with COPE using SDOH priority. COPE
 fill-in is included as a `from_cope` residualization covariate.

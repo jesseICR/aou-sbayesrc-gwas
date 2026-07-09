@@ -246,6 +246,14 @@ Exact complements (Yes vs No, 1 vs 2, etc.) are collapsed to one GWAS. The retai
 case-like answer (`Yes`, `Too many to count`, `Needed treatment/problems`, `Other`, `Attempt`) and
 otherwise keeps the higher ordinal/numeric value when available.
 
+Five same-survey reused REDCap item codes are deliberately disambiguated by live
+`question_concept_id` in the output phenotype ID: `mhqukb_50`,
+`mhqukb_25_number`, `mhqukb_26_age`, `ipaq_1_cope_a_24`, and
+`copect_50_xx19_cope_a_152`. These are distinct follow-up questions that share
+generic labels such as "Enter number of times"; they must not be merged. For
+example, `mhqukb_50` produces IDs such as
+`bin_mhqukb_50_q1703883__too_many_to_count`.
+
 ### 6.2 Ordinal linear GWAS
 
 For every single-select question with a defensible ordered scale (§7): map answer → numeric value,
