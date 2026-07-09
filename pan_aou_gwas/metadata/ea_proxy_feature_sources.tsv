@@ -1,0 +1,214 @@
+question_concept_id	survey	item_name	encoding	include_exclude	external_analog	notes
+836827	Personal and Family Health History	Including yourself, who in your family has had alcohol use disorder? Select all that apply.	allowlisted_one_hot	include		primary_full feature
+836851	Personal and Family Health History	Including yourself, who in your family has had a drug use disorder? Select all that apply.	allowlisted_one_hot	include		primary_full feature
+903058	Lifestyle	Past 3 Month Use Frequency: Prescription Stimulant 3 Month Use	one_hot	include		primary_full feature
+903573	The Basics	Disability: Deaf	one_hot	include		primary_full feature
+903574	The Basics	Disability: Blind	one_hot	include		primary_full feature
+903575	The Basics	Disability: Difficulty Concentrating	one_hot	include		primary_full feature
+903576	The Basics	Disability: Walking Climbing	one_hot	include		primary_full feature
+903577	The Basics	Disability: Dressing Bathing	one_hot	include		primary_full feature
+903578	The Basics	Disability: Errands Alone	one_hot	include		primary_full feature
+1585357	The Basics	Gender Identity: Sexuality Closer Description	one_hot	include		primary_full feature
+1585370	The Basics	Home Own: Current Home Own	one_hot	include		primary_full feature
+1585375	The Basics	Income: Annual Income	one_hot	include		primary_full feature
+1585386	The Basics	Insurance: Health Insurance	ordinal	include		primary_full feature
+1585389	The Basics	Health Insurance: Health Insurance Type	one_hot	include		primary_full feature
+1585402	The Basics	Living Situation: Current Living	one_hot	include		primary_full feature
+1585636	Lifestyle	Recreational Drug Use: Which Drugs Used	one_hot	include		primary_full feature
+1585650	Lifestyle	Past 3 Month Use Frequency: Marijuana 3 Month Use	one_hot	include		primary_full feature
+1585656	Lifestyle	Past 3 Month Use Frequency: Cocaine 3 Month Use	one_hot	include		primary_full feature
+1585668	Lifestyle	Past 3 Month Use Frequency: Other Stimulant 3 Month Use	one_hot	include		primary_full feature
+1585674	Lifestyle	Past 3 Month Use Frequency: Inhalant 3 Month Use	one_hot	include		primary_full feature
+1585680	Lifestyle	Past 3 Month Use Frequency: Sedative 3 Month Use	one_hot	include		primary_full feature
+1585686	Lifestyle	Past 3 Month Use Frequency: Hallucinogen 3 Month Use	one_hot	include		primary_full feature
+1585692	Lifestyle	Past 3 Month Use Frequency: Street Opioid 3 Month Use	one_hot	include		primary_full feature
+1585698	Lifestyle	Past 3 Month Use Frequency: Prescription Opioid 3 Month Use	one_hot	include		primary_full feature
+1585704	Lifestyle	Past 3 Month Use Frequency: Other 3 Month Use	one_hot	include		primary_full feature
+1585711	Overall Health	Overall Health: General Health	ordinal	include		primary_full feature
+1585717	Overall Health	Overall Health: General Quality	ordinal	include		primary_full feature
+1585723	Overall Health	Overall Health: General Physical Health	ordinal	include		primary_full feature
+1585729	Overall Health	Overall Health: General Mental Health	one_hot	include		primary_full feature
+1585735	Overall Health	Overall Health: Social Satisfaction	ordinal	include		primary_full feature
+1585741	Overall Health	Overall Health: Everyday Activities	one_hot	include		primary_full feature
+1585748	Overall Health	Overall Health: Average Fatigue 7 Days	one_hot	include		primary_full feature
+1585754	Overall Health	Overall Health: General Social	ordinal	include		primary_full feature
+1585760	Overall Health	Overall Health: Emotional Problem 7 Days	one_hot	include		primary_full feature
+1585766	Overall Health	Overall Health: Medical Form Confidence	one_hot	include		primary_full feature
+1585772	Overall Health	Overall Health: Health Material Assistance	one_hot	include		primary_full feature
+1585778	Overall Health	Overall Health: Difficult Understand Info	one_hot	include		primary_full feature
+1585815	Overall Health	Overall Health: Outside Travel 6 Month	one_hot	include		primary_full feature
+1585852	The Basics	Active Duty: Active Duty Serve Status	ordinal	include		primary_full feature
+1585857	Lifestyle	Smoking: 100 Cigs Lifetime	ordinal	include		primary_full feature
+1585860	Lifestyle	Smoking: Smoke Frequency	ordinal	include		primary_full feature
+1585864	Lifestyle	Smoking: Daily Smoke Starting Age	numeric	include		primary_full feature
+1585867	Lifestyle	Smoking: Serious Quit Attempt	one_hot	include		primary_full feature
+1585870	Lifestyle	Attempt Quit Smoking: Completely Quit Age	numeric	include		primary_full feature
+1585873	Lifestyle	Smoking: Number Of Years	numeric	include		primary_full feature
+1585879	The Basics	Living Situation: How Many Living Years	one_hot	include		primary_full feature
+1585886	The Basics	Living Situation: Stable House Concern	ordinal	include		primary_full feature
+1585889	The Basics	Living Situation: How Many People	one_hot	include		primary_full feature
+1585890	The Basics	Living Situation: People Under 18	one_hot	include		primary_full feature
+1585892	The Basics	Marital Status: Current Marital Status	one_hot	include		primary_full feature
+1585899	The Basics	The Basics: Sexual Orientation	one_hot	include		primary_full feature
+1585952	The Basics	Employment: Employment Status	one_hot	include		primary_full feature
+1586135	The Basics	The Basics: Birthplace	one_hot	include		primary_full feature
+1586159	Lifestyle	Smoking: Current Daily Cigarette Number	numeric	include		primary_full feature
+1586162	Lifestyle	Smoking: Average Daily Cigarette Number	numeric	include		primary_full feature
+1586166	Lifestyle	Electronic Smoking: Electric Smoke Participant	ordinal	include		primary_full feature
+1586169	Lifestyle	Electronic Smoking: Electric Smoke Frequency	ordinal	include		primary_full feature
+1586174	Lifestyle	Cigar Smoking: Cigar Smoke Participant	ordinal	include		primary_full feature
+1586177	Lifestyle	Cigar Smoking: Current Cigar Frequency	ordinal	include		primary_full feature
+1586182	Lifestyle	Hookah Smoking: Hookah Smoke Participant	ordinal	include		primary_full feature
+1586185	Lifestyle	Hookah Smoking: Current Hookah Frequency	ordinal	include		primary_full feature
+1586190	Lifestyle	Smokeless Tobacco: Smokeless Tobacco Participant	ordinal	include		primary_full feature
+1586193	Lifestyle	Smokeless Tobacco: Smokeless Tobacco Frequency	ordinal	include		primary_full feature
+1586198	Lifestyle	Alcohol: Alcohol Participant	ordinal	include		primary_full feature
+1586201	Lifestyle	Alcohol: Drink Frequency Past Year	ordinal	include		primary_full feature
+1586207	Lifestyle	Alcohol: Average Daily Drink Count	one_hot	include		primary_full feature
+1586213	Lifestyle	Alcohol: 6 or More Drinks Occurrence	ordinal	include		primary_full feature
+1703874	Behavioral Health and Personality	During the past 6 months How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?	ordinal	include		primary_full feature
+1703875	Behavioral Health and Personality	I am someone who has difficulty getting started on tasks.	ordinal	include		primary_full feature
+1703878	Behavioral Health and Personality	During the past 6 months How often do you have problems remembering appointments or obligations?	ordinal	include		primary_full feature
+1703881	Behavioral Health and Personality	I am someone who is original, comes up with new ideas.	ordinal	include		primary_full feature
+1703892	Behavioral Health and Personality	I am someone who tends to be disorganized.	ordinal	include		primary_full feature
+1703893	Behavioral Health and Personality	I am someone who worries a lot.	ordinal	include		primary_full feature
+1703896	Behavioral Health and Personality	I am someone who is emotionally stable, not easily upset.	ordinal	include		primary_full feature
+1703903	Behavioral Health and Personality	I am someone who is full of energy.	ordinal	include		primary_full feature
+1703904	Behavioral Health and Personality	I am someone who is compassionate, has a soft heart.	ordinal	include		primary_full feature
+1703911	Behavioral Health and Personality	I am someone who is sometimes rude to others.	ordinal	include		primary_full feature
+1703912	Behavioral Health and Personality	I am someone who is reliable, can always be counted on.	ordinal	include		primary_full feature
+1703913	Behavioral Health and Personality	During the past 6 months How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?	ordinal	include		primary_full feature
+1703914	Behavioral Health and Personality	During the past 6 months How often do you have difficulty getting things in order when you have to do a task that requires organization?	ordinal	include		primary_full feature
+1703916	Behavioral Health and Personality	During the past 6 months When you have a task that requires a lot of thought, how often do you avoid or delay getting started?	ordinal	include		primary_full feature
+1703918	Behavioral Health and Personality	I am someone who is dominant, acts as a leader.	ordinal	include		primary_full feature
+1703919	Behavioral Health and Personality	I am someone who has little interest in abstract ideas.	ordinal	include		primary_full feature
+1703925	Behavioral Health and Personality	During the past 6 months How often do you feel overly active and compelled to do things, like you were driven by a motor?	ordinal	include		primary_full feature
+1703926	Behavioral Health and Personality	I am someone who tends to be quiet.	ordinal	include		primary_full feature
+1703929	Behavioral Health and Personality	I am someone who tends to feel depressed, blue.	ordinal	include		primary_full feature
+1703930	Behavioral Health and Personality	I am someone who is fascinated by art, music, or literature.	ordinal	include		primary_full feature
+1703932	Behavioral Health and Personality	I am someone who assumes the best about people.	ordinal	include		primary_full feature
+1740660	Personal and Family Health History	Including yourself, who in your family has had attention-deficit/hyperactivity disorder (ADHD)? Select all that apply.	one_hot	include		primary_full feature
+40192381	Social Determinants of Health	In the last month, how often have you felt that you were unable to control the important things in your life?	one_hot	include		primary_full feature
+40192384	Social Determinants of Health	How much you agree or disagree that your neighborhood is safe?	ordinal	include		primary_full feature
+40192386	Social Determinants of Health	How much you agree or disagree that people in your neighborhood take good care of their houses and apartments?	ordinal	include		primary_full feature
+40192388	Social Determinants of Health	How often do you have someone to prepare your meals if you were unable to do it yourself?	one_hot	include		primary_full feature
+40192390	Social Determinants of Health	How often do you feel that you are unhappy being so withdrawn?	ordinal	include		primary_full feature
+40192396	Social Determinants of Health	In the last month, how often have you been angered because of things that were outside of your control?	one_hot	include		primary_full feature
+40192397	Social Determinants of Health	How often do you feel that there is no one you can turn to?	ordinal	include		primary_full feature
+40192398	Social Determinants of Health	How often do you feel left out?	ordinal	include		primary_full feature
+40192399	Social Determinants of Health	How often do you have someone who understands your problems?	one_hot	include		primary_full feature
+40192400	Social Determinants of Health	How much you agree or disagree that in your neighborhood people watch out for each other?	ordinal	include		primary_full feature
+40192401	Social Determinants of Health	How often do you feel deep inner peace or harmony?	one_hot	include		primary_full feature
+40192402	Social Determinants of Health	Think about the place you live. Do you have problems with any of the following? Select all that apply.	one_hot	include		primary_full feature
+40192404	Social Determinants of Health	How much you agree or disagree that you are always having trouble with your neighbors?	ordinal	include		primary_full feature
+40192410	Social Determinants of Health	My neighborhood has several free or low-cost recreation facilities, such as parks, walking trails, bike paths, recreation centers, playgrounds, public swimming pools, etc. Would you say that you...	one_hot	include		primary_full feature
+40192411	Social Determinants of Health	How much you agree or disagree that people in your neighborhood generally get along with each other?	one_hot	include		primary_full feature
+40192412	Social Determinants of Health	How much you agree or disagree that vandalism is common in your neighborhood?	ordinal	include		primary_full feature
+40192414	Social Determinants of Health	The crime rate in my neighborhood makes it unsafe to go on walks during the day. Would you say that you...	one_hot	include		primary_full feature
+40192415	Social Determinants of Health	How often do you feel that you are spiritually touched by the beauty of creation?	one_hot	include		primary_full feature
+40192417	Social Determinants of Health	How much you agree or disagree that people in your neighborhood share the same values?	one_hot	include		primary_full feature
+40192419	Social Determinants of Health	In the last month, how often have you felt confident about your ability to handle your personal problems?	one_hot	include		primary_full feature
+40192420	Social Determinants of Health	How much you agree or disagree that there is a lot of graffiti in your neighborhood?	ordinal	include		primary_full feature
+40192426	Social Determinants of Health	Within the past 12 months, were you worried whether the food you had bought just didn't last and you didn't have money to get more?	one_hot	include		primary_full feature
+40192431	Social Determinants of Health	There are facilities to bicycle in or near my neighborhood, such as special lanes, separate paths or trails, or shared use paths for cycles and pedestrians. Would you say that you...	one_hot	include		primary_full feature
+40192436	Social Determinants of Health	Many shops, stores, markets or other places to buy things I need are within easy walking distance of my home. Would you say that you...	one_hot	include		primary_full feature
+40192437	Social Determinants of Health	There are sidewalks on most of the streets in my neighborhood. Would you say that you...	one_hot	include		primary_full feature
+40192439	Social Determinants of Health	How often do you have someone to have a good time with?	one_hot	include		primary_full feature
+40192440	Social Determinants of Health	It is within a 10-15 minute walk to a transit stop (such as bus, train, trolley, or tram) from my home. Would you say that you...	one_hot	include		primary_full feature
+40192441	Social Determinants of Health	In the last 12 months, how many times have you or your family moved from one home to another? Number of moves in past 12 months:	numeric	include		primary_full feature
+40192442	Social Determinants of Health	How often do you have someone to help you if you were confined to bed?	one_hot	include		primary_full feature
+40192443	Social Determinants of Health	How often do you desire to be closer to or in union with God (or a higher power)?	one_hot	include		primary_full feature
+40192445	Social Determinants of Health	In the last month, how often have you felt that you were on top of things?	one_hot	include		primary_full feature
+40192446	Social Determinants of Health	How often do you have someone to love and make you feel wanted?	one_hot	include		primary_full feature
+40192449	Social Determinants of Health	In the last month, how often have you been able to control irritations in your life?	one_hot	include		primary_full feature
+40192452	Social Determinants of Health	In the last month, how often have you been upset because of something that happened unexpectedly?	one_hot	include		primary_full feature
+40192456	Social Determinants of Health	How much you agree or disagree that your neighborhood is clean?	ordinal	include		primary_full feature
+40192457	Social Determinants of Health	How much you agree or disagree that there is too much drug use in your neighborhood?	ordinal	include		primary_full feature
+40192458	Social Determinants of Health	What is the main type of housing in your neighborhood?	one_hot	include		primary_full feature
+40192462	Social Determinants of Health	In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?	one_hot	include		primary_full feature
+40192463	Social Determinants of Health	How much you agree or disagree that people around here are willing to help their neighbor?	one_hot	include		primary_full feature
+40192469	Social Determinants of Health	How much you agree or disagree that there are lot of abandoned buildings in your neighborhood?	ordinal	include		primary_full feature
+40192470	Social Determinants of Health	How often do you go to religious meetings or services?	one_hot	include		primary_full feature
+40192471	Social Determinants of Health	How often do you feel God's (or a higher power's) love for you, directly or through others?	one_hot	include		primary_full feature
+40192475	Social Determinants of Health	How often do you find strength and comfort in your religion?	one_hot	include		primary_full feature
+40192476	Social Determinants of Health	How much you agree or disagree that there is too much alcohol use in your neighborhood?	ordinal	include		primary_full feature
+40192480	Social Determinants of Health	How often do you have someone to take you to the doctor if you need it?	one_hot	include		primary_full feature
+40192491	Social Determinants of Health	"In the last month, how often have you felt nervous and ""stressed""?"	one_hot	include		primary_full feature
+40192492	Social Determinants of Health	The crime rate in my neighborhood makes it unsafe to go on walks at night. Would you say that you...	one_hot	include		primary_full feature
+40192493	Social Determinants of Health	How much you agree or disagree that there is a lot of crime in your neighborhood?	ordinal	include		primary_full feature
+40192494	Social Determinants of Health	How often do you feel that people are around you but not with you?	ordinal	include		primary_full feature
+40192498	Social Determinants of Health	How often do you feel God's (or a higher power's) presence?	one_hot	include		primary_full feature
+40192499	Social Determinants of Health	How much you agree or disagree that people in your neighborhood can be trusted?	one_hot	include		primary_full feature
+40192500	Social Determinants of Health	How much you agree or disagree that there are too many people hanging around on the streets near your home?	ordinal	include		primary_full feature
+40192501	Social Determinants of Health	How often do you feel isolated from others?	ordinal	include		primary_full feature
+40192504	Social Determinants of Health	How often do you feel that you are an outgoing person?	ordinal	include		primary_full feature
+40192506	Social Determinants of Health	In the last month, how often have you found that you could not cope with all the things that you had to do?	one_hot	include		primary_full feature
+40192507	Social Determinants of Health	How often do you feel lack companionship?	ordinal	include		primary_full feature
+40192511	Social Determinants of Health	How often do you have someone to help you with daily chores if you were sick?	one_hot	include		primary_full feature
+40192516	Social Determinants of Health	How often do you feel that you can find companionship when you want it?	ordinal	include		primary_full feature
+40192517	Social Determinants of Health	Within the past 12 months, were you worried whether your food would run out before you got money to buy more?	one_hot	include		primary_full feature
+40192522	Social Determinants of Health	How much you agree or disagree that your neighborhood is noisy?	ordinal	include		primary_full feature
+40192525	Social Determinants of Health	In the last month, how often have you felt that things were going your way?	one_hot	include		primary_full feature
+40192528	Social Determinants of Health	How often do you have someone to turn to for suggestions about how to deal with a personal problem?	one_hot	include		primary_full feature
+43528428	The Basics	Health Insurance: Insurance Type Update	one_hot	include		primary_full feature
+43528660	Healthcare Access & Utilization	Health Advice: Spoken To General Doctor	ordinal	include		primary_full feature
+43528661	Healthcare Access & Utilization	Health Advice: Spoken To Medical Specialist	ordinal	include		primary_full feature
+43528662	Healthcare Access & Utilization	Can't Afford Care: Dental Care	ordinal	include		primary_full feature
+43528663	Healthcare Access & Utilization	Can't Afford Care: Emergency Care	ordinal	include		primary_full feature
+43528664	Healthcare Access & Utilization	Can't Afford Care: Healthcare Provider	ordinal	include		primary_full feature
+43528665	Healthcare Access & Utilization	Can't Afford Care: Bought Rx From Other Country	ordinal	include		primary_full feature
+43528666	Healthcare Access & Utilization	Can't Afford Care: Alternative Therapies	ordinal	include		primary_full feature
+43529217	Personal and Family Health History	Have you or anyone in your family ever been diagnosed with the following mental health or substance use conditions? Think only of the people you are related to by blood. Select all that apply.	allowlisted_one_hot	include		primary_full feature
+43529903	Healthcare Access & Utilization	Delayed Medical Care: Child Care	ordinal	include		primary_full feature
+43529904	Healthcare Access & Utilization	Delayed Medical Care: Elderly Care	ordinal	include		primary_full feature
+43529905	Healthcare Access & Utilization	Delayed Medical Care: Time Off Work	ordinal	include		primary_full feature
+43529906	Healthcare Access & Utilization	Delayed Medical Care: Transportation	ordinal	include		primary_full feature
+43529973	Healthcare Access & Utilization	Health Advice: Nurse Practitioner, Physician Assistant, or Midwife Visits	one_hot	include		primary_full feature
+43529974	Healthcare Access & Utilization	Health Advice: Dentist or Orthodontist Visits	one_hot	include		primary_full feature
+43529975	Healthcare Access & Utilization	Health Advice: OB/GYN Visits	one_hot	include		primary_full feature
+43529976	Healthcare Access & Utilization	Health Advice: Medical Specialist Visits	one_hot	include		primary_full feature
+43529977	Healthcare Access & Utilization	Health Advice: Mental Health Professional Visits	one_hot	include		primary_full feature
+43529978	Healthcare Access & Utilization	Health Advice: Traditional Healer Visits	one_hot	include		primary_full feature
+43530268	Healthcare Access & Utilization	Delayed Medical Care: Rural Area	ordinal	include		primary_full feature
+43530399	Healthcare Access & Utilization	Health Advice: Spoken To Chiropractor	ordinal	include		primary_full feature
+43530400	Healthcare Access & Utilization	Health Advice: Spoken To Dentist or Orthodontist	ordinal	include		primary_full feature
+43530401	Healthcare Access & Utilization	Health Advice: Spoken To OB/GYN	ordinal	include		primary_full feature
+43530402	Healthcare Access & Utilization	Health Advice: Spoken To Mental Health Professional	ordinal	include		primary_full feature
+43530403	Healthcare Access & Utilization	Health Advice: Spoken To Eye Doctor	ordinal	include		primary_full feature
+43530404	Healthcare Access & Utilization	Health Advice: Spoken To Nurse Practitioner	ordinal	include		primary_full feature
+43530405	Healthcare Access & Utilization	Health Advice: Spoken To Physical Therapist, Speech Therapist, Respiratory Therapist, Audiologist, or Occupational Therapist	ordinal	include		primary_full feature
+43530406	Healthcare Access & Utilization	Health Advice: Spoken To Podiatrist	ordinal	include		primary_full feature
+43530407	Healthcare Access & Utilization	Health Advice: Spoken To Traditional Healer	ordinal	include		primary_full feature
+43530408	Healthcare Access & Utilization	Can't Afford Care: Eyeglasses	ordinal	include		primary_full feature
+43530409	Healthcare Access & Utilization	Can't Afford Care: Follow-up Care	ordinal	include		primary_full feature
+43530410	Healthcare Access & Utilization	Can't Afford Care: Mental Health Counseling	ordinal	include		primary_full feature
+43530411	Healthcare Access & Utilization	Can't Afford Care: Prescription Medicines	ordinal	include		primary_full feature
+43530412	Healthcare Access & Utilization	Can't Afford Care: Specialist	ordinal	include		primary_full feature
+43530413	Healthcare Access & Utilization	Can't Afford Care: Lower Cost Rx To Save Money	ordinal	include		primary_full feature
+43530415	Healthcare Access & Utilization	Can't Afford Care: Delayed Filling Rx To Save Money	ordinal	include		primary_full feature
+43530416	Healthcare Access & Utilization	Can't Afford Care: Skipped Med To Save Money	ordinal	include		primary_full feature
+43530417	Healthcare Access & Utilization	Can't Afford Care: Took Less Med To Save Money	ordinal	include		primary_full feature
+43530418	Healthcare Access & Utilization	Insurance: Insurance Accepted	ordinal	include		primary_full feature
+43530437	Healthcare Access & Utilization	Health Advice: Asked For Opinion	one_hot	include		primary_full feature
+43530438	Healthcare Access & Utilization	Health Advice: Ease of Understanding	one_hot	include		primary_full feature
+43530439	Healthcare Access & Utilization	Health Advice: Respected By Provider	one_hot	include		primary_full feature
+43530557	Healthcare Access & Utilization	Can't Afford Care: Worried About Paying	one_hot	include		primary_full feature
+43530559	Healthcare Access & Utilization	Insurance: Healthcare Coverage	one_hot	include		primary_full feature
+43530562	Healthcare Access & Utilization	Health Advice: Place for Health Advice	one_hot	include		primary_full feature
+43530583	Healthcare Access & Utilization	Delayed Medical Care: Can't Afford Co-pay	ordinal	include		primary_full feature
+43530584	Healthcare Access & Utilization	Delayed Medical Care: Had To Pay Out Of Pocket	ordinal	include		primary_full feature
+43530585	Healthcare Access & Utilization	Delayed Medical Care: Deductible Too High	ordinal	include		primary_full feature
+43530588	Healthcare Access & Utilization	Health Advice: General Doctor Visits	one_hot	include		primary_full feature
+43530589	Healthcare Access & Utilization	Health Advice: Chiropractor Visits	one_hot	include		primary_full feature
+43530590	Healthcare Access & Utilization	Health Advice: Podiatrist Visits	one_hot	include		primary_full feature
+43530591	Healthcare Access & Utilization	Health Advice: Eye Doctor Visits	one_hot	include		primary_full feature
+43530592	Healthcare Access & Utilization	Health Advice: Physical Therapist, Speech Therapist, Respiratory Therapist, Audiologist, or Occupational Therapist Visits	one_hot	include		primary_full feature
+43530593	Healthcare Access & Utilization	Health Advice: What Kind Of Place	one_hot	include		primary_full feature
+43530594	Healthcare Access & Utilization	Delayed Medical Care: Nervous	ordinal	include		primary_full feature
+43530595	Healthcare Access & Utilization	Health Advice: Spoken To Professional	one_hot	include		primary_full feature
+zip3_ses	zip3_ses_map	deprivation_index	numeric	include	Townsend deprivation index	derived area-SES; raw ZIP not used
+zip3_ses	zip3_ses_map	median_income	numeric	include		derived area-SES; raw ZIP not used
+zip3_ses	zip3_ses_map	fraction_poverty	numeric	include		derived area-SES; raw ZIP not used
+zip3_ses	zip3_ses_map	fraction_assisted_income	numeric	include		derived area-SES; raw ZIP not used
+zip3_ses	zip3_ses_map	fraction_no_health_ins	numeric	include		derived area-SES; raw ZIP not used
+zip3_ses	zip3_ses_map	fraction_vacant_housing	numeric	include		derived area-SES; raw ZIP not used

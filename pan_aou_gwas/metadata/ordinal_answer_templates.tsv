@@ -137,10 +137,13 @@ difficulty_0_4	without any difficulty	4	high	PROMIS everyday-activity difficulty
 audit_freq_0_4	never	0	high	AUDIT-C drinking frequency; higher = more frequent.
 audit_freq_0_4	monthly or less	1	high	AUDIT-C drinking frequency; higher = more frequent.
 audit_freq_0_4	2-4 times a month	2	high	AUDIT-C drinking frequency; higher = more frequent.
+audit_freq_0_4	2 to 4 per month	2	high	AUDIT-C drinking frequency; higher = more frequent.
 audit_freq_0_4	two to four times a month	2	high	AUDIT-C drinking frequency; higher = more frequent.
 audit_freq_0_4	2-3 times a week	3	high	AUDIT-C drinking frequency; higher = more frequent.
+audit_freq_0_4	2 to 3 per week	3	high	AUDIT-C drinking frequency; higher = more frequent.
 audit_freq_0_4	two to three times a week	3	high	AUDIT-C drinking frequency; higher = more frequent.
 audit_freq_0_4	4 or more times a week	4	high	AUDIT-C drinking frequency; higher = more frequent.
+audit_freq_0_4	4 or more per week	4	high	AUDIT-C drinking frequency; higher = more frequent.
 audit_freq_0_4	four or more times a week	4	high	AUDIT-C drinking frequency; higher = more frequent.
 binge_freq_0_4	never	0	high	Binge/6+ drink frequency; higher = more frequent.
 binge_freq_0_4	never in the last year	0	high	Binge/6+ drink frequency; higher = more frequent.

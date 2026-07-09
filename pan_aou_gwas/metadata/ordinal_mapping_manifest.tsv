@@ -40,8 +40,11 @@ Lifestyle	smokelesstobacco_smokelesstobaccofrequency		smoke_freq_0_2	template	hi
 Lifestyle	alcohol_drinkfrequencypastyear		audit_freq_0_4	override	high	Never	never	0	How often did you have a drink containing alcohol in the past year?
 Lifestyle	alcohol_drinkfrequencypastyear		audit_freq_0_4	override	high	Monthly or less	monthly or less	1	How often did you have a drink containing alcohol in the past year?
 Lifestyle	alcohol_drinkfrequencypastyear		audit_freq_0_4	override	high	Two to four times a month	two to four times a month	2	How often did you have a drink containing alcohol in the past year?
+Lifestyle	alcohol_drinkfrequencypastyear		audit_freq_0_4	override	high	Drink Frequency Past Year: 2 to 4 Per Month	2 to 4 per month	2	How often did you have a drink containing alcohol in the past year?
 Lifestyle	alcohol_drinkfrequencypastyear		audit_freq_0_4	override	high	Two to three times a week	two to three times a week	3	How often did you have a drink containing alcohol in the past year?
+Lifestyle	alcohol_drinkfrequencypastyear		audit_freq_0_4	override	high	Drink Frequency Past Year: 2 to 3 Per Week	2 to 3 per week	3	How often did you have a drink containing alcohol in the past year?
 Lifestyle	alcohol_drinkfrequencypastyear		audit_freq_0_4	override	high	Four or more times a week	four or more times a week	4	How often did you have a drink containing alcohol in the past year?
+Lifestyle	alcohol_drinkfrequencypastyear		audit_freq_0_4	override	high	Drink Frequency Past Year: 4 or More Per Week	4 or more per week	4	How often did you have a drink containing alcohol in the past year?
 Lifestyle	alcohol_averagedailydrinkcount		drink_count_band_midpoint	override	medium	1 or 2	1 or 2	1.5	On a typical day when you drink, how many drinks do you have?
 Lifestyle	alcohol_averagedailydrinkcount		drink_count_band_midpoint	override	medium	3 or 4	3 or 4	3.5	On a typical day when you drink, how many drinks do you have?
 Lifestyle	alcohol_averagedailydrinkcount		drink_count_band_midpoint	override	medium	5 or 6	5 or 6	5.5	On a typical day when you drink, how many drinks do you have?
@@ -164,7 +167,9 @@ Overall Health	overallhealth_emotionalproblem7days		freq_never_always5_0_4	templ
 Overall Health	overallhealth_emotionalproblem7days		freq_never_always5_0_4	template	high	Always	always	4	In the past 7 days, how often have you been bothered by emotional problems such as feeling anxious, depressed, or irritable?
 Overall Health	overallhealth_ovaryremovalhistory		ovary_removal_count_0_2	override	medium	No	no	0	Have you ever had an ovary removed?
 Overall Health	overallhealth_ovaryremovalhistory		ovary_removal_count_0_2	override	medium	Yes, but only one ovary or part of one ovary	yes, but only one ovary or part of one ovary	1	Have you ever had an ovary removed?
+Overall Health	overallhealth_ovaryremovalhistory		ovary_removal_count_0_2	override	medium	Ovary Removal History: Yes Sectioned	yes sectioned	1	Have you ever had an ovary removed?
 Overall Health	overallhealth_ovaryremovalhistory		ovary_removal_count_0_2	override	medium	Yes, both ovaries	yes, both ovaries	2	Have you ever had an ovary removed?
+Overall Health	overallhealth_ovaryremovalhistory		ovary_removal_count_0_2	override	medium	Ovary Removal History: Yes Both	yes both	2	Have you ever had an ovary removed?
 Healthcare Access and Utilization	insurance_healthcarecoverage		better_worse_signed	override	medium	Better	better	1	In regard to your health insurance or health care coverage, how does it compare to a year ago? Is it better, worse, or about the same?
 Healthcare Access and Utilization	insurance_healthcarecoverage		better_worse_signed	override	medium	Worse	worse	-1	In regard to your health insurance or health care coverage, how does it compare to a year ago? Is it better, worse, or about the same?
 Healthcare Access and Utilization	insurance_healthcarecoverage		better_worse_signed	override	medium	About the Same	about the same	0	In regard to your health insurance or health care coverage, how does it compare to a year ago? Is it better, worse, or about the same?
@@ -454,10 +459,10 @@ Social Determinants of Health	sdoh_ucla_ls8_14		freq_never_veryoften_0_4	templat
 Social Determinants of Health	sdoh_ucla_ls8_14		freq_never_veryoften_0_4	template	high	Rarely	rarely	1	I feel isolated from others
 Social Determinants of Health	sdoh_ucla_ls8_14		freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	I feel isolated from others
 Social Determinants of Health	sdoh_ucla_ls8_14		freq_never_veryoften_0_4	template	high	Often	often	3	I feel isolated from others
-Social Determinants of Health	sdoh_ucla_ls8_15		freq_never_veryoften_0_4	template	high	Never	never	0	I can find companionship when I want it
-Social Determinants of Health	sdoh_ucla_ls8_15		freq_never_veryoften_0_4	template	high	Rarely	rarely	1	I can find companionship when I want it
-Social Determinants of Health	sdoh_ucla_ls8_15		freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	I can find companionship when I want it
-Social Determinants of Health	sdoh_ucla_ls8_15		freq_never_veryoften_0_4	template	high	Often	often	3	I can find companionship when I want it
+Social Determinants of Health	sdoh_ucla_ls8_15	40192516	freq_never_veryoften_0_4	template	high	Never	never	0	I can find companionship when I want it
+Social Determinants of Health	sdoh_ucla_ls8_15	40192516	freq_never_veryoften_0_4	template	high	Rarely	rarely	1	I can find companionship when I want it
+Social Determinants of Health	sdoh_ucla_ls8_15	40192516	freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	I can find companionship when I want it
+Social Determinants of Health	sdoh_ucla_ls8_15	40192516	freq_never_veryoften_0_4	template	high	Often	often	3	I can find companionship when I want it
 Social Determinants of Health	sdoh_ucla_ls8_17		freq_never_veryoften_0_4	template	high	Never	never	0	I am unhappy being so withdrawn
 Social Determinants of Health	sdoh_ucla_ls8_17		freq_never_veryoften_0_4	template	high	Rarely	rarely	1	I am unhappy being so withdrawn
 Social Determinants of Health	sdoh_ucla_ls8_17		freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	I am unhappy being so withdrawn
@@ -1452,42 +1457,43 @@ Emotional Health History and Well-Being	mhqukb_58		amount_0_4	template	high	A li
 Emotional Health History and Well-Being	mhqukb_58		amount_0_4	template	high	A moderate amount	a moderate amount	2	To what extent do you feel your life to be meaningful?
 Emotional Health History and Well-Being	mhqukb_58		amount_0_4	template	high	Very much	very much	3	To what extent do you feel your life to be meaningful?
 Emotional Health History and Well-Being	mhqukb_58		amount_0_4	template	high	An extreme amount	an extreme amount	4	To what extent do you feel your life to be meaningful?
-Behavioral Health and Personality	asrs_1		freq_never_veryoften_0_4	template	high	Never	never	0	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?
-Behavioral Health and Personality	asrs_1		freq_never_veryoften_0_4	template	high	Rarely	rarely	1	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?
-Behavioral Health and Personality	asrs_1		freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?
-Behavioral Health and Personality	asrs_1		freq_never_veryoften_0_4	template	high	Often	often	3	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?
-Behavioral Health and Personality	asrs_1		freq_never_veryoften_0_4	template	high	Very often	very often	4	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?
-Behavioral Health and Personality	asrs_2		freq_never_veryoften_0_4	template	high	Never	never	0	How often do you have difficulty getting things in order when you have to do a task that requires organization?
-Behavioral Health and Personality	asrs_2		freq_never_veryoften_0_4	template	high	Rarely	rarely	1	How often do you have difficulty getting things in order when you have to do a task that requires organization?
-Behavioral Health and Personality	asrs_2		freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	How often do you have difficulty getting things in order when you have to do a task that requires organization?
-Behavioral Health and Personality	asrs_2		freq_never_veryoften_0_4	template	high	Often	often	3	How often do you have difficulty getting things in order when you have to do a task that requires organization?
-Behavioral Health and Personality	asrs_2		freq_never_veryoften_0_4	template	high	Very often	very often	4	How often do you have difficulty getting things in order when you have to do a task that requires organization?
-Behavioral Health and Personality	asrs_3		freq_never_veryoften_0_4	template	high	Never	never	0	How often do you have problems remembering appointments or obligations?
-Behavioral Health and Personality	asrs_3		freq_never_veryoften_0_4	template	high	Rarely	rarely	1	How often do you have problems remembering appointments or obligations?
-Behavioral Health and Personality	asrs_3		freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	How often do you have problems remembering appointments or obligations?
-Behavioral Health and Personality	asrs_3		freq_never_veryoften_0_4	template	high	Often	often	3	How often do you have problems remembering appointments or obligations?
-Behavioral Health and Personality	asrs_3		freq_never_veryoften_0_4	template	high	Very often	very often	4	How often do you have problems remembering appointments or obligations?
-Behavioral Health and Personality	asrs_4		freq_never_veryoften_0_4	template	high	Never	never	0	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?
-Behavioral Health and Personality	asrs_4		freq_never_veryoften_0_4	template	high	Rarely	rarely	1	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?
-Behavioral Health and Personality	asrs_4		freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?
-Behavioral Health and Personality	asrs_4		freq_never_veryoften_0_4	template	high	Often	often	3	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?
-Behavioral Health and Personality	asrs_4		freq_never_veryoften_0_4	template	high	Very often	very often	4	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?
-Behavioral Health and Personality	asrs_5		freq_never_veryoften_0_4	template	high	Never	never	0	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?
-Behavioral Health and Personality	asrs_5		freq_never_veryoften_0_4	template	high	Rarely	rarely	1	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?
-Behavioral Health and Personality	asrs_5		freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?
-Behavioral Health and Personality	asrs_5		freq_never_veryoften_0_4	template	high	Often	often	3	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?
-Behavioral Health and Personality	asrs_5		freq_never_veryoften_0_4	template	high	Very often	very often	4	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?
-Behavioral Health and Personality	asrs_6		freq_never_veryoften_0_4	template	high	Never	never	0	How often do you feel overly active and compelled to do things, like you were driven by a motor?
-Behavioral Health and Personality	asrs_6		freq_never_veryoften_0_4	template	high	Rarely	rarely	1	How often do you feel overly active and compelled to do things, like you were driven by a motor?
-Behavioral Health and Personality	asrs_6		freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	How often do you feel overly active and compelled to do things, like you were driven by a motor?
-Behavioral Health and Personality	asrs_6		freq_never_veryoften_0_4	template	high	Often	often	3	How often do you feel overly active and compelled to do things, like you were driven by a motor?
-Behavioral Health and Personality	asrs_6		freq_never_veryoften_0_4	template	high	Very often	very often	4	How often do you feel overly active and compelled to do things, like you were driven by a motor?
+Behavioral Health and Personality	asrs_1	1703874	freq_never_veryoften_0_4	template	high	Never	never	0	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?
+Behavioral Health and Personality	asrs_1	1703874	freq_never_veryoften_0_4	template	high	Rarely	rarely	1	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?
+Behavioral Health and Personality	asrs_1	1703874	freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?
+Behavioral Health and Personality	asrs_1	1703874	freq_never_veryoften_0_4	template	high	Often	often	3	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?
+Behavioral Health and Personality	asrs_1	1703874	freq_never_veryoften_0_4	template	high	Very often	very often	4	How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?
+Behavioral Health and Personality	asrs_2	1703914	freq_never_veryoften_0_4	template	high	Never	never	0	How often do you have difficulty getting things in order when you have to do a task that requires organization?
+Behavioral Health and Personality	asrs_2	1703914	freq_never_veryoften_0_4	template	high	Rarely	rarely	1	How often do you have difficulty getting things in order when you have to do a task that requires organization?
+Behavioral Health and Personality	asrs_2	1703914	freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	How often do you have difficulty getting things in order when you have to do a task that requires organization?
+Behavioral Health and Personality	asrs_2	1703914	freq_never_veryoften_0_4	template	high	Often	often	3	How often do you have difficulty getting things in order when you have to do a task that requires organization?
+Behavioral Health and Personality	asrs_2	1703914	freq_never_veryoften_0_4	template	high	Very often	very often	4	How often do you have difficulty getting things in order when you have to do a task that requires organization?
+Behavioral Health and Personality	asrs_3	1703878	freq_never_veryoften_0_4	template	high	Never	never	0	How often do you have problems remembering appointments or obligations?
+Behavioral Health and Personality	asrs_3	1703878	freq_never_veryoften_0_4	template	high	Rarely	rarely	1	How often do you have problems remembering appointments or obligations?
+Behavioral Health and Personality	asrs_3	1703878	freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	How often do you have problems remembering appointments or obligations?
+Behavioral Health and Personality	asrs_3	1703878	freq_never_veryoften_0_4	template	high	Often	often	3	How often do you have problems remembering appointments or obligations?
+Behavioral Health and Personality	asrs_3	1703878	freq_never_veryoften_0_4	template	high	Very often	very often	4	How often do you have problems remembering appointments or obligations?
+Behavioral Health and Personality	asrs_4	1703916	freq_never_veryoften_0_4	template	high	Never	never	0	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?
+Behavioral Health and Personality	asrs_4	1703916	freq_never_veryoften_0_4	template	high	Rarely	rarely	1	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?
+Behavioral Health and Personality	asrs_4	1703916	freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?
+Behavioral Health and Personality	asrs_4	1703916	freq_never_veryoften_0_4	template	high	Often	often	3	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?
+Behavioral Health and Personality	asrs_4	1703916	freq_never_veryoften_0_4	template	high	Very often	very often	4	When you have a task that requires a lot of thought, how often do you avoid or delay getting started?
+Behavioral Health and Personality	asrs_5	1703913	freq_never_veryoften_0_4	template	high	Never	never	0	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?
+Behavioral Health and Personality	asrs_5	1703913	freq_never_veryoften_0_4	template	high	Rarely	rarely	1	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?
+Behavioral Health and Personality	asrs_5	1703913	freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?
+Behavioral Health and Personality	asrs_5	1703913	freq_never_veryoften_0_4	template	high	Often	often	3	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?
+Behavioral Health and Personality	asrs_5	1703913	freq_never_veryoften_0_4	template	high	Very often	very often	4	How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?
+Behavioral Health and Personality	asrs_6	1703925	freq_never_veryoften_0_4	template	high	Never	never	0	How often do you feel overly active and compelled to do things, like you were driven by a motor?
+Behavioral Health and Personality	asrs_6	1703925	freq_never_veryoften_0_4	template	high	Rarely	rarely	1	How often do you feel overly active and compelled to do things, like you were driven by a motor?
+Behavioral Health and Personality	asrs_6	1703925	freq_never_veryoften_0_4	template	high	Sometimes	sometimes	2	How often do you feel overly active and compelled to do things, like you were driven by a motor?
+Behavioral Health and Personality	asrs_6	1703925	freq_never_veryoften_0_4	template	high	Often	often	3	How often do you feel overly active and compelled to do things, like you were driven by a motor?
+Behavioral Health and Personality	asrs_6	1703925	freq_never_veryoften_0_4	template	high	Very often	very often	4	How often do you feel overly active and compelled to do things, like you were driven by a motor?
 Behavioral Health and Personality	mhqukb_46		episode_duration_days_midpoint	override	medium	Less than 24 hours	less than 24 hours	0.5	"What is the longest time that these ""high"" or ""irritable"" periods have lasted?"
 Behavioral Health and Personality	mhqukb_46		episode_duration_days_midpoint	override	medium	At least a day, but less than four days	at least a day, but less than four days	2.5	"What is the longest time that these ""high"" or ""irritable"" periods have lasted?"
 Behavioral Health and Personality	mhqukb_46		episode_duration_days_midpoint	override	medium	At least four days in a row but less than a week	at least four days in a row but less than a week	5.5	"What is the longest time that these ""high"" or ""irritable"" periods have lasted?"
 Behavioral Health and Personality	mhqukb_46		episode_duration_days_midpoint	override	medium	A week or more	a week or more	10.0	"What is the longest time that these ""high"" or ""irritable"" periods have lasted?"
 Behavioral Health and Personality	mhqukb_47		impairment_0_1	override	medium	No problems	no problems	0	"How much of a problem have these ""high"" or ""irritable"" periods caused you?"
 Behavioral Health and Personality	mhqukb_47		impairment_0_1	override	medium	Needed treatment or caused problems with work, relationships, finances, the law or other aspects of life	needed treatment or caused problems with work, relationships, finances, the law or other aspects of life	1	"How much of a problem have these ""high"" or ""irritable"" periods caused you?"
+Behavioral Health and Personality	mhqukb_47		impairment_0_1	override	medium	Needed treatment or caused problems with work	needed treatment or caused problems with work	1	"How much of a problem have these ""high"" or ""irritable"" periods caused you?"
 Behavioral Health and Personality	mhqukb_54		distress_0_4	override	high	Not distressing at all. It was a positive experience	not distressing at all. it was a positive experience	0	How distressing did you find having any of these experiences (such as seeing a vision, hearing a voice, believing that something strange was trying to communicate with you, or there was a plot against you)?
 Behavioral Health and Personality	mhqukb_54		distress_0_4	override	high	Not distressing, a neutral experience	not distressing, a neutral experience	1	How distressing did you find having any of these experiences (such as seeing a vision, hearing a voice, believing that something strange was trying to communicate with you, or there was a plot against you)?
 Behavioral Health and Personality	mhqukb_54		distress_0_4	override	high	A bit distressing	a bit distressing	2	How distressing did you find having any of these experiences (such as seeing a vision, hearing a voice, believing that something strange was trying to communicate with you, or there was a plot against you)?
