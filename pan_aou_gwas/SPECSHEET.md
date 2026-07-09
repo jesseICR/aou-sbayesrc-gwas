@@ -105,10 +105,17 @@ The GWAS analysis sample is the **unrelated European** subset, reusing the main 
 
 ```text
 classified European ancestry            sbayesrc_genotypes/europeans/classified_european_iids.txt
-AND confident genetic sex               sbayesrc_genotypes/genetic_sex/sex_covar.txt   (sex_01 in {0,1})
+AND pan-AoU binary sex covariate         data/pan_aou_gwas_work/sample_qc/pan_aou_sex_covar.txt
 AND not in identical-component excl.    sbayesrc_genotypes/sample_qc/exclude_identical_component_size_ge3_iids.txt
 AND unrelated at KING < 0.0441941       sbayesrc_genotypes/pca_eur/fit_pca_iids.txt    (PCA-fit unrelated set)
 ```
+
+`pan_aou_sex_covar.txt` is built by `scripts/build_pan_aou_sex_covar.py`. It starts from the main
+pipeline's strict `genetic_sex/sex_covar.txt` and then adds the following pre-specified rows from
+`genetic_sex/sex_ploidy_qc.tsv`: assigned sex at birth Male with DRAGEN `X0`/`XO` is coded male,
+and skipped/prefer-not-to-answer sex-at-birth rows with DRAGEN `XX`/`XY` are coded from the DRAGEN
+binary ploidy. All other nonbinary, missing, discordant, or noncanonical sex/ploidy combinations
+remain excluded from the pan-AoU GWAS sample.
 
 `fit_pca_iids.txt` is the third-degree-unrelated European set used to fit PCA (≈ 252,774 samples). It
 is the primary keep-list. PLINK2 `--glm` is a fixed-effect model and cannot absorb kinship, so
@@ -171,7 +178,7 @@ Both the raw and the residualized phenotype vectors are written to disk for audi
 
 ```text
 age_c              = age_at_event - mean(age_at_event within this phenotype's analysis sample)
-sex_c              = sex_01 - 0.5                         # confirmed genetic sex, 0/1
+sex_c              = sex_01 - 0.5                         # pan-AoU binary sex covariate, 0/1
 age_c_sex_c_inter  = age_c * sex_c
 PC1_AVG ... PC10_AVG                                       # from pca_eur/aou_projected.sscore
 ```
@@ -368,6 +375,24 @@ free-text / date-only     excluded (237 free-text, 33 date-only): no derived phe
 If you want any of these included, they are already parsed in `metadata/survey_item_inventory.tsv`;
 flip the disposition rule in `scripts/build_manifests.py`.
 
+### 9.2 SES-EA XGBoost feature-source supplement
+
+The primary survey metadata is codebook-derived, then linked back to live AoU
+question IDs at runtime. The SES-EA and direct GradCPT/Flanker XGBoost models
+were trained from live v9 question IDs, and some of those IDs do not round-trip
+through the codebook text matcher. `metadata/ea_proxy_feature_sources.tsv`
+therefore acts as a supplemental include-list for source questions used by those
+models. It only fills question IDs missing from the normal manifest; codebook
+metadata remains authoritative wherever both sources exist.
+
+The supplemental source covers the same survey questions used by the XGBoost
+feature contract. Ordinal supplemental rows use the same answer-text parser as
+the SES-EA setup code; one-hot source questions are emitted as one-vs-rest binary
+phenotypes; numeric source questions are emitted as continuous phenotypes when
+the response text parses as a number. Technical XGBoost columns such as
+survey-taken flags, age-at-survey columns, genetic sex, and curated nonresponse
+indicators are not treated as participant traits unless explicitly added as such.
+
 ---
 
 ## 10. Physical measurements
@@ -482,6 +507,27 @@ gradcpt_flanker_finetuned_ea_proxy_z   SES-EA boosters fine-tuned toward the Gra
 gradcpt_flanker_direct_xgb_proxy_z     scratch XGBoost survey -> GradCPT+Flanker proxy (not fine-tuned).
 g4_finetuned_ea_proxy_z    SES-EA boosters fine-tuned toward the 4-domain ETM-g factor.
 gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z   the final selected g-EA proxy (headline).
+```
+
+## 11b.1 ZIP3 socioeconomic context GWAS
+
+AoU `ds_zip_code_socioeconomic` provides the latest ZIP3-level socioeconomic
+context row per participant. The pipeline treats the seven numeric fields as
+quantitative contextual phenotypes, then applies the standard continuous-trait
+pipeline (§4.1): inverse-rank-normal transform followed by residualization on
+age at observation, sex, age×sex, and PC1..PC10. Raw ZIP3 and ACS vintage are
+kept in the local extract for auditability but are not GWASed.
+
+Phenotype ids:
+
+```text
+zip3_deprivation_index
+zip3_median_income
+zip3_fraction_poverty
+zip3_fraction_assisted_income
+zip3_fraction_no_health_ins
+zip3_fraction_vacant_housing
+zip3_fraction_high_school_edu
 ```
 
 ## 11c. Validated composite score definitions
@@ -837,13 +883,14 @@ Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case 
 | PFHH self-history allowlist (binary self_has) | 33 | 33 | 0 | 0 | 33 |
 | PFHH relatedness-burden sumscore (quant) | 33 | 0 | 33 | 0 | 33 |
 | Physical measurements | 9 | 0 | 0 | 9 | 9 |
+| ZIP3 socioeconomic context (§11b.1) | 7 | 0 | 0 | 7 | 7 |
 | Cognitive / EA-proxy external scores | 10 | 0 | 0 | 10 | 10 |
 | Validated composite scores (§11c): scales + BFI-2 Big Five + neighborhood/walkability/hunger + PCL + well-being | 29 | 0 | 29 | 0 | 29 |
 | Derived psychiatric phenotypes (§11d) | 8 | 8 | 0 | 0 | 8 |
 | Acculturation index (§11e) | 1 | 0 | 1 | 0 | 1 |
 | Geographic / political state clusters (§11f) | 12 | 12 | 0 | 0 | 12 |
 | Wearable (Fitbit) phenotypes incl. chronotype (§10b) | 6 | 0 | 0 | 6 | 6 |
-| **TOTAL** | **~845** | **3036** | **408** | **79** | **3524** |
+| **TOTAL** | **~852** | **3036** | **408** | **86** | **3531** |
 
 (The 33 `pfhh_burden_*` sumscores and the 10 `cog_*` external scores are counted as
 quantitative traits. Physical measurements now include pulse pressure and MAP.)
@@ -859,6 +906,7 @@ metadata/ordinal_answer_templates.tsv     shared ordinal rule library (rule -> l
 metadata/ordinal_mapping_manifest.tsv     per (ordinal question, answer) -> value
 metadata/flagged_questions.tsv            sensitive + uncertain/stretched items for review
 metadata/pfhh_self_allowlist.tsv          33 self_has_<condition> phenotypes
+metadata/ea_proxy_feature_sources.tsv     supplemental live v9 source questions from SES-EA/direct-XGB
 phenotypes/<pheno>.raw.pheno.tsv          raw + residualized phenotype vectors (audit)
 phenotypes/<pheno>.resid.pheno.tsv        the vector PLINK2 reads
 gwas/<pheno>/<pheno>.<pheno>_resid.glm.linear      per-phenotype summary statistics

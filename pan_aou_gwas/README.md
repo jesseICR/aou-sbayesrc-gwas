@@ -1,8 +1,8 @@
 # pan_aou_gwas — Pan-UKB-style All of Us HapMap3 residualize-first GWAS
 
-A phenotype-wide GWAS factory over the All of Us survey + physical-measurement
-data, run on the pre-built HapMap3 HQ bfile with PLINK2 covariate-free linear
-regression on **pre-residualized** phenotypes. The full design is in
+A phenotype-wide GWAS factory over the All of Us survey, physical-measurement,
+and ZIP3 socioeconomic-context data, run on the pre-built HapMap3 HQ bfile with
+PLINK2 covariate-free linear regression on **pre-residualized** phenotypes. The full design is in
 [`SPECSHEET.md`](SPECSHEET.md).
 
 **This run produces the GWAS summary-statistic files only.** Downstream LDSC
@@ -15,6 +15,7 @@ SPECSHEET.md                       the finalized specsheet (method + decisions)
 scripts/parse_codebooks.py         parse the v9 codebook workbook -> item inventory
 scripts/ordinal_rules.py           the ordinal-mapping knowledge base (templates + overrides)
 scripts/build_manifests.py         inventory -> the four phenotype manifests
+scripts/build_pan_aou_sex_covar.py build the pan-AoU binary sex covariate
 scripts/pan_aou_gwas.py            build residualized phenotypes + run PLINK2
 run_pan_aou_gwas.sh                on-platform orchestrator (env, extract, keep-list, run)
 metadata/                          generated manifests (see below)
@@ -31,6 +32,7 @@ metadata/                          generated manifests (see below)
 | `flagged_questions.tsv` | flagged question | sensitive + medium-confidence + uncertain-ordinal items for review |
 | `pfhh_self_allowlist.tsv` | condition | the 33 PFHH self-history conditions (binary + burden sumscore) |
 | `external_scores.tsv` | cognitive/proxy score | registry of ETM task + EA-proxy scores to GWAS (verify paths on platform) |
+| `ea_proxy_feature_sources.tsv` | EA-proxy source question | supplemental live v9 question IDs used by the SES-EA/direct-XGB feature contract but absent from the codebook-derived matcher |
 | `composite_items_manifest.tsv` | (instrument, item, answer) | validated composite scores (GAD-7, PHQ-9, PSS, BFI-2, ...) item scoring |
 | `COMPOSITE_SCORES.md` | instrument | human-readable definition of each composite (items, scoring, combination) |
 
@@ -69,9 +71,18 @@ bash run_pan_aou_gwas.sh                 # full run
 
 The orchestrator resolves inputs from `${DX_OUTPUT_DIR}` (= workspace-bucket
 `sbayesrc_genotypes/`): the HapMap3 bfile, `pca_eur/fit_pca_iids.txt`,
-`pca_eur/aou_projected.sscore`, `genetic_sex/sex_covar.txt`, and the
-identical-component exclusion list. Set `PAN_AOU_SKIP_MHWB=1` if the off-cycle
+`pca_eur/aou_projected.sscore`, `genetic_sex/sex_covar.txt`,
+`genetic_sex/sex_ploidy_qc.tsv`, and the identical-component exclusion list.
+The run builds `data/pan_aou_gwas_work/sample_qc/pan_aou_sex_covar.txt` from
+the strict main-pipeline sex covariate plus explicit pan-AoU imputation rules
+for assigned-male DRAGEN `X0`/`XO` and skipped/prefer-not-to-answer sex-at-birth
+rows with DRAGEN `XX`/`XY`. Set `PAN_AOU_SKIP_MHWB=1` if the off-cycle
 Mental Health / Well-Being CDR is unavailable.
+
+The run also extracts `ds_zip_code_socioeconomic` and GWASes the seven numeric
+ZIP3 context traits: deprivation index, median income, poverty, assisted income,
+no health insurance, vacant housing, and high-school education fraction. Raw
+ZIP3 codes and ACS vintage are retained only in the extract for auditability.
 
 ## Method (one line)
 

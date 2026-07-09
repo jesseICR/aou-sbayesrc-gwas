@@ -1,6 +1,7 @@
 matplotlib==3.10.1
 numpy==2.2.6
 pandas==2.3.2
+pyarrow==17.0.0
 scikit-learn==1.6.1
 scipy==1.15.2
 xgboost==3.2.0

@@ -24,10 +24,13 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
+import gzip
 import json
 import math
 import os
 import re
+import sys
 import shutil
 import subprocess
 import sys
@@ -57,6 +60,37 @@ MEASUREMENTS = {
     # BMI is derived from height+weight or taken from concept 903124; handled below.
 }
 
+ZIP3_SES_TRAITS = {
+    "zip3_deprivation_index": (
+        "deprivation_index",
+        "ZIP3 Area SES: deprivation index",
+    ),
+    "zip3_median_income": (
+        "median_income",
+        "ZIP3 Area SES: median income",
+    ),
+    "zip3_fraction_poverty": (
+        "fraction_poverty",
+        "ZIP3 Area SES: fraction in poverty",
+    ),
+    "zip3_fraction_assisted_income": (
+        "fraction_assisted_income",
+        "ZIP3 Area SES: fraction receiving assisted income",
+    ),
+    "zip3_fraction_no_health_ins": (
+        "fraction_no_health_ins",
+        "ZIP3 Area SES: fraction without health insurance",
+    ),
+    "zip3_fraction_vacant_housing": (
+        "fraction_vacant_housing",
+        "ZIP3 Area SES: fraction vacant housing",
+    ),
+    "zip3_fraction_high_school_edu": (
+        "fraction_high_school_edu",
+        "ZIP3 Area SES: fraction high-school educated",
+    ),
+}
+
 
 def log(msg: str) -> None:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
@@ -67,6 +101,10 @@ def norm_q(text: str) -> str:
     text = text.translate(str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'}))
     text = re.sub(r"\s+", " ", text).strip().lower().strip(" ?.\"'")
     return text
+
+
+def compact_key(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(text or "").lower())
 
 
 # --------------------------------------------------------------------------- #
@@ -133,70 +171,481 @@ def load_pcs(path: Path) -> dict[str, list[float]]:
     return out
 
 
-def load_question_manifest(path: Path) -> dict[str, dict]:
-    """Map normalized question text -> its manifest disposition row."""
+def load_fam_fids(path: Path) -> dict[str, str]:
     out = {}
-    with open(path, newline="") as f:
-        for row in csv.DictReader(f, delimiter="\t"):
-            out.setdefault(norm_q(row["field_label"]), row)
+    with open(path) as f:
+        for line in f:
+            p = line.split()
+            if len(p) >= 2:
+                out[p[1]] = p[0]
     return out
 
 
+def load_question_manifest(path: Path) -> tuple[dict[str, dict], dict[str, dict], list[dict]]:
+    """Return manifest maps by normalized prompt text/qid and compact item_concept."""
+    by_text = {}
+    by_item = {}
+    rows = []
+    with open(path, newline="") as f:
+        for row in csv.DictReader(f, delimiter="\t"):
+            rows.append(row)
+            by_text.setdefault(norm_q(row["field_label"]), row)
+            qid = (row.get("question_concept_id") or "").strip()
+            if qid:
+                by_text.setdefault(qid, row)
+            item = compact_key(row.get("item_concept", ""))
+            if item:
+                by_item.setdefault(item, row)
+    return by_text, by_item, rows
+
+
+def load_live_question_crosswalk(path: Path | None, manifest_rows: list[dict], by_text: dict[str, dict]):
+    """Map live AoU question_concept_id and item_concept to manifest rows.
+
+    AoU ds_survey uses short labels such as "Overall Health: General Health",
+    while the codebook manifest stores full participant-facing prompts. This
+    crosswalk links live question IDs back to codebook item_concept values using
+    the repo's metadata export.
+    """
+    qid_to_manifest = {}
+    item_to_qid = {}
+    if not path or not path.exists():
+        return qid_to_manifest, item_to_qid
+
+    rows_by_survey = defaultdict(list)
+    for row in manifest_rows:
+        rows_by_survey[row.get("survey", "")].append(row)
+
+    with open(path, newline="") as f:
+        for live in csv.DictReader(f, delimiter="\t"):
+            qid = (live.get("question_concept_id") or "").strip()
+            if not qid:
+                continue
+            live_text = live.get("question", "")
+            live_norm = norm_q(live_text)
+            man = by_text.get(live_norm)
+            if man is None:
+                live_compact = compact_key(live_text)
+                candidates = []
+                for row in rows_by_survey.get(live.get("survey", ""), []):
+                    item_compact = compact_key(row.get("item_concept", ""))
+                    if not item_compact or not live_compact:
+                        continue
+                    if (
+                        item_compact == live_compact
+                        or item_compact.endswith(live_compact)
+                        or live_compact.endswith(item_compact)
+                    ):
+                        candidates.append(row)
+                if len(candidates) == 1:
+                    man = candidates[0]
+            if man is None:
+                continue
+            qid_to_manifest[qid] = man
+            item = (man.get("item_concept") or "").strip()
+            if item:
+                item_to_qid[item] = qid
+    return qid_to_manifest, item_to_qid
+
+
+def load_ea_proxy_feature_sources(path: Path | None, existing_qman: dict[str, dict]):
+    """Supplement metadata with EA-proxy source questions absent from codebooks.
+
+    The pan-AoU metadata is primarily REDCap/codebook-derived. The SES-EA XGBoost
+    feature contract was built directly from live AoU question IDs, and a subset
+    of those v9 IDs do not round-trip through the codebook text matcher. This
+    supplemental manifest adds only missing live question IDs, leaving codebook
+    rows in charge wherever both sources exist.
+    """
+    rows = []
+    if not path or not path.exists():
+        return rows
+    encoding_to_disposition = {
+        "ordinal": "ordinal_and_binary",
+        "one_hot": "nominal_binary",
+        "allowlisted_one_hot": "nominal_binary",
+        "numeric": "numeric",
+    }
+    with open(path, newline="") as f:
+        for row in csv.DictReader(f, delimiter="\t"):
+            if (row.get("include_exclude") or "").strip() != "include":
+                continue
+            qid = (row.get("question_concept_id") or "").strip()
+            if not qid.isdigit() or qid in existing_qman:
+                continue
+            encoding = (row.get("encoding") or "").strip()
+            disp = encoding_to_disposition.get(encoding)
+            if not disp:
+                continue
+            rows.append({
+                "survey": row.get("survey", ""),
+                "item_concept": f"xgb_q{qid}",
+                "question_concept_id": qid,
+                "field_type": "text",
+                "phenotype_class": "numeric_text" if encoding == "numeric" else "single_select",
+                "disposition": disp,
+                "ordinal_rule": "ea_proxy_ordinal_text" if encoding == "ordinal" else "",
+                "ordinal_source": "ea_proxy_feature_manifest" if encoding == "ordinal" else "",
+                "ordinal_confidence": "medium" if encoding == "ordinal" else "",
+                "n_options": "",
+                "n_binary_phenos": "",
+                "n_ordinal_levels": "",
+                "sensitive_topics": "",
+                "flag_reason": "",
+                "notes": "Supplemental source question from SES-EA XGBoost feature contract.",
+                "field_label": row.get("item_name", ""),
+            })
+    return rows
+
+
+def live_question_override_spec(qid: str, survey: str, question: str) -> dict | None:
+    """Metadata overrides for live AoU qids absent from codebook-derived rows.
+
+    These are deliberately narrow.  They cover v9 question_concept_id values
+    observed in the live survey extracts that failed to round-trip through the
+    REDCap/codebook crosswalk, while keeping excluded/admin fields explicit.
+    """
+    # Repeated COVID-19 vaccine follow-up fields.  The dose-specific "received
+    # another dose", dose-type, vaccine-name, and adverse-reaction questions are
+    # closed categorical fields; one-vs-rest binary phenotypes are appropriate.
+    vaccine_additional_dose = {
+        "765937",
+        *{str(x) for x in range(765953, 765967)},
+    }
+    vaccine_adverse_reactions = {str(x) for x in range(765973, 766002, 2)}
+    vaccine_type = {str(x) for x in range(766007, 766036, 2)}
+    vaccine_name = {str(x) for x in range(766037, 766066, 2)}
+
+    face_mask_qids = {"1310051", "1310052", "1310053", "1310056", "1310060", "1310062"}
+    cope_phq_qids = {
+        "1333274", "1333275", "1333276", "1333277", "1333278",
+        "1333279", "1333280", "1333281", "1333285",
+    }
+    ehhw_phq_gad_qids = {
+        "1703920", "1703977", "1703983", "1703984", "1703987",
+        "1703995", "1703996", "1704000", "1704004", "1704024",
+        "1704026", "1704028", "1704038", "1704039", "1704041",
+        "1704042",
+    }
+    ehhw_cidi_frequency_qids = {
+        "1703979", "1703982", "1704006", "1704032", "1704040",
+        "1704043", "1704050", "1704052", "1704053",
+    }
+    everyday_discrimination_qids = {
+        "40192380", "40192395", "40192416", "40192451", "40192466",
+        "40192489", "40192490", "40192496", "40192519",
+    }
+    health_care_discrimination_qids = {
+        "40192383", "40192394", "40192423", "40192425",
+        "40192497", "40192503", "40192505",
+    }
+
+    def spec(disposition: str, ordinal_rule: str = "", phenotype_class: str = "single_select",
+             field_type: str = "radio", notes: str = "") -> dict:
+        return {
+            "survey": survey,
+            "item_concept": f"live_q{qid}",
+            "question_concept_id": qid,
+            "field_type": field_type,
+            "phenotype_class": phenotype_class,
+            "disposition": disposition,
+            "ordinal_rule": ordinal_rule,
+            "ordinal_source": "live_qid_override" if ordinal_rule else "",
+            "ordinal_confidence": "medium" if ordinal_rule else "",
+            "n_options": "",
+            "n_binary_phenos": "",
+            "n_ordinal_levels": "",
+            "sensitive_topics": "",
+            "flag_reason": "",
+            "notes": notes or "Live v9 qid override for question absent from codebook crosswalk.",
+            "field_label": question,
+        }
+
+    if qid == "713888":
+        return spec("ordinal_and_binary", "symptom_onset_month_ordinal")
+    if qid in vaccine_additional_dose:
+        return spec("nominal_binary")
+    if qid in vaccine_adverse_reactions:
+        return spec("nominal_binary", phenotype_class="multi_select", field_type="checkbox")
+    if qid in vaccine_type or qid in vaccine_name:
+        return spec("nominal_binary")
+    if qid == "905040":
+        return spec("nominal_binary", phenotype_class="multi_select", field_type="checkbox")
+    if qid in face_mask_qids:
+        return spec("ordinal_and_binary", "freq_never_always_na_0_3")
+    if qid == "1310067":
+        return spec("nominal_binary", phenotype_class="multi_select", field_type="checkbox")
+    if qid == "1310133":
+        return spec("nominal_binary")
+    if qid == "1310136":
+        return spec("ordinal_and_binary", "remote_childcare_0_3")
+    if qid == "1310140":
+        return spec("nominal_binary")
+    if qid in {"1310144", "1310145"}:
+        return spec("nominal_binary", phenotype_class="multi_select", field_type="checkbox")
+    if qid == "1332748":
+        return spec("ordinal_and_binary", "days_last5_midpoint")
+    if qid in cope_phq_qids or qid in ehhw_phq_gad_qids:
+        return spec("ordinal_and_binary", "phq_gad_0_3")
+    if qid in {"1333286", "1333288", "1333289"}:
+        return spec("nominal_binary")
+    if qid == "1333287":
+        return spec("excluded_descriptive", notes="Branching unit selector for split sitting-time numeric fields.")
+    if qid == "1333300":
+        return spec("ordinal_and_binary", "hygiene_frequency_1_4")
+    if qid == "1333301":
+        return spec("ordinal_and_binary", "days_last5_midpoint")
+    if qid in {"903641", "903642"}:
+        return spec("numeric", notes="Sitting time component; numeric field.")
+    if qid in {"1703882", "1703886", "1703895", "1703923"}:
+        return spec("binary_only")
+    if qid in ehhw_cidi_frequency_qids:
+        return spec("ordinal_and_binary", "time_all_none_0_4")
+    if qid in {"1704015", "1704046"}:
+        return spec("nominal_binary", phenotype_class="multi_select", field_type="checkbox")
+    if qid == "1704030":
+        return spec("binary_only")
+    if qid == "1704135":
+        return spec("numeric", notes="range [2.0, 99.0]")
+    if qid in everyday_discrimination_qids:
+        return spec("ordinal_and_binary", "freq_event_0_5")
+    if qid in health_care_discrimination_qids:
+        return spec("ordinal_and_binary", "freq_never_always_0_4")
+    if qid == "40192428":
+        return spec("nominal_binary", phenotype_class="multi_select", field_type="checkbox")
+    if qid == "43529899":
+        return spec("ordinal_and_binary", "freq_always_none_0_3")
+    if qid == "43529901":
+        return spec("ordinal_and_binary", "importance_0_3")
+    if qid == "43529902":
+        return spec("ordinal_and_binary", "freq_always_none_0_3")
+    return None
+
+
+def load_live_question_overrides(path: Path | None, existing_qman: dict[str, dict]):
+    """Build manifest rows for selected live qids absent from the codebook map."""
+    rows = []
+    seen_qids = set()
+    if not path or not path.exists():
+        pass
+    else:
+        with open(path, newline="") as f:
+            for live in csv.DictReader(f, delimiter="\t"):
+                qid = (live.get("question_concept_id") or "").strip()
+                if not qid or qid in existing_qman:
+                    continue
+                row = live_question_override_spec(
+                    qid,
+                    (live.get("survey") or "").strip(),
+                    (live.get("question") or "").strip(),
+                )
+                if row:
+                    rows.append(row)
+                    seen_qids.add(qid)
+    static_live_questions = {
+        "836838": ("Personal and Family Health History", "Who in your family has had a kidney condition? Select all that apply."),
+        "1703882": ("Behavioral Health and Personality", "Did you ever talk to a health professional about any of these experiences?"),
+        "1703886": ("Behavioral Health and Personality", "Were you ever in your life frightened by agoraphobia-like situations?"),
+        "1703895": ("Behavioral Health and Personality", "Have you ever been bothered with recurring intrusive thoughts, images, or urges?"),
+        "1703923": ("Behavioral Health and Personality", "Have you ever had a high, excited, or hyper period that others noticed or that got you into trouble?"),
+        "1703920": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by becoming easily annoyed or irritable"),
+        "1703977": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by thoughts that you would be better off dead or of hurting yourself in some way"),
+        "1703979": ("Emotional Health History and Well-Being", "During those 6 months, how often did you worry excessively or too much?"),
+        "1703982": ("Emotional Health History and Well-Being", "During those 6 months, how often did you have trouble controlling your worry?"),
+        "1703983": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by trouble falling or staying asleep, or sleeping too much"),
+        "1703984": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by feeling nervous, anxious, or on edge"),
+        "1703987": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by trouble relaxing"),
+        "1703995": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by not being able to stop or control worrying"),
+        "1703996": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by moving or speaking slowly or being fidgety/restless"),
+        "1704000": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by worrying too much about different things"),
+        "1704004": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by poor appetite or overeating"),
+        "1704006": ("Emotional Health History and Well-Being", "During those 6 months, how often did you worry about a number of different things in your life?"),
+        "1704015": ("Emotional Health History and Well-Being", "During feelings of depression or loss of interest did you ever try any of the following for these problems?"),
+        "1704024": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by feeling down, depressed, or hopeless"),
+        "1704026": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by little interest or pleasure in doing things"),
+        "1704028": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by being so restless that it is hard to sit still"),
+        "1704030": ("Emotional Health History and Well-Being", "During feelings of depression or loss of interest did you ever tell a professional about these problems?"),
+        "1704032": ("Emotional Health History and Well-Being", "During those 6 months, how often did you have difficulty concentrating or your mind going blank?"),
+        "1704038": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by trouble concentrating?"),
+        "1704039": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by feeling tired or having little energy"),
+        "1704040": ("Emotional Health History and Well-Being", "During those 6 months, how often did you have difficulty falling or staying asleep or have restless sleep?"),
+        "1704041": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by feeling bad about yourself or that you are a failure"),
+        "1704042": ("Emotional Health History and Well-Being", "Over the last 2 weeks, how often have you been bothered by feeling afraid as if something awful might happen"),
+        "1704043": ("Emotional Health History and Well-Being", "During those 6 months, how often did you have muscle aches or tension?"),
+        "1704046": ("Emotional Health History and Well-Being", "During feelings of depression or loss of interest did you try any of the following medications?"),
+        "1704050": ("Emotional Health History and Well-Being", "During those 6 months, how often did you feel restless, keyed up, or on edge?"),
+        "1704052": ("Emotional Health History and Well-Being", "During those 6 months, how often did you feel worried and anxious?"),
+        "1704053": ("Emotional Health History and Well-Being", "During those 6 months, how often did you feel irritated, annoyed, or grouchy?"),
+        "1704135": ("Emotional Health History and Well-Being", "During those 6 months, about how old were you when you first began having problems with anxiety or worrying?"),
+    }
+    for qid, (survey, question) in static_live_questions.items():
+        if qid in existing_qman or qid in seen_qids:
+            continue
+        if qid == "836838":
+            row = {
+                "survey": survey,
+                "item_concept": f"live_q{qid}",
+                "question_concept_id": qid,
+                "field_type": "checkbox",
+                "phenotype_class": "multi_select",
+                "disposition": "excluded_family_history",
+                "ordinal_rule": "",
+                "ordinal_source": "",
+                "ordinal_confidence": "",
+                "n_options": "",
+                "n_binary_phenos": "",
+                "n_ordinal_levels": "",
+                "sensitive_topics": "",
+                "flag_reason": "",
+                "notes": "Handled by PFHH relatedness-burden allowlist.",
+                "field_label": question,
+            }
+        else:
+            row = live_question_override_spec(qid, survey, question)
+        if row:
+            rows.append(row)
+    return rows
+
+
 def load_ordinal_lookup(path: Path) -> dict[tuple[str, str], float]:
-    """(normalized question text, normalized answer label) -> ordinal value."""
+    """(question key or item_concept, normalized answer label) -> ordinal value."""
     out = {}
     with open(path, newline="") as f:
         for row in csv.DictReader(f, delimiter="\t"):
-            key = (norm_q(row["field_label"]), R.norm(row["answer_label"]))
-            out[key] = float(row["ordinal_value"])
+            ans = R.norm(row["answer_label"])
+            value = float(row["ordinal_value"])
+            out[(norm_q(row["field_label"]), ans)] = value
+            item = (row.get("item_concept") or "").strip()
+            if item:
+                out[(item, ans)] = value
     return out
 
 
 # --------------------------------------------------------------------------- #
 # survey ingest: latest response per (person, question)
 # --------------------------------------------------------------------------- #
-def read_survey_rows(paths: list[Path], keep: set[str]):
+def read_survey_rows(
+    paths: list[Path],
+    keep: set[str],
+    allowed_qids: set[str] | None = None,
+    allowed_question_texts: set[str] | None = None,
+):
     """Yield dict rows for retained samples from one or more survey CSVs."""
+    allowed_qids = allowed_qids or set()
+    allowed_question_texts = allowed_question_texts or set()
+    filter_questions = bool(allowed_qids or allowed_question_texts)
     for path in paths:
         if not path or not path.exists() or path.stat().st_size == 0:
             continue
         with open(path, newline="") as f:
             for row in csv.DictReader(f):
                 pid = (row.get("person_id") or "").strip()
-                if pid in keep:
-                    yield row
+                if pid not in keep:
+                    continue
+                if filter_questions:
+                    qid = (row.get("question_concept_id") or "").strip()
+                    if qid not in allowed_qids and norm_q(row.get("question") or "") not in allowed_question_texts:
+                        continue
+                yield row
 
 
-def build_latest_responses(survey_paths, keep):
+def build_latest_responses(
+    survey_paths,
+    keep,
+    allowed_qids: set[str] | None = None,
+    allowed_question_texts: set[str] | None = None,
+):
     """Return dict[qid] -> {question, pid -> (age, [(ans_text)...])} using latest datetime."""
-    # per (pid, qid): keep max datetime, collect answers at that datetime
-    latest = {}  # (pid, qid) -> [datetime, question_text, age, set(answer_text)]
-    for row in read_survey_rows(survey_paths, keep):
+    # Per (pid, qid): keep max datetime, collect answers at that datetime.
+    # The full v9 survey export is large enough that storing string tuple keys
+    # can exceed default AoU Jupyter RAM. Use compact integer ids internally and
+    # expand back to strings only after aggregation completes.
+    key_mult = 100000
+    pid_by_index = list(keep)
+    pid_to_index = {pid: i for i, pid in enumerate(pid_by_index)}
+    qid_to_index = {}
+    qid_by_index = []
+    question_text_by_qid_index = []
+    answer_to_index = {}
+    answer_by_index = []
+    latest = {}  # compact_key -> [datetime, age, answer_index | list[answer_index]]
+
+    def qid_index(qid: str, question_text: str) -> int:
+        idx = qid_to_index.get(qid)
+        if idx is None:
+            idx = len(qid_by_index)
+            if idx >= key_mult:
+                raise RuntimeError(f"Too many survey question IDs for key multiplier {key_mult}")
+            qid_to_index[qid] = idx
+            qid_by_index.append(qid)
+            question_text_by_qid_index.append(question_text)
+        elif question_text and not question_text_by_qid_index[idx]:
+            question_text_by_qid_index[idx] = question_text
+        return idx
+
+    def answer_index(answer: str) -> int:
+        idx = answer_to_index.get(answer)
+        if idx is None:
+            idx = len(answer_by_index)
+            answer_to_index[answer] = idx
+            answer_by_index.append(answer)
+        return idx
+
+    for row in read_survey_rows(survey_paths, keep, allowed_qids, allowed_question_texts):
         pid = row["person_id"].strip()
-        qid = (row.get("question_concept_id") or "").strip()
+        pid_idx = pid_to_index.get(pid)
+        if pid_idx is None:
+            continue
+        qid = sys.intern((row.get("question_concept_id") or "").strip())
         if not qid:
             continue
-        dt = (row.get("survey_datetime") or "").strip()
-        ans = (row.get("answer") or "").strip()
+        dt = sys.intern((row.get("survey_datetime") or "").strip())
+        ans_idx = answer_index(sys.intern((row.get("answer") or "").strip()))
         try:
             age = float(row.get("age_at_survey") or "nan")
         except ValueError:
             age = float("nan")
-        qtext = row.get("question") or ""
-        k = (pid, qid)
+        qid_idx = qid_index(qid, row.get("question") or "")
+        k = pid_idx * key_mult + qid_idx
         cur = latest.get(k)
         if cur is None or dt > cur[0]:
-            latest[k] = [dt, qtext, age, {ans}]
+            latest[k] = [dt, age, ans_idx]
         elif dt == cur[0]:
-            cur[3].add(ans)
+            answers = cur[2]
+            if isinstance(answers, int):
+                if ans_idx != answers:
+                    cur[2] = [answers, ans_idx]
+            elif ans_idx not in answers:
+                answers.append(ans_idx)
 
     questions = defaultdict(lambda: {"question": "", "responses": {}})
-    for (pid, qid), (dt, qtext, age, answers) in latest.items():
+    while latest:
+        k, (_dt, age, answer_indexes) = latest.popitem()
+        pid_idx, qid_idx = divmod(k, key_mult)
+        pid = pid_by_index[pid_idx]
+        qid = qid_by_index[qid_idx]
         q = questions[qid]
         if not q["question"]:
-            q["question"] = qtext
+            q["question"] = question_text_by_qid_index[qid_idx]
+        if isinstance(answer_indexes, int):
+            answers = (answer_by_index[answer_indexes],)
+        else:
+            answers = tuple(answer_by_index[i] for i in answer_indexes)
         q["responses"][pid] = (age, answers)
     return questions
+
+
+def load_tsv_column_values(path: Path | None, column: str) -> set[str]:
+    values = set()
+    if not path or not path.exists():
+        return values
+    with open(path, newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        for row in reader:
+            value = (row.get(column) or "").strip()
+            if value:
+                values.add(value)
+    return values
 
 
 # --------------------------------------------------------------------------- #
@@ -204,6 +653,154 @@ def build_latest_responses(survey_paths, keep):
 # --------------------------------------------------------------------------- #
 def slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", str(text).lower()).strip("_")[:40] or "x"
+
+
+def answer_tail(text: str) -> str:
+    text = str(text or "").strip()
+    if ":" in text:
+        _prefix, tail = text.split(":", 1)
+        if tail.strip():
+            return tail.strip()
+    return text
+
+
+def answer_norm(text: str) -> str:
+    return R.norm(answer_tail(text))
+
+
+def answer_slug(text: str) -> str:
+    return slug(answer_tail(text))
+
+
+def is_missing_answer(text: str) -> bool:
+    return R.is_missing(text) or R.is_missing(answer_tail(text))
+
+
+def manifest_item_id(man: dict, fallback: str) -> str:
+    """Stable codebook-backed identifier used in phenotype IDs."""
+    item = (man.get("item_concept") or "").strip()
+    return slug(item or fallback)
+
+
+def ordinal_value_from_rule(rule: str, answer: str) -> float | None:
+    """Map an answer to a value through a named ordinal template/override."""
+    rule = (rule or "").strip()
+    if not rule:
+        return None
+    ans = answer_norm(answer)
+    candidates = [ans]
+    if ";" in ans:
+        candidates.append(ans.split(";", 1)[0].strip())
+    template = R.TEMPLATES.get(rule)
+    if template:
+        if any(a in template.get("local_missing", set()) for a in candidates):
+            return None
+        for a in candidates:
+            if a in template["map"]:
+                return float(template["map"][a])
+    for override in R.ITEM_OVERRIDES.values():
+        if override.get("rule") != rule:
+            continue
+        if any(a in override.get("local_missing", set()) for a in candidates):
+            return None
+        for a in candidates:
+            if a in override["map"]:
+                return float(override["map"][a])
+    if rule == "importance_0_3":
+        # v9 live HCAU labels use "Not Important", while the codebook override
+        # says "Not important at all".
+        if ans == "not important":
+            return 0.0
+    return None
+
+
+LIVE_ORDINAL_VALUE_BY_ITEM_ANSWER = {
+    "educationlevel_highestgrade": {
+        "never attended": 9.0,
+        "one through four": 9.0,
+        "five through eight": 9.0,
+        "nine through eleven": 10.0,
+        "twelve or ged": 13.0,
+        "college one to three": 15.0,
+        "college graduate": 18.0,
+        "advanced degree": 20.0,
+    },
+    "income_annualincome": {
+        "less 10k": 5.0,
+        "10k 25k": 17.5,
+        "25k 35k": 30.0,
+        "35k 50k": 42.5,
+        "50k 75k": 62.5,
+        "75k 100k": 87.5,
+        "100k 150k": 125.0,
+        "150k 200k": 175.0,
+        "more 200k": 250.0,
+    },
+}
+
+
+def ea_proxy_ordinal_value_from_answer(answer: str):
+    """Ordinal parser used by setup_ses_ea_proxy_gwas.py for XGBoost inputs."""
+    tail = answer_norm(answer)
+    exact = {
+        "no": 0.0,
+        "yes": 1.0,
+        "never": 0.0,
+        "rarely": 1.0,
+        "sometimes": 2.0,
+        "often": 3.0,
+        "very often": 4.0,
+        "not at all": 0.0,
+        "some days": 1.0,
+        "every day": 2.0,
+        "never in last year": 0.0,
+        "less than monthly": 1.0,
+        "monthly": 2.0,
+        "weekly": 3.0,
+        "daily": 4.0,
+        "monthly or less": 1.0,
+        "2 to 4 per month": 2.0,
+        "2 to 3 per week": 3.0,
+        "4 or more per week": 4.0,
+        "disagree strongly": 1.0,
+        "disagree a little": 2.0,
+        "neutral; no opinion": 3.0,
+        "agree a little": 4.0,
+        "agree strongly": 5.0,
+        "strongly disagree": 1.0,
+        "disagree": 2.0,
+        "neither agree nor disagree": 3.0,
+        "agree": 4.0,
+        "strongly agree": 5.0,
+        "poor": 1.0,
+        "fair": 2.0,
+        "good": 3.0,
+        "very good": 4.0,
+        "excellent": 5.0,
+        "not at all confident": 1.0,
+        "a little bit confident": 2.0,
+        "somewhat confident": 3.0,
+        "quite a bit confident": 4.0,
+        "extremely confident": 5.0,
+        "unable to do": 0.0,
+        "with much difficulty": 1.0,
+        "with some difficulty": 2.0,
+        "with a little difficulty": 3.0,
+        "without any difficulty": 4.0,
+    }
+    if tail in exact:
+        return exact[tail]
+    if tail.startswith("never"):
+        return 0.0
+    if tail.startswith("less than"):
+        return 1.0
+    if tail.startswith("monthly"):
+        return 2.0
+    if tail.startswith("weekly"):
+        return 3.0
+    if tail.startswith("daily"):
+        return 4.0
+    return None
 
 
 # Minimum age-at-survey by ordinal rule, matching the repo's dedicated EA/income
@@ -219,7 +816,7 @@ def build_survey_phenotypes(questions, qman, ord_lookup):
     """Yield (pheno_id, trait_type, kind, {iid: (y, age)}, meta)."""
     for qid, q in questions.items():
         qtext = q["question"]
-        man = qman.get(norm_q(qtext))
+        man = qman.get(qid) or qman.get(norm_q(qtext))
         if man is None:
             continue  # question not in our included/classified manifest
         disp = man["disposition"]
@@ -240,18 +837,19 @@ def build_survey_phenotypes(questions, qman, ord_lookup):
             }
 
         is_multi = man["phenotype_class"] == "multi_select"
+        item_id = manifest_item_id(man, qid)
         # ---- binary one-vs-rest per observed valid answer ------------------
         if disp in ("ordinal_and_binary", "binary_only", "nominal_binary", "flagged_review"):
             # collect the valid (non-missing) answer universe for this question
             valid_answers = set()
             for _, (_, answers) in responses.items():
                 for a in answers:
-                    if not R.is_missing(a):
+                    if not is_missing_answer(a):
                         valid_answers.add(a)
             for ans in sorted(valid_answers):
                 values = {}
                 for pid, (age, answers) in responses.items():
-                    non_missing = {a for a in answers if not R.is_missing(a)}
+                    non_missing = {a for a in answers if not is_missing_answer(a)}
                     if not non_missing:
                         continue
                     if ans in non_missing:
@@ -260,9 +858,10 @@ def build_survey_phenotypes(questions, qman, ord_lookup):
                         # single-select control = answered another valid option;
                         # checkbox control = question shown and option not selected.
                         values[pid] = (0.0, age)
-                pid_ = f"bin_{qid}__{slug(ans)}"
+                pid_ = f"bin_{item_id}__{answer_slug(ans)}"
                 yield pid_, "binary", "binary", values, {
                     "question_concept_id": qid,
+                    "item_concept": man.get("item_concept", ""),
                     "question": qtext,
                     "answer": ans,
                     "ordinal_rule": "",
@@ -271,14 +870,25 @@ def build_survey_phenotypes(questions, qman, ord_lookup):
         if disp == "ordinal_and_binary":
             values = {}
             for pid, (age, answers) in responses.items():
-                non_missing = [a for a in answers if not R.is_missing(a)]
+                non_missing = [a for a in answers if not is_missing_answer(a)]
                 if len(non_missing) != 1:
                     continue
-                v = ord_lookup.get((norm_q(qtext), R.norm(non_missing[0])))
+                item = man.get("item_concept", "")
+                ans_key = answer_norm(non_missing[0])
+                v = LIVE_ORDINAL_VALUE_BY_ITEM_ANSWER.get(item, {}).get(ans_key)
+                if v is None:
+                    v = ord_lookup.get((item, ans_key))
+                if v is None:
+                    v = ord_lookup.get((norm_q(qtext), ans_key))
+                if v is None:
+                    v = ordinal_value_from_rule(man.get("ordinal_rule", ""), non_missing[0])
+                if v is None and man.get("ordinal_rule") == "ea_proxy_ordinal_text":
+                    v = ea_proxy_ordinal_value_from_answer(non_missing[0])
                 if v is not None:
                     values[pid] = (float(v), age)
-            yield f"ord_{qid}", "ordinal", "quant", values, {
+            yield f"ord_{item_id}", "ordinal", "quant", values, {
                 "question_concept_id": qid,
+                "item_concept": man.get("item_concept", ""),
                 "question": qtext,
                 "answer": "",
                 "ordinal_rule": man["ordinal_rule"],
@@ -287,9 +897,10 @@ def build_survey_phenotypes(questions, qman, ord_lookup):
 
 def build_numeric_phenotypes(questions, qman):
     for qid, q in questions.items():
-        man = qman.get(norm_q(q["question"]))
+        man = qman.get(qid) or qman.get(norm_q(q["question"]))
         if man is None or man["disposition"] != "numeric":
             continue
+        item_id = manifest_item_id(man, qid)
         # parse validation range "range [lo, hi]" from notes if present
         lo, hi = None, None
         m = re.search(r"range \[([^,]+),\s*([^\]]+)\]", man.get("notes", ""))
@@ -313,8 +924,9 @@ def build_numeric_phenotypes(questions, qman):
             if lo is not None and (v < lo or v > hi):
                 continue
             values[pid] = (v, age)
-        yield f"num_{qid}", "numeric", "quant", values, {
+        yield f"num_{item_id}", "numeric", "quant", values, {
             "question_concept_id": qid,
+            "item_concept": man.get("item_concept", ""),
             "question": q["question"],
             "answer": "",
             "ordinal_rule": "",
@@ -326,6 +938,7 @@ PFHH_SCREEN_QID = {
     "Brain and nervous system": "43529272",
     "Mental health or substance use": "43529217",
     "Added skeletal/pain/injury": "702786",
+    "Kidney conditions": "43529158",
 }
 
 # Family-history burden weights = coefficient of relationship (r) to the
@@ -353,6 +966,29 @@ PFHH_RELATION_WEIGHT = {
 }
 
 
+def pfhh_relation_norm(answer: str) -> str:
+    """Normalize PFHH checkbox answers to relation labels.
+
+    Live AoU PFHH answer concepts can arrive as full labels like
+    "<question text> - Self" rather than just "Self".  The PFHH burden scorer
+    needs the relation suffix to match PFHH_RELATION_WEIGHT.
+    """
+    raw = str(answer or "").strip()
+    if ":" in raw:
+        prefix = raw.split(":", 1)[0].strip()
+        first = prefix.split()[0].lower() if prefix.split() else ""
+        if first in PFHH_RELATION_WEIGHT:
+            return R.norm(first)
+    text = answer_tail(answer)
+    if " - " in text:
+        text = text.rsplit(" - ", 1)[1]
+    return R.norm(text)
+
+
+def is_missing_pfhh_answer(answer: str) -> bool:
+    return R.is_missing(answer) or R.is_missing(answer_tail(answer)) or R.is_missing(pfhh_relation_norm(answer))
+
+
 def _pfhh_screen_completers(questions):
     out = {}
     for grp, sqid in PFHH_SCREEN_QID.items():
@@ -360,7 +996,7 @@ def _pfhh_screen_completers(questions):
         q = questions.get(sqid)
         if q:
             for pid, (age, answers) in q["responses"].items():
-                if any(not R.is_missing(a) for a in answers):
+                if any(not is_missing_pfhh_answer(a) for a in answers):
                     pids[pid] = age
         out[grp] = pids
     return out
@@ -400,7 +1036,7 @@ def build_pfhh_phenotypes(questions, allowlist_path):
         # --- binary self_has ------------------------------------------------
         cases = {}
         for pid, (age, answers) in q["responses"].items():
-            if any(R.norm(a) == "self" for a in answers):
+            if any(pfhh_relation_norm(a) == "self" for a in answers):
                 cases[pid] = age
         bin_values = {pid: (1.0, age) for pid, age in cases.items()}
         for pid, age in screen_completers.get(grp, {}).items():
@@ -416,11 +1052,11 @@ def build_pfhh_phenotypes(questions, allowlist_path):
         # --- quantitative family-burden sumscore ---------------------------
         burden = {pid: (0.0, age) for pid, age in screen_completers.get(grp, {}).items()}
         for pid, (age, answers) in q["responses"].items():
-            non_missing = [a for a in answers if not R.is_missing(a)]
+            non_missing = [a for a in answers if not is_missing_pfhh_answer(a)]
             if not non_missing:
                 burden.pop(pid, None)  # answered only PMI -> drop from denominator
                 continue
-            score = sum(PFHH_RELATION_WEIGHT.get(R.norm(a), 0.0) for a in non_missing)
+            score = sum(PFHH_RELATION_WEIGHT.get(pfhh_relation_norm(a), 0.0) for a in non_missing)
             burden[pid] = (score, age)
         yield f"pfhh_burden_{cond}", "pfhh_sumscore", "quant", burden, {
             "question_concept_id": qid,
@@ -430,7 +1066,9 @@ def build_pfhh_phenotypes(questions, allowlist_path):
         }
 
 
-def build_composite_phenotypes(questions, manifest_path, ordinal_manifest_path=None, ord_lookup=None):
+def build_composite_phenotypes(
+    questions, manifest_path, ordinal_manifest_path=None, ord_lookup=None, qid_by_item=None
+):
     """Yield validated composite scores (GAD-7, PHQ-9, PSS, BFI-2 Big Five, ...).
 
     Each composite is a prorated sum over its items (matched to survey responses
@@ -448,6 +1086,7 @@ def build_composite_phenotypes(questions, manifest_path, ordinal_manifest_path=N
         with open(manifest_path, newline="") as f:
             rows = list(csv.DictReader(f, delimiter="\t"))
 
+    qid_by_item = qid_by_item or {}
     qtext_to_qid = {}
     for qid, q in questions.items():
         qtext_to_qid.setdefault(norm_q(q["question"]), qid)
@@ -483,10 +1122,10 @@ def build_composite_phenotypes(questions, manifest_path, ordinal_manifest_path=N
                 resp = questions[qid]["responses"].get(pid)
                 if not resp:
                     continue
-                answers = [a for a in resp[1] if not R.is_missing(a)]
+                answers = [a for a in resp[1] if not is_missing_answer(a)]
                 if len(answers) != 1:
                     continue
-                v = ans_map.get(R.norm(answers[0]))
+                v = ans_map.get(answer_norm(answers[0]))
                 if v is None:
                     continue
                 if rev:
@@ -522,7 +1161,7 @@ def build_composite_phenotypes(questions, manifest_path, ordinal_manifest_path=N
             q, amap = code_q.get(code), code_answer.get(code)
             if not q or not amap:
                 continue
-            qid = qtext_to_qid.get(norm_q(q))
+            qid = qid_by_item.get(code) or qtext_to_qid.get(norm_q(q))
             if qid is None:
                 continue
             item_list.append((qid, amap, rev, min(amap.values()), max(amap.values())))
@@ -552,11 +1191,11 @@ def build_composite_phenotypes(questions, manifest_path, ordinal_manifest_path=N
                 if not qt:
                     continue
                 nq = norm_q(qt)
-                qid = qtext_to_qid.get(nq)
+                qid = qid_by_item.get(code) or qtext_to_qid.get(nq)
                 vals_c = code_vals.get(code)
                 if qid is None or not vals_c:
                     continue
-                ans_map = {a: v for (q_, a), v in ord_lookup.items() if q_ == nq}
+                ans_map = {a: v for (q_, a), v in ord_lookup.items() if q_ in (code, nq)}
                 if not ans_map:
                     continue
                 item_list.append((qid, ans_map, rev, min(vals_c), max(vals_c)))
@@ -573,8 +1212,8 @@ FITBIT_MIN_DAYS = 10
 
 
 def _fitbit_person_means(csv_path, keep, cols):
-    """Return {pid: {col: [values...], 'age': [ages...]}} for retained samples."""
-    agg = defaultdict(lambda: defaultdict(list))
+    """Return streaming per-person sums/counts for retained Fitbit rows."""
+    agg = defaultdict(lambda: defaultdict(float))
     if not csv_path or not Path(csv_path).exists() or Path(csv_path).stat().st_size == 0:
         return agg
     with open(csv_path, newline="") as f:
@@ -584,13 +1223,20 @@ def _fitbit_person_means(csv_path, keep, cols):
                 continue
             for c in cols:
                 try:
-                    agg[pid][c].append(float(row[c]))
+                    v = float(row[c])
                 except (KeyError, ValueError, TypeError):
-                    pass
+                    continue
+                if not math.isfinite(v):
+                    continue
+                agg[pid][f"{c}_sum"] += v
+                agg[pid][f"{c}_n"] += 1
             try:
-                agg[pid]["age"].append(float(row["age"]))
+                age = float(row["age"])
             except (KeyError, ValueError, TypeError):
-                pass
+                continue
+            if math.isfinite(age):
+                agg[pid]["age_sum"] += age
+                agg[pid]["age_n"] += 1
     return agg
 
 
@@ -615,10 +1261,11 @@ def build_fitbit_phenotypes(activity_csv, sleep_csv, keep):
     for pheno_id, agg, col in specs:
         values = {}
         for pid, d in agg.items():
-            vals = d.get(col, [])
-            if len(vals) < FITBIT_MIN_DAYS or not d.get("age"):
+            n = int(d.get(f"{col}_n", 0))
+            age_n = int(d.get("age_n", 0))
+            if n < FITBIT_MIN_DAYS or age_n == 0:
                 continue
-            values[pid] = (sum(vals) / len(vals), sum(d["age"]) / len(d["age"]))
+            values[pid] = (d[f"{col}_sum"] / n, d["age_sum"] / age_n)
         yield pheno_id, "fitbit", "quant", values, {
             "question_concept_id": "", "question": pheno_id, "answer": f">= {FITBIT_MIN_DAYS} valid days",
             "ordinal_rule": "", "covar_mode": "full",
@@ -633,7 +1280,7 @@ def build_chronotype_phenotype(chrono_csv, keep):
     """
     if not chrono_csv or not Path(chrono_csv).exists() or Path(chrono_csv).stat().st_size == 0:
         return
-    agg = defaultdict(lambda: {"onset": [], "age": []})
+    agg = defaultdict(lambda: defaultdict(float))
     with open(chrono_csv, newline="") as f:
         for row in csv.DictReader(f):
             pid = (row.get("person_id") or "").strip()
@@ -641,15 +1288,22 @@ def build_chronotype_phenotype(chrono_csv, keep):
                 continue
             try:
                 h = float(row["onset_hour"])
-                agg[pid]["onset"].append(h + 24.0 if h < 12.0 else h)
-                agg[pid]["age"].append(float(row["age"]))
+                age = float(row["age"])
             except (KeyError, ValueError, TypeError):
-                pass
+                continue
+            if not (math.isfinite(h) and math.isfinite(age)):
+                continue
+            agg[pid]["onset_sum"] += h + 24.0 if h < 12.0 else h
+            agg[pid]["onset_n"] += 1
+            agg[pid]["age_sum"] += age
+            agg[pid]["age_n"] += 1
     values = {}
     for pid, d in agg.items():
-        if len(d["onset"]) < FITBIT_MIN_DAYS or not d["age"]:
+        onset_n = int(d.get("onset_n", 0))
+        age_n = int(d.get("age_n", 0))
+        if onset_n < FITBIT_MIN_DAYS or age_n == 0:
             continue
-        values[pid] = (sum(d["onset"]) / len(d["onset"]), sum(d["age"]) / len(d["age"]))
+        values[pid] = (d["onset_sum"] / onset_n, d["age_sum"] / age_n)
     yield "fitbit_chronotype_sleep_onset", "fitbit", "quant", values, {
         "question_concept_id": "", "question": "fitbit_chronotype_sleep_onset",
         "answer": "mean main-sleep onset clock hour; higher = later/evening", "ordinal_rule": "",
@@ -668,24 +1322,25 @@ def load_item_labels(inventory_path):
     return out
 
 
-def build_derived_psych_phenotypes(questions, item_labels):
+def build_derived_psych_phenotypes(questions, item_labels, qid_by_item=None):
     """Algorithmic psychiatric phenotypes from the UKB-MHQ / CIDI-SF / PCL items.
 
     Screening-level derivations (documented in SPECSHEET 11d). All are sensitive
     (mental health / suicidality) and should carry the sensitive release tier.
     """
+    qid_by_item = qid_by_item or {}
     qtext_to_qid = {}
     for qid, q in questions.items():
         qtext_to_qid.setdefault(norm_q(q["question"]), qid)
 
     def resp(code):
         lab = item_labels.get(code)
-        qid = qtext_to_qid.get(norm_q(lab)) if lab else None
+        qid = qid_by_item.get(code) or (qtext_to_qid.get(norm_q(lab)) if lab else None)
         return questions.get(qid, {}).get("responses", {}) if qid else {}
 
     def nonmiss(pid, r):
         v = r.get(pid)
-        return [a for a in v[1] if not R.is_missing(a)] if v else []
+        return [a for a in v[1] if not is_missing_answer(a)] if v else []
 
     def age_of(pid, *rs):
         for r in rs:
@@ -695,7 +1350,7 @@ def build_derived_psych_phenotypes(questions, item_labels):
         return None
 
     def yes(ans_list):
-        return any(R.norm(a) == "yes" or R.norm(a).startswith("yes,") for a in ans_list)
+        return any(answer_norm(a) == "yes" or answer_norm(a).startswith("yes,") for a in ans_list)
 
     def binary_from(case_test, denom_codes, pheno_id, desc):
         """case_test(pid)->True/False/None(exclude); denom = answered any denom item."""
@@ -760,9 +1415,9 @@ def build_derived_psych_phenotypes(questions, item_labels):
             return None
         if not base:
             return False
-        dur = {R.norm(a) for a in nonmiss(pid, r46)}
+        dur = {answer_norm(a) for a in nonmiss(pid, r46)}
         long_enough = any("four days" in d or "week or more" in d for d in dur)
-        prob = any("needed treatment or caused problems" in R.norm(a) for a in nonmiss(pid, r47))
+        prob = any("needed treatment or caused problems" in answer_norm(a) for a in nonmiss(pid, r47))
         return bool(long_enough and prob)
 
     yield binary_from(probable_bipolar, ["mhqukb_43", "mhqukb_44"], "psych_probable_bipolar",
@@ -784,25 +1439,26 @@ def build_derived_psych_phenotypes(questions, item_labels):
             return None
         if not core:
             return False
-        return any("several" in R.norm(a) for a in nonmiss(pid, r24))
+        return any("several" in answer_norm(a) for a in nonmiss(pid, r24))
 
     yield binary_from(recurrent_dep, ["mhqukb_5", "mhqukb_6"], "psych_probable_recurrent_depression",
                       "lifetime depressed episode + several episodes (recurrent-MDD proxy)")
 
 
-def build_acculturation_phenotype(questions, item_labels):
+def build_acculturation_phenotype(questions, item_labels, qid_by_item=None):
     """Cultural-assimilation index: US-born + English-at-home + English proficiency.
 
     Higher = more acculturated. Components normalised to 0-1 and summed; English
     proficiency is imputed maximal for participants who speak English at home.
     """
+    qid_by_item = qid_by_item or {}
     qtext_to_qid = {}
     for qid, q in questions.items():
         qtext_to_qid.setdefault(norm_q(q["question"]), qid)
 
     def resp(code):
         lab = item_labels.get(code)
-        qid = qtext_to_qid.get(norm_q(lab)) if lab else None
+        qid = qid_by_item.get(code) or (qtext_to_qid.get(norm_q(lab)) if lab else None)
         return questions.get(qid, {}).get("responses", {}) if qid else {}
 
     born, lang, prof = resp("thebasics_birthplace"), resp("chis_1"), resp("chis_1_xx")
@@ -810,7 +1466,7 @@ def build_acculturation_phenotype(questions, item_labels):
 
     def one(pid, r):
         v = r.get(pid)
-        nm = [a for a in v[1] if not R.is_missing(a)] if v else []
+        nm = [a for a in v[1] if not is_missing_answer(a)] if v else []
         return nm[0] if len(nm) == 1 else None
 
     pids = set(born) | set(lang) | set(prof)
@@ -819,14 +1475,14 @@ def build_acculturation_phenotype(questions, item_labels):
         b = one(pid, born)
         if b is None:
             continue  # birthplace is the anchor component
-        us_born = 1.0 if R.norm(b) == "usa" else 0.0
+        us_born = 1.0 if answer_norm(b) == "usa" else 0.0
         lg = one(pid, lang)
-        english_home = 1.0 if (lg and R.norm(lg) == "no") else (0.0 if lg else None)
+        english_home = 1.0 if (lg and answer_norm(lg) == "no") else (0.0 if lg else None)
         if english_home == 1.0:
             eng = 1.0
         else:
             pv = one(pid, prof)
-            eng = prof_map.get(R.norm(pv)) if pv else None
+            eng = prof_map.get(answer_norm(pv)) if pv else None
         comps = [us_born] + ([english_home] if english_home is not None else []) + ([eng] if eng is not None else [])
         age = None
         for r in (born, lang, prof):
@@ -842,7 +1498,7 @@ def build_acculturation_phenotype(questions, item_labels):
             "covar_mode": "full"})
 
 
-def build_state_cluster_phenotypes(questions, item_labels, clusters_path, state_csv, keep):
+def build_state_cluster_phenotypes(questions, item_labels, clusters_path, state_csv, keep, qid_by_item=None):
     """One binary GWAS per state cluster: membership (state in cluster) vs not.
 
     State source: a person->state CSV via `state_csv` (person_id,state[,age]) if
@@ -854,6 +1510,7 @@ def build_state_cluster_phenotypes(questions, item_labels, clusters_path, state_
     if not clusters_path or not Path(clusters_path).exists():
         return
     clusters = {}
+    qid_by_item = qid_by_item or {}
     with open(clusters_path, newline="") as f:
         for r in csv.DictReader(f, delimiter="\t"):
             clusters[r["cluster"]] = {s.strip().lower() for s in r["states"].split("|")}
@@ -874,12 +1531,12 @@ def build_state_cluster_phenotypes(questions, item_labels, clusters_path, state_
     else:
         qtext_to_qid = {norm_q(q["question"]): qid for qid, q in questions.items()}
         lab = item_labels.get("employmentworkaddress_state")
-        qid = qtext_to_qid.get(norm_q(lab)) if lab else None
+        qid = qid_by_item.get("employmentworkaddress_state") or (qtext_to_qid.get(norm_q(lab)) if lab else None)
         if qid:
             for pid, (age, answers) in questions[qid]["responses"].items():
-                nm = [a for a in answers if not R.is_missing(a)]
+                nm = [a for a in answers if not is_missing_answer(a)]
                 if len(nm) == 1:
-                    state_by_person[pid] = (R.norm(nm[0]), age)
+                    state_by_person[pid] = (answer_norm(nm[0]), age)
         src = "survey work-address state"
     if not state_by_person:
         return
@@ -938,6 +1595,68 @@ def build_external_score_phenotypes(config_path, keep):
             "ordinal_rule": "",
             "covar_mode": "sexpc",
         }
+
+
+def external_score_pheno_ids(config_path: Path | None) -> set[str]:
+    ids: set[str] = set()
+    if not config_path or not Path(config_path).exists():
+        return ids
+    with open(config_path, newline="") as f:
+        for row in csv.DictReader(f, delimiter="\t"):
+            pid = (row.get("phenotype_id") or "").strip()
+            if pid and not pid.startswith("#"):
+                ids.add(f"cog_{pid}")
+    return ids
+
+
+def build_zip3_ses_phenotypes(zip3_ses_csv: Path | None, keep: set[str]):
+    """Yield ZIP3-level socioeconomic context phenotypes.
+
+    The orchestrator extracts the latest row per person from AoU
+    ds_zip_code_socioeconomic. Raw ZIP3 and ACS vintage are retained only in the
+    extract for auditability; the GWAS phenotypes are the seven numeric SES
+    fields. These are contextual/geographic traits, not individual survey
+    responses.
+    """
+    if not zip3_ses_csv or not Path(zip3_ses_csv).exists() or Path(zip3_ses_csv).stat().st_size == 0:
+        return
+    vals = {pid: {} for pid in ZIP3_SES_TRAITS}
+    with open(zip3_ses_csv, newline="") as f:
+        for row in csv.DictReader(f):
+            iid = (row.get("person_id") or row.get("IID") or "").strip()
+            if iid not in keep:
+                continue
+            try:
+                age = float(row.get("age_at_observation") or row.get("age") or "nan")
+            except (TypeError, ValueError):
+                age = float("nan")
+            for pid, (col, _desc) in ZIP3_SES_TRAITS.items():
+                try:
+                    y = float(row[col])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if math.isnan(y):
+                    continue
+                vals[pid][iid] = (y, age)
+    for pid, (_col, desc) in ZIP3_SES_TRAITS.items():
+        if not vals[pid]:
+            continue
+        yield pid, "zip3_ses", "quant", vals[pid], {
+            "question_concept_id": "",
+            "question": desc,
+            "answer": "",
+            "ordinal_rule": "",
+            "covar_mode": "full",
+        }
+
+
+def wants_phenotype_source(only: set[str], prefixes=(), exact=()) -> bool:
+    if not only:
+        return True
+    exact_set = set(exact)
+    if exact_set & only:
+        return True
+    return any(any(pid.startswith(prefix) for prefix in prefixes) for pid in only)
 
 
 def build_measurement_phenotypes(meas_csv: Path, keep: set[str]):
@@ -1029,8 +1748,8 @@ def build_measurement_phenotypes(meas_csv: Path, keep: set[str]):
 # --------------------------------------------------------------------------- #
 # residualize + write + PLINK2
 # --------------------------------------------------------------------------- #
-def prepare_and_write(pheno_id, kind, values, sex, pcs, outdir, covar_mode="full"):
-    """Return (pheno_path, keep_path, n, n_cases, n_controls) or None if it fails QC.
+def prepare_and_write(pheno_id, kind, values, sex, pcs, fid_by_iid, outdir, covar_mode="full"):
+    """Return a prep dict, or a dict with skip_reason if the phenotype fails QC.
 
     covar_mode: "full"  -> age_c, sex_c, age_c:sex_c, PC1..PC10 (survey/measurement)
                 "sexpc" -> sex_c, PC1..PC10 only (pre-age-normalized external scores,
@@ -1049,13 +1768,29 @@ def prepare_and_write(pheno_id, kind, values, sex, pcs, outdir, covar_mode="full
         ncase = sum(1 for _, y, *_ in rows if y == 1.0)
         nctrl = sum(1 for _, y, *_ in rows if y == 0.0)
         if ncase < MIN_CASES or nctrl < MIN_CONTROLS:
-            return None
+            return {
+                "skip_reason": "too_few_cases_or_controls",
+                "n": len(rows),
+                "n_cases": ncase,
+                "n_controls": nctrl,
+            }
     else:
         if len(rows) < MIN_QUANT_N:
-            return None
+            return {
+                "skip_reason": "too_few_nonmissing",
+                "n": len(rows),
+                "n_cases": 0,
+                "n_controls": 0,
+            }
         levels = len({round(y, 6) for _, y, *_ in rows})
         if levels < MIN_ORDINAL_LEVELS:
-            return None
+            return {
+                "skip_reason": "too_few_observed_levels",
+                "n": len(rows),
+                "n_cases": 0,
+                "n_controls": 0,
+                "n_levels": levels,
+            }
         ncase = nctrl = 0
 
     iids = [r[0] for r in rows]
@@ -1077,40 +1812,142 @@ def prepare_and_write(pheno_id, kind, values, sex, pcs, outdir, covar_mode="full
     pdir = outdir / "phenotypes"
     pdir.mkdir(parents=True, exist_ok=True)
     name = f"{pheno_id}_resid"
+    raw_path = pdir / f"{pheno_id}.raw.pheno.tsv"
     pheno_path = pdir / f"{pheno_id}.resid.pheno.tsv"
     keep_path = pdir / f"{pheno_id}.keep.tsv"
+    with open(raw_path, "w") as f:
+        f.write(f"FID\tIID\t{pheno_id}_raw\n")
+        for iid, v in zip(iids, y):
+            f.write(f"{fid_by_iid.get(iid, iid)}\t{iid}\t{v:.17g}\n")
     with open(pheno_path, "w") as f:
         f.write(f"FID\tIID\t{name}\n")
         for iid, v in zip(iids, pheno_vec):
-            f.write(f"{iid}\t{iid}\t{v:.17g}\n")
+            f.write(f"{fid_by_iid.get(iid, iid)}\t{iid}\t{v:.17g}\n")
     with open(keep_path, "w") as f:
         for iid in iids:
-            f.write(f"{iid}\t{iid}\n")
-    return pheno_path, keep_path, name, len(rows), ncase, nctrl
+            f.write(f"{fid_by_iid.get(iid, iid)}\t{iid}\n")
+    return {
+        "raw_path": raw_path,
+        "pheno_path": pheno_path,
+        "keep_path": keep_path,
+        "pheno_name": name,
+        "n": len(rows),
+        "n_cases": ncase,
+        "n_controls": nctrl,
+    }
 
 
-def run_plink2(plink2, bfile, keep_path, pheno_path, pheno_name, out_prefix, force):
-    out_prefix.parent.mkdir(parents=True, exist_ok=True)
-    expected = out_prefix.parent / f"{out_prefix.name}.{pheno_name}.glm.linear"
-    if expected.exists() and expected.stat().st_size > 0 and not force:
-        return expected, 0.0
+def final_gwas_paths(outdir: Path, pheno_id: str, pheno_name: str) -> tuple[Path, Path, Path]:
+    pdir = outdir / "gwas" / pheno_id
+    prefix = pdir / pheno_id
+    glm = pdir / f"{pheno_id}.{pheno_name}.glm.linear"
+    lite = pdir / f"{pheno_id}.sumstats.tsv.gz"
+    return prefix, glm, lite
+
+
+def read_pheno_values(path: Path, pheno_name: str) -> dict[tuple[str, str], str]:
+    vals = {}
+    with open(path, newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        for row in reader:
+            vals[(row["FID"], row["IID"])] = row[pheno_name]
+    return vals
+
+
+def write_batch_pheno(batch_jobs, pheno_path: Path, keep_path: Path) -> None:
+    pheno_path.parent.mkdir(parents=True, exist_ok=True)
+    by_name = []
+    sample_keys = set()
+    for job in batch_jobs:
+        vals = read_pheno_values(job["pheno_path"], job["pheno_name"])
+        by_name.append((job["pheno_name"], vals))
+        sample_keys.update(vals.keys())
+    ordered = sorted(sample_keys, key=lambda x: (0, int(x[1])) if x[1].isdigit() else (1, x[1]))
+    with open(pheno_path, "w", newline="") as f:
+        writer = csv.writer(f, delimiter="\t", lineterminator="\n")
+        writer.writerow(["FID", "IID", *[name for name, _ in by_name]])
+        for key in ordered:
+            writer.writerow([key[0], key[1], *[vals.get(key, "NA") for _, vals in by_name]])
+    with open(keep_path, "w", newline="") as f:
+        writer = csv.writer(f, delimiter="\t", lineterminator="\n")
+        for fid, iid in ordered:
+            writer.writerow([fid, iid])
+
+
+def run_plink2_batch(plink2, bfile, batch_jobs, workdir: Path, batch_index: int):
+    workdir.mkdir(parents=True, exist_ok=True)
+    batch_prefix = workdir / f"batch_{batch_index:05d}"
+    batch_pheno = workdir / f"batch_{batch_index:05d}.pheno.tsv"
+    batch_keep = workdir / f"batch_{batch_index:05d}.keep.tsv"
+    batch_log = workdir / f"batch_{batch_index:05d}.plink2.log"
+    for old in workdir.glob(f"batch_{batch_index:05d}*.glm.linear"):
+        old.unlink()
+    for old in (workdir / f"batch_{batch_index:05d}.log", batch_log):
+        if old.exists():
+            old.unlink()
+    write_batch_pheno(batch_jobs, batch_pheno, batch_keep)
     cmd = [
         plink2,
         "--bfile", str(bfile),
-        "--keep", str(keep_path),
-        "--pheno", str(pheno_path),
-        "--pheno-name", pheno_name,
-        "--glm", "allow-no-covars",
+        "--keep", str(batch_keep),
+        "--pheno", str(batch_pheno),
+        "--pheno-name", ",".join(job["pheno_name"] for job in batch_jobs),
+        "--glm", "allow-no-covars", "cols=chrom,pos,a1freq,nobs,beta,se,p",
         "--no-input-missing-phenotype",
-        "--out", str(out_prefix),
+        "--out", str(batch_prefix),
     ]
     start = time.time()
     res = subprocess.run(cmd, text=True, capture_output=True)
     elapsed = time.time() - start
-    (out_prefix.parent / f"{out_prefix.name}.plink2.log").write_text(res.stderr + "\n" + res.stdout)
-    if res.returncode != 0 or not expected.exists():
-        raise RuntimeError(f"PLINK2 failed for {out_prefix}; see log.")
-    return expected, elapsed
+    batch_log.write_text(res.stderr + "\n" + res.stdout)
+    if res.returncode != 0:
+        raise RuntimeError(f"PLINK2 failed for batch {batch_index}; see {batch_log}.")
+
+    outputs = {}
+    for job in batch_jobs:
+        local_glm = workdir / f"batch_{batch_index:05d}.{job['pheno_name']}.glm.linear"
+        if not local_glm.exists() or local_glm.stat().st_size == 0:
+            raise RuntimeError(f"PLINK2 did not write expected output: {local_glm}")
+        final_glm = job["glm"]
+        final_lite = job["sumstats"]
+        final_glm.parent.mkdir(parents=True, exist_ok=True)
+        write_lightweight_sumstats(local_glm, final_lite)
+        shutil.copy2(local_glm, final_glm)
+        shutil.copy2(batch_log, final_glm.parent / f"{job['pheno_id']}.plink2.log")
+        outputs[job["pheno_id"]] = (final_glm, final_lite, elapsed)
+    return outputs
+
+
+def write_lightweight_sumstats(glm_path: Path, out_path: Path) -> Path:
+    """Write compact association columns for downstream scans."""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(glm_path, newline="") as src, gzip.open(out_path, "wt", newline="") as dst:
+        reader = csv.DictReader(src, delimiter="\t")
+        fields = ["rsid", "chrom", "pos", "allele1", "a1freq", "n", "beta", "se", "p", "log10p"]
+        writer = csv.DictWriter(dst, fieldnames=fields, delimiter="\t", lineterminator="\n")
+        writer.writeheader()
+        for row in reader:
+            p_raw = row.get("P", "")
+            log10p = ""
+            try:
+                p = float(p_raw)
+                if p > 0:
+                    log10p = f"{-math.log10(p):.8g}"
+            except (TypeError, ValueError):
+                pass
+            writer.writerow({
+                "rsid": row.get("ID", ""),
+                "chrom": row.get("#CHROM", row.get("CHROM", "")),
+                "pos": row.get("POS", ""),
+                "allele1": row.get("A1", ""),
+                "a1freq": row.get("A1_FREQ", row.get("A1FREQ", "")),
+                "n": row.get("OBS_CT", ""),
+                "beta": row.get("BETA", ""),
+                "se": row.get("SE", ""),
+                "p": p_raw,
+                "log10p": log10p,
+            })
+    return out_path
 
 
 def main() -> None:
@@ -1122,10 +1959,16 @@ def main() -> None:
     ap.add_argument("--survey-csv", type=Path, required=True)
     ap.add_argument("--bhp-csv", type=Path, default=None)
     ap.add_argument("--measurements-csv", type=Path, default=None)
+    ap.add_argument("--zip3-ses-csv", type=Path, default=None,
+                    help="latest per-person AoU ds_zip_code_socioeconomic extract.")
     ap.add_argument("--fitbit-activity-csv", type=Path, default=None)
     ap.add_argument("--fitbit-sleep-csv", type=Path, default=None)
     ap.add_argument("--fitbit-chronotype-csv", type=Path, default=None)
     ap.add_argument("--question-manifest", type=Path, required=True)
+    ap.add_argument("--aou-question-concepts", type=Path, default=None,
+                    help="AoU live ds_survey question_concept_id metadata crosswalk.")
+    ap.add_argument("--ea-proxy-feature-manifest", type=Path, default=None,
+                    help="Supplemental SES-EA XGBoost source-question manifest.")
     ap.add_argument("--ordinal-manifest", type=Path, required=True)
     ap.add_argument("--item-inventory", type=Path, default=None,
                     help="survey_item_inventory.tsv (for derived-psych/acculturation item labels).")
@@ -1139,46 +1982,129 @@ def main() -> None:
     ap.add_argument("--external-scores", type=Path, default=None,
                     help="registry TSV of pre-computed cognitive/EA-proxy scores to GWAS.")
     ap.add_argument("--outdir", type=Path, required=True)
+    ap.add_argument("--gwas-workdir", type=Path, default=None,
+                    help="Local working directory for temporary batched PLINK2 output.")
+    ap.add_argument("--gwas-batch-size", type=int, default=64,
+                    help="Number of residualized phenotypes per PLINK2 genotype scan.")
     ap.add_argument("--phenotypes", default="", help="comma-separated pheno_id filter (smoke test).")
     ap.add_argument("--plink2-bin", default=shutil.which("plink2") or "plink2")
     ap.add_argument("--skip-gwas", action="store_true")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
+    if args.gwas_batch_size < 1:
+        raise SystemExit("--gwas-batch-size must be >= 1")
+    if args.gwas_workdir is None:
+        args.gwas_workdir = args.outdir / "work" / "gwas"
 
     keep = set(load_keep(args.keep))
     sex = load_sex(args.sex)
     pcs = load_pcs(args.pcs)
-    log(f"keep={len(keep)}  sex={len(sex)}  pcs={len(pcs)}")
+    fid_by_iid = load_fam_fids(Path(f"{args.bfile}.fam"))
+    log(f"keep={len(keep)}  sex={len(sex)}  pcs={len(pcs)}  fam={len(fid_by_iid)}")
 
-    qman = load_question_manifest(args.question_manifest)
+    qman, qman_by_item, qman_rows = load_question_manifest(args.question_manifest)
+    qman_by_qid, qid_by_item = load_live_question_crosswalk(
+        args.aou_question_concepts, qman_rows, qman
+    )
+    qman.update(qman_by_qid)
+    ea_proxy_rows = load_ea_proxy_feature_sources(args.ea_proxy_feature_manifest, qman)
+    qman_rows.extend(ea_proxy_rows)
+    for row in ea_proxy_rows:
+        qid = (row.get("question_concept_id") or "").strip()
+        if qid:
+            qman.setdefault(qid, row)
+        label = (row.get("field_label") or "").strip()
+        if label:
+            qman.setdefault(norm_q(label), row)
+    live_override_rows = load_live_question_overrides(args.aou_question_concepts, qman)
+    qman_rows.extend(live_override_rows)
+    for row in live_override_rows:
+        qid = (row.get("question_concept_id") or "").strip()
+        if qid:
+            qman.setdefault(qid, row)
+        label = (row.get("field_label") or "").strip()
+        if label:
+            qman.setdefault(norm_q(label), row)
     ord_lookup = load_ordinal_lookup(args.ordinal_manifest)
     item_labels = load_item_labels(args.item_inventory)
-    log(f"manifest questions={len(qman)}  ordinal answer maps={len(ord_lookup)}  item labels={len(item_labels)}")
+    log(
+        f"manifest questions={len(qman_rows)}  live qid links={len(qman_by_qid)}  "
+        f"ea_proxy_supplemental={len(ea_proxy_rows)}  "
+        f"live_qid_overrides={len(live_override_rows)}  "
+        f"ordinal answer maps={len(ord_lookup)}  item labels={len(item_labels)}"
+    )
 
     survey_paths = [args.survey_csv]
     if args.bhp_csv:
         survey_paths.append(args.bhp_csv)
+    allowed_qids = set(qman_by_qid)
+    allowed_qids.update(qid for qid in qid_by_item.values() if qid)
+    allowed_qids.update(
+        (row.get("question_concept_id") or "").strip()
+        for row in qman_rows
+        if (row.get("question_concept_id") or "").strip()
+    )
+    allowed_qids.update(load_tsv_column_values(args.pfhh_allowlist, "question_concept_id"))
+    allowed_qids.update(PFHH_SCREEN_QID.values())
+    allowed_question_texts = {
+        norm_q(row.get("field_label") or "")
+        for row in qman_rows
+        if (row.get("field_label") or "").strip()
+        and not (row.get("disposition") or "").startswith("excluded")
+    }
     log("Building latest-response table ...")
-    questions = build_latest_responses(survey_paths, keep)
+    log(
+        f"survey row filter: qids={len(allowed_qids)} "
+        f"question_texts={len(allowed_question_texts)}"
+    )
+    questions = build_latest_responses(survey_paths, keep, allowed_qids, allowed_question_texts)
     log(f"questions with responses: {len(questions)}")
 
     only = {p.strip() for p in args.phenotypes.split(",") if p.strip()}
 
-    builders = [
-        build_survey_phenotypes(questions, qman, ord_lookup),
-        build_numeric_phenotypes(questions, qman),
-        build_pfhh_phenotypes(questions, args.pfhh_allowlist),
-        build_composite_phenotypes(questions, args.composite_manifest, args.ordinal_manifest, ord_lookup),
-        build_derived_psych_phenotypes(questions, item_labels),
-        build_acculturation_phenotype(questions, item_labels),
-        build_state_cluster_phenotypes(questions, item_labels, args.state_clusters, args.state_csv, keep),
-        build_measurement_phenotypes(args.measurements_csv, keep),
-        build_fitbit_phenotypes(args.fitbit_activity_csv, args.fitbit_sleep_csv, keep),
-        build_chronotype_phenotype(args.fitbit_chronotype_csv, keep),
-        build_external_score_phenotypes(args.external_scores, keep),
-    ]
+    builders = []
+    if wants_phenotype_source(only, prefixes=("bin_", "ord_")):
+        builders.append(build_survey_phenotypes(questions, qman, ord_lookup))
+    if wants_phenotype_source(only, prefixes=("num_",)):
+        builders.append(build_numeric_phenotypes(questions, qman))
+    if wants_phenotype_source(only, prefixes=("pfhh_",)):
+        builders.append(build_pfhh_phenotypes(questions, args.pfhh_allowlist))
+    if wants_phenotype_source(only, prefixes=("comp_",)):
+        builders.append(build_composite_phenotypes(
+            questions, args.composite_manifest, args.ordinal_manifest, ord_lookup, qid_by_item
+        ))
+    if wants_phenotype_source(only, prefixes=("psych_",)):
+        builders.append(build_derived_psych_phenotypes(questions, item_labels, qid_by_item))
+    if wants_phenotype_source(only, exact=("accult_index",)):
+        builders.append(build_acculturation_phenotype(questions, item_labels, qid_by_item))
+    if wants_phenotype_source(only, prefixes=("geo_",)):
+        builders.append(build_state_cluster_phenotypes(
+            questions, item_labels, args.state_clusters, args.state_csv, keep, qid_by_item
+        ))
+    measurement_ids = set(MEASUREMENTS) | {"bmi_kg_m2", "pulse_pressure_mmhg", "mean_arterial_pressure_mmhg"}
+    if wants_phenotype_source(only, exact=measurement_ids):
+        builders.append(build_measurement_phenotypes(args.measurements_csv, keep))
+    if wants_phenotype_source(only, exact=set(ZIP3_SES_TRAITS)):
+        builders.append(build_zip3_ses_phenotypes(args.zip3_ses_csv, keep))
+    fitbit_ids = {
+        "fitbit_mean_daily_steps",
+        "fitbit_sedentary_minutes",
+        "fitbit_active_minutes",
+        "fitbit_sleep_minutes",
+        "fitbit_sleep_efficiency",
+    }
+    if wants_phenotype_source(only, exact=fitbit_ids):
+        builders.append(build_fitbit_phenotypes(args.fitbit_activity_csv, args.fitbit_sleep_csv, keep))
+    if wants_phenotype_source(only, exact=("fitbit_chronotype_sleep_onset",)):
+        builders.append(build_chronotype_phenotype(args.fitbit_chronotype_csv, keep))
+    external_ids = external_score_pheno_ids(args.external_scores)
+    if wants_phenotype_source(only, exact=external_ids):
+        builders.append(build_external_score_phenotypes(args.external_scores, keep))
 
     manifest_rows = []
+    skipped_rows = []
+    gwas_jobs = []
+    seen_pheno_ids = set()
     metadir = args.outdir / "metadata"
     metadir.mkdir(parents=True, exist_ok=True)
 
@@ -1186,35 +2112,108 @@ def main() -> None:
         for pheno_id, trait_type, kind, values, meta in gen:
             if only and pheno_id not in only:
                 continue
-            prep = prepare_and_write(
-                pheno_id, kind, values, sex, pcs, args.outdir, meta.get("covar_mode", "full")
-            )
-            if prep is None:
+            if pheno_id in seen_pheno_ids:
+                skipped_rows.append({
+                    "pheno_id": pheno_id,
+                    "trait_type": trait_type,
+                    "kind": kind,
+                    "skip_reason": "duplicate_pheno_id",
+                    "n": len(values),
+                    "n_cases": "",
+                    "n_controls": "",
+                    "n_levels": "",
+                    "question_concept_id": meta.get("question_concept_id", ""),
+                    "item_concept": meta.get("item_concept", ""),
+                    "question": meta.get("question", ""),
+                    "answer": meta.get("answer", ""),
+                })
                 continue
-            pheno_path, keep_path, pheno_name, n, ncase, nctrl = prep
+            prep = prepare_and_write(
+                pheno_id, kind, values, sex, pcs, fid_by_iid, args.outdir, meta.get("covar_mode", "full")
+            )
+            if "skip_reason" in prep:
+                skipped_rows.append({
+                    "pheno_id": pheno_id,
+                    "trait_type": trait_type,
+                    "kind": kind,
+                    "skip_reason": prep["skip_reason"],
+                    "n": prep.get("n", 0),
+                    "n_cases": prep.get("n_cases", 0),
+                    "n_controls": prep.get("n_controls", 0),
+                    "n_levels": prep.get("n_levels", ""),
+                    "question_concept_id": meta.get("question_concept_id", ""),
+                    "item_concept": meta.get("item_concept", ""),
+                    "question": meta.get("question", ""),
+                    "answer": meta.get("answer", ""),
+                })
+                continue
+            seen_pheno_ids.add(pheno_id)
             row = {
                 "pheno_id": pheno_id,
                 "trait_type": trait_type,
                 "kind": kind,
-                "n": n,
-                "n_cases": ncase,
-                "n_controls": nctrl,
+                "n": prep["n"],
+                "n_cases": prep["n_cases"],
+                "n_controls": prep["n_controls"],
+                "pheno_name": prep["pheno_name"],
                 "ordinal_rule": meta.get("ordinal_rule", ""),
                 "question_concept_id": meta.get("question_concept_id", ""),
+                "item_concept": meta.get("item_concept", ""),
                 "question": meta.get("question", ""),
                 "answer": meta.get("answer", ""),
-                "pheno_path": str(pheno_path),
+                "raw_pheno_path": str(prep["raw_path"]),
+                "pheno_path": str(prep["pheno_path"]),
             }
+            _, glm, lite = final_gwas_paths(args.outdir, pheno_id, prep["pheno_name"])
+            row["glm"] = str(glm)
+            row["sumstats"] = str(lite)
             if not args.skip_gwas:
-                out_prefix = args.outdir / "gwas" / pheno_id / pheno_id
-                glm, elapsed = run_plink2(
-                    args.plink2_bin, args.bfile, keep_path, pheno_path, pheno_name, out_prefix, args.force
-                )
-                row["glm"] = str(glm)
-                row["gwas_seconds"] = round(elapsed, 1)
+                if glm.exists() and glm.stat().st_size > 0 and lite.exists() and lite.stat().st_size > 0 and not args.force:
+                    row["gwas_seconds"] = 0.0
+                else:
+                    row["gwas_seconds"] = ""
+                    gwas_jobs.append({
+                        "pheno_id": pheno_id,
+                        "pheno_name": prep["pheno_name"],
+                        "pheno_path": prep["pheno_path"],
+                        "glm": glm,
+                        "sumstats": lite,
+                        "row": row,
+                    })
             manifest_rows.append(row)
             if len(manifest_rows) % 100 == 0:
                 log(f"  {len(manifest_rows)} phenotypes done")
+
+    if gwas_jobs:
+        log("Releasing phenotype-construction state before GWAS ...")
+        builders = None
+        questions = None
+        qman = None
+        qman_by_item = None
+        qman_by_qid = None
+        qman_rows = None
+        qid_by_item = None
+        ord_lookup = None
+        item_labels = None
+        allowed_qids = None
+        allowed_question_texts = None
+        sex = None
+        pcs = None
+        fid_by_iid = None
+        keep = None
+        gc.collect()
+        log(
+            f"Running {len(gwas_jobs)} GWAS phenotypes in batches of "
+            f"{args.gwas_batch_size} under {args.gwas_workdir} ..."
+        )
+        for i in range(0, len(gwas_jobs), args.gwas_batch_size):
+            batch_index = i // args.gwas_batch_size + 1
+            batch = gwas_jobs[i:i + args.gwas_batch_size]
+            log(f"  PLINK2 batch {batch_index}: {len(batch)} phenotypes")
+            outputs = run_plink2_batch(args.plink2_bin, args.bfile, batch, args.gwas_workdir, batch_index)
+            for job in batch:
+                _, _, elapsed = outputs[job["pheno_id"]]
+                job["row"]["gwas_seconds"] = round(elapsed, 1)
 
     man_path = metadir / "phenotype_manifest.tsv"
     if manifest_rows:
@@ -1223,6 +2222,15 @@ def main() -> None:
             w = csv.DictWriter(f, fieldnames=cols, delimiter="\t")
             w.writeheader()
             w.writerows(manifest_rows)
+    skip_path = metadir / "skipped_phenotypes.tsv"
+    if skipped_rows:
+        cols = list(skipped_rows[0].keys())
+        with open(skip_path, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=cols, delimiter="\t")
+            w.writeheader()
+            w.writerows(skipped_rows)
+    else:
+        skip_path.write_text("pheno_id\tskip_reason\n")
     (metadir / "run_manifest.json").write_text(
         json.dumps(
             {
@@ -1234,13 +2242,14 @@ def main() -> None:
                 "min_controls": MIN_CONTROLS,
                 "min_quant_n": MIN_QUANT_N,
                 "n_phenotypes_passing_qc": len(manifest_rows),
+                "n_phenotypes_skipped_qc": len(skipped_rows),
                 "skip_gwas": bool(args.skip_gwas),
             },
             indent=2,
         )
         + "\n"
     )
-    log(f"Wrote {man_path} ({len(manifest_rows)} phenotypes passed QC)")
+    log(f"Wrote {man_path} ({len(manifest_rows)} phenotypes passed QC; {len(skipped_rows)} skipped)")
 
 
 if __name__ == "__main__":
