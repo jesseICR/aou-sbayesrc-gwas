@@ -1,6 +1,6 @@
 ## 11c. Validated composite score definitions
 
-Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring ≥ 80% of items answered. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. Items are matched to survey responses by question text and merged across survey administrations. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
+Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring valid answers for more than half of items. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. Items are matched to survey responses by question text and merged across survey administrations. PHQ-9 and GAD-7 pool EHHWB and COPE administrations with EHHWB priority and a `from_cope` covariate; PSS-10 pools SDOH and COPE administrations with SDOH priority and the same source covariate. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
 
 ### GAD-7 — Generalized Anxiety Disorder scale (anxiety)
 
@@ -40,6 +40,7 @@ Each composite is a **prorated sum**: mean(available item scores) × n_items, re
 - **Per-item scoring:** 2 answer scales across items (shown per item below)
 - **Total score:** prorated sum of 10 items; 4 reverse-keyed
 - **Auto-built:** yes (comp_pss_perceived_stress)
+- **Pooling:** SDOH is primary; COPE fills COPE-only responses. The GWAS residualization includes `from_cope`.
 - **Questions:**
     - In the last month, how often have you been upset because of something that happened unexpectedly?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
     - In the last month, how often have you felt that you were unable to control the important things in your life?  — [Never=0.0, Almost never=1.0, Sometime=2.0, Fairly often=3.0, Often=4.0]
@@ -246,4 +247,3 @@ Built directly from the survey items (reusing their ordinal scores), because the
 - **Questions:**
     - In general, how happy are you?
     - To what extent do you feel your life to be meaningful?
-

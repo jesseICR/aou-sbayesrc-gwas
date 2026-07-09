@@ -155,8 +155,10 @@ TEMPLATES: dict[str, dict] = {
         {
             "not at all": 0,
             "several days": 1,
+            "over half the days": 2,
             "more than half the days": 2,
             "more than half of the days": 2,
+            "nearly all days": 3,
             "nearly every day": 3,
         },
         "PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.",

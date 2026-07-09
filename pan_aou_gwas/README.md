@@ -32,6 +32,7 @@ metadata/                          generated manifests (see below)
 | `flagged_questions.tsv` | flagged question | sensitive + medium-confidence + uncertain-ordinal items for review |
 | `pfhh_self_allowlist.tsv` | condition | the 33 PFHH self-history conditions (binary + burden sumscore) |
 | `external_scores.tsv` | cognitive/proxy score | registry of ETM task + EA-proxy scores to GWAS (verify paths on platform) |
+| `sex_specific_items.tsv` | sex-specific item | female/male analysis-sample filters for reproductive, anatomy, and sex-ploidy phenotypes |
 | `ea_proxy_feature_sources.tsv` | EA-proxy source question | supplemental live v9 question IDs used by the SES-EA/direct-XGB feature contract but absent from the codebook-derived matcher |
 | `composite_items_manifest.tsv` | (instrument, item, answer) | validated composite scores (GAD-7, PHQ-9, PSS, BFI-2, ...) item scoring |
 | `COMPOSITE_SCORES.md` | instrument | human-readable definition of each composite (items, scoring, combination) |
@@ -79,6 +80,35 @@ for assigned-male DRAGEN `X0`/`XO` and skipped/prefer-not-to-answer sex-at-birth
 rows with DRAGEN `XX`/`XY`. Set `PAN_AOU_SKIP_MHWB=1` if the off-cycle
 Mental Health / Well-Being CDR is unavailable.
 
+FYI, the cdrv9/v9 audit rows motivating those explicit pan-AoU additions were:
+
+| Sex at birth response | Pan-AoU sex code | DRAGEN sex ploidy | Inclusion rule | Count |
+| --- | ---: | --- | --- | ---: |
+| Male | 1 | X0 | assigned-male noncanonical WGS sex ploidy coded male | 1,093 |
+| PMI: Skip | missing | XX | missing/nonbinary sex at birth coded from DRAGEN ploidy | 1,071 |
+| PMI: Skip | missing | XY | missing/nonbinary sex at birth coded from DRAGEN ploidy | 961 |
+| Male | 1 | XO | assigned-male noncanonical WGS sex ploidy coded male | 140 |
+| Prefer not to answer | missing | XY | missing/nonbinary sex at birth coded from DRAGEN ploidy | 83 |
+| Prefer not to answer | missing | XX | missing/nonbinary sex at birth coded from DRAGEN ploidy | 64 |
+
+The run also extracts a small person-level age covariate and includes
+`dragen_x0_xo_male`, a male-only binary GWAS for DRAGEN `X0`/`XO` sex ploidy
+versus DRAGEN `XY`, intended as a candidate mosaic loss-of-Y phenotype. This
+sex-stratified GWAS is residualized on age and the first 10 genetic PCs.
+
+Female reproductive/anatomy survey phenotypes listed in
+`metadata/sex_specific_items.tsv` are run only in pan-AoU female-coded samples.
+These sex-stratified GWAS are also residualized on age and the first 10 PCs.
+
+Survey phenotypes use the latest valid response per participant/question, so a
+later skip/prefer-not-to-answer response does not mask an earlier valid response.
+Two-answer single-select questions emit only one binary GWAS because the two
+one-vs-rest encodings are exact complements; the omitted side is listed as
+`redundant_binary_complement` in `skipped_phenotypes.tsv`.
+PHQ-9 and GAD-7 item and sumscore GWAS pool EHHWB with COPE using EHHWB priority.
+PSS-10 item and sumscore GWAS pool SDOH with COPE using SDOH priority. COPE
+fill-in is included as a `from_cope` residualization covariate.
+
 The run also extracts `ds_zip_code_socioeconomic` and GWASes the seven numeric
 ZIP3 context traits: deprivation index, median income, poverty, assisted income,
 no health insurance, vacant housing, and high-school education fraction. Raw
@@ -92,6 +122,10 @@ then runs one covariate-free `--glm allow-no-covars` linear pass over the whole
 autosomal bfile — no `--mac`/`--geno`/`--hwe`/`--threads`. This is genetically
 identical to covariates-in-PLINK2 and ~30× faster (validated in
 `~/projects/ukgwas/covariate_experiment`).
+
+Exceptions are explicit in `phenotype_manifest.tsv`: already age/sex-normalized
+external scores use sex+PC covariates, and sex-stratified phenotypes use age+PC
+covariates. Pooled PHQ-9/GAD-7 and PSS-10 phenotypes also include `from_cope`.
 
 ## Local validation
 

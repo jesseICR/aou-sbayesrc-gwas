@@ -3,9 +3,9 @@
 
 The scoring sheets give per-item answer->value scoring but do NOT reverse-key the
 reverse-worded items, so reverse handling is specified here explicitly. Each
-composite is a prorated sum: mean(available item scores) x n_items, requiring at
-least MIN_ITEM_FRACTION of items answered. Items are merged across survey
-administrations by question text (so one GAD-7, one PSS, etc.).
+composite is a prorated sum: mean(available item scores) x n_items, requiring
+more than half of items answered. Items are merged across survey administrations
+by question text (so one GAD-7, one PSS, etc.).
 
 BFI-2-XS is special: it yields the five Big Five domain scores (3 items each),
 not a single total, using the standard BFI-2-XS domain/reverse structure.
@@ -61,7 +61,12 @@ BFI2_DOMAINS = {
     "bfi2_openness": [("bfi2xs_5", False), ("bfi2xs_10", True), ("bfi2xs_15", False)],
 }
 
-MIN_ITEM_FRACTION = 0.8
+MIN_ITEM_FRACTION = 0.5
+
+
+def min_items_required(n_items: int) -> int:
+    """Minimum valid items for a prorated sumscore: strictly more than half."""
+    return n_items // 2 + 1
 
 # Composites the scoring sheets group with mixed item valence (or fail to score
 # cleanly). Built directly from the survey items, reusing their ordinal scores,

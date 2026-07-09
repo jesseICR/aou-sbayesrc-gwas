@@ -22,7 +22,7 @@ The Basics	whitenoneofthesedescribeme_whitefreetext		text	free_text	excluded_fre
 The Basics	gender_genderidentity		checkbox	multi_select	binary_only				6	5	0	gender_identity		checkbox: one selected-vs-not GWAS per option.	What terms best express how you describe your gender identity? (Check all that apply)
 The Basics	gender_closergenderdescription		checkbox	multi_select	binary_only				8	8	0	gender_identity		checkbox: one selected-vs-not GWAS per option.	Are any of these a closer description to your gender identity? (Check all that apply)
 The Basics	specifiedgender_specifiedgendertextbox		text	free_text	excluded_free_text				0	0	0				Please specify.
-The Basics	biologicalsexatbirth_sexatbirth		radio	single_select	nominal_binary				5	4	0				What was your biological sex assigned at birth?
+The Basics	biologicalsexatbirth_sexatbirth		radio	single_select	excluded_autosomal_sex_covariate				5	0	0			absorbed_by_sex_covariate; not GWASed on autosomes	What was your biological sex assigned at birth?
 The Basics	sexatbirthnoneofthese_sexatbirthtextbox		text	free_text	excluded_free_text				0	0	0				Please specify.
 The Basics	thebasics_sexualorientation		checkbox	multi_select	binary_only				6	5	0			checkbox: one selected-vs-not GWAS per option.	Which of the following best represents how you think of yourself? (Check all that apply)
 The Basics	genderidentity_sexualitycloserdescription		radio	single_select	nominal_binary				10	10	0				Are any of these a closer description of how you think of yourself?

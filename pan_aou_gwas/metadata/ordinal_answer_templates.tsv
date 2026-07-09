@@ -43,8 +43,10 @@ time_all_none_0_4	most of the time	3	high	Proportion of time All..None as worded
 time_all_none_0_4	all or almost all of the time	4	high	Proportion of time All..None as worded; higher = more of the time.
 phq_gad_0_3	not at all	0	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
 phq_gad_0_3	several days	1	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
+phq_gad_0_3	over half the days	2	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
 phq_gad_0_3	more than half the days	2	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
 phq_gad_0_3	more than half of the days	2	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
+phq_gad_0_3	nearly all days	3	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
 phq_gad_0_3	nearly every day	3	high	PHQ/GAD symptom frequency Not at all..Nearly every day; higher = more days.
 days_last5_midpoint	none of the days (0 days)	0.0	high	Days in last 5 (midpoints); every day = 5.
 days_last5_midpoint	a few days (1-2 days)	1.5	high	Days in last 5 (midpoints); every day = 5.

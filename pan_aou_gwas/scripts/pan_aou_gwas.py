@@ -35,7 +35,7 @@ import shutil
 import subprocess
 import sys
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -45,6 +45,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ordinal_rules as R  # noqa: E402
 
 PC_COLUMNS = [f"PC{i}_AVG" for i in range(1, 11)]
+SEX_FILTERS = {"all", "female", "male"}
 
 MIN_CASES = 200
 MIN_CONTROLS = 200
@@ -89,6 +90,130 @@ ZIP3_SES_TRAITS = {
         "fraction_high_school_edu",
         "ZIP3 Area SES: fraction high-school educated",
     ),
+}
+
+PHQ_GAD_CONSTRUCTION_ID = "phq_gad_ehhwb_cope_pooled_v1"
+PHQ_GAD_RULE = "phq_gad_0_3"
+PHQ_GAD_RESPONSE_OPTIONS = [
+    ("Not at all", 0.0),
+    ("Several days", 1.0),
+    ("More than half the days", 2.0),
+    ("Nearly every day", 3.0),
+]
+
+PHQ_GAD_POOLED_ITEMS = [
+    ("phq9", "phq9_1", "PHQ-9 item 1: little interest or pleasure", "1704026", "1333281"),
+    ("phq9", "phq9_2", "PHQ-9 item 2: feeling down, depressed, or hopeless", "1704024", "1333274"),
+    ("phq9", "phq9_3", "PHQ-9 item 3: sleep trouble", "1703983", "1333275"),
+    ("phq9", "phq9_4", "PHQ-9 item 4: tired or low energy", "1704039", "1333276"),
+    ("phq9", "phq9_5", "PHQ-9 item 5: poor appetite or overeating", "1704004", "1333277"),
+    ("phq9", "phq9_6", "PHQ-9 item 6: feeling bad about self", "1704041", "1333278"),
+    ("phq9", "phq9_7", "PHQ-9 item 7: trouble concentrating", "1704038", "1333279"),
+    ("phq9", "phq9_8", "PHQ-9 item 8: moving or speaking slowly or fidgety", "1703996", "1333285"),
+    ("phq9", "phq9_9", "PHQ-9 item 9: thoughts better off dead or self-harm", "1703977", "1333280"),
+    ("gad7", "gad7_1", "GAD-7 item 1: nervous, anxious, or on edge", "1703984", "1333195"),
+    ("gad7", "gad7_2", "GAD-7 item 2: cannot stop or control worrying", "1703995", "1333167"),
+    ("gad7", "gad7_3", "GAD-7 item 3: worrying too much", "1704000", "1333184"),
+    ("gad7", "gad7_4", "GAD-7 item 4: trouble relaxing", "1703987", "1333187"),
+    ("gad7", "gad7_5", "GAD-7 item 5: restless", "1704028", "1333189"),
+    ("gad7", "gad7_6", "GAD-7 item 6: easily annoyed or irritable", "1703920", "1333121"),
+    ("gad7", "gad7_7", "GAD-7 item 7: afraid something awful might happen", "1704042", "1333192"),
+]
+PHQ_GAD_SOURCE_QIDS = set()
+for _scale, _item_code, _label, _ehhwb_qid, _cope_qid in PHQ_GAD_POOLED_ITEMS:
+    PHQ_GAD_SOURCE_QIDS.add(_ehhwb_qid)
+    PHQ_GAD_SOURCE_QIDS.add(_cope_qid)
+PHQ_GAD_COMPOSITE_SLUGS = {"phq9_depression", "gad7_anxiety"}
+
+PSS_CONSTRUCTION_ID = "pss_sdoh_cope_pooled_v1"
+PSS_RULE = "freq_pss_0_4"
+PSS_RESPONSE_OPTIONS = [
+    ("Never", 0.0),
+    ("Almost Never", 1.0),
+    ("Sometimes", 2.0),
+    ("Fairly Often", 3.0),
+    ("Very Often", 4.0),
+]
+PSS_POOLED_ITEMS = [
+    (
+        "sdoh_cpss_1",
+        "PSS item 1: upset because something happened unexpectedly",
+        "40192452",
+        "1332878",
+        False,
+    ),
+    (
+        "sdoh_cpss_2",
+        "PSS item 2: unable to control important things",
+        "40192381",
+        "1332794",
+        False,
+    ),
+    (
+        "sdoh_cpss_3",
+        "PSS item 3: nervous and stressed",
+        "40192491",
+        "1332854",
+        False,
+    ),
+    (
+        "sdoh_cpss_4",
+        "PSS item 4: confident handling personal problems",
+        "40192419",
+        "1332861",
+        True,
+    ),
+    (
+        "sdoh_cpss_5",
+        "PSS item 5: things were going your way",
+        "40192525",
+        "1332862",
+        True,
+    ),
+    (
+        "sdoh_cpss_6",
+        "PSS item 6: could not cope with all things to do",
+        "40192506",
+        "1332863",
+        False,
+    ),
+    (
+        "sdoh_cpss_7",
+        "PSS item 7: able to control irritations",
+        "40192449",
+        "1332944",
+        True,
+    ),
+    (
+        "sdoh_cpss_8",
+        "PSS item 8: on top of things",
+        "40192445",
+        "1332868",
+        True,
+    ),
+    (
+        "sdoh_cpss_9",
+        "PSS item 9: angered by things outside control",
+        "40192396",
+        "1332869",
+        False,
+    ),
+    (
+        "sdoh_cpss_10",
+        "PSS item 10: difficulties piling up",
+        "40192462",
+        "1332998",
+        False,
+    ),
+]
+PSS_SOURCE_QIDS = set()
+for _item_code, _label, _sdoh_qid, _cope_qid, _reverse in PSS_POOLED_ITEMS:
+    PSS_SOURCE_QIDS.add(_sdoh_qid)
+    PSS_SOURCE_QIDS.add(_cope_qid)
+PSS_COMPOSITE_SLUGS = {"pss_perceived_stress"}
+
+AUTOSOME_UNINFORMATIVE_ITEM_CONCEPTS = {
+    "biologicalsexatbirth_sexatbirth",
 }
 
 
@@ -178,6 +303,43 @@ def load_fam_fids(path: Path) -> dict[str, str]:
             p = line.split()
             if len(p) >= 2:
                 out[p[1]] = p[0]
+    return out
+
+
+def load_sex_specific_items(path: Path | None) -> dict[str, str]:
+    """Load item_concept -> sex_filter rules for sex-stratified phenotypes."""
+    out: dict[str, str] = {}
+    if not path or not Path(path).exists():
+        return out
+    with open(path, newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        required = {"item_concept", "sex_filter"}
+        missing = required - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f"{path} missing columns: {sorted(missing)}")
+        for row in reader:
+            item = (row.get("item_concept") or "").strip()
+            sex_filter = (row.get("sex_filter") or "all").strip().lower()
+            if not item:
+                continue
+            if sex_filter not in SEX_FILTERS:
+                raise ValueError(f"{path}: invalid sex_filter for {item}: {sex_filter}")
+            out[item] = sex_filter
+    return out
+
+
+def apply_sex_specific_item_rule(meta: dict, sex_specific_items: dict[str, str]) -> dict:
+    """Attach item-level sex filters to a phenotype metadata dict."""
+    out = dict(meta)
+    sex_filter = (out.get("sex_filter") or "all").strip().lower()
+    item = (out.get("item_concept") or "").strip()
+    if sex_filter == "all" and item in sex_specific_items:
+        sex_filter = sex_specific_items[item]
+    if sex_filter not in SEX_FILTERS:
+        raise ValueError(f"invalid sex_filter for {item or '<no item>'}: {sex_filter}")
+    out["sex_filter"] = sex_filter
+    if sex_filter != "all":
+        out["covar_mode"] = "agepc"
     return out
 
 
@@ -321,6 +483,10 @@ def live_question_override_spec(qid: str, survey: str, question: str) -> dict | 
         "1333274", "1333275", "1333276", "1333277", "1333278",
         "1333279", "1333280", "1333281", "1333285",
     }
+    cope_gad_qids = {
+        "1333121", "1333167", "1333184", "1333187", "1333189",
+        "1333192", "1333195",
+    }
     ehhw_phq_gad_qids = {
         "1703920", "1703977", "1703983", "1703984", "1703987",
         "1703995", "1703996", "1704000", "1704004", "1704024",
@@ -385,7 +551,7 @@ def live_question_override_spec(qid: str, survey: str, question: str) -> dict | 
         return spec("nominal_binary", phenotype_class="multi_select", field_type="checkbox")
     if qid == "1332748":
         return spec("ordinal_and_binary", "days_last5_midpoint")
-    if qid in cope_phq_qids or qid in ehhw_phq_gad_qids:
+    if qid in cope_phq_qids or qid in cope_gad_qids or qid in ehhw_phq_gad_qids:
         return spec("ordinal_and_binary", "phq_gad_0_3")
     if qid in {"1333286", "1333288", "1333289"}:
         return spec("nominal_binary")
@@ -522,7 +688,7 @@ def load_ordinal_lookup(path: Path) -> dict[tuple[str, str], float]:
 
 
 # --------------------------------------------------------------------------- #
-# survey ingest: latest response per (person, question)
+# survey ingest: latest valid response per (person, question)
 # --------------------------------------------------------------------------- #
 def read_survey_rows(
     paths: list[Path],
@@ -555,8 +721,15 @@ def build_latest_responses(
     allowed_qids: set[str] | None = None,
     allowed_question_texts: set[str] | None = None,
 ):
-    """Return dict[qid] -> {question, pid -> (age, [(ans_text)...])} using latest datetime."""
-    # Per (pid, qid): keep max datetime, collect answers at that datetime.
+    """Return dict[qid] -> {question, pid -> (age, [(ans_text)...])}.
+
+    Per (person, question), prefer the latest event containing at least one
+    valid non-missing answer. If a participant never has a valid answer for that
+    question, retain the latest event so skip/PNA-only records still have the
+    expected missing-answer behavior downstream.
+    """
+    # Per (pid, qid): keep max valid datetime and max overall datetime,
+    # collecting answers at the selected datetime.
     # The full v9 survey export is large enough that storing string tuple keys
     # can exceed default AoU Jupyter RAM. Use compact integer ids internally and
     # expand back to strings only after aggregation completes.
@@ -568,7 +741,8 @@ def build_latest_responses(
     question_text_by_qid_index = []
     answer_to_index = {}
     answer_by_index = []
-    latest = {}  # compact_key -> [datetime, age, answer_index | list[answer_index]]
+    latest_all = {}    # compact_key -> [datetime, age, answer_index | list[answer_index]]
+    latest_valid = {}  # same layout, but only events with a non-missing answer
 
     def qid_index(qid: str, question_text: str) -> int:
         idx = qid_to_index.get(qid)
@@ -591,6 +765,18 @@ def build_latest_responses(
             answer_by_index.append(answer)
         return idx
 
+    def update_latest(store: dict[int, list], key: int, dt: str, age: float, ans_idx: int) -> None:
+        cur = store.get(key)
+        if cur is None or dt > cur[0]:
+            store[key] = [dt, age, ans_idx]
+        elif dt == cur[0]:
+            answers = cur[2]
+            if isinstance(answers, int):
+                if ans_idx != answers:
+                    cur[2] = [answers, ans_idx]
+            elif ans_idx not in answers:
+                answers.append(ans_idx)
+
     for row in read_survey_rows(survey_paths, keep, allowed_qids, allowed_question_texts):
         pid = row["person_id"].strip()
         pid_idx = pid_to_index.get(pid)
@@ -600,25 +786,21 @@ def build_latest_responses(
         if not qid:
             continue
         dt = sys.intern((row.get("survey_datetime") or "").strip())
-        ans_idx = answer_index(sys.intern((row.get("answer") or "").strip()))
+        ans_text = sys.intern((row.get("answer") or "").strip())
+        ans_idx = answer_index(ans_text)
         try:
             age = float(row.get("age_at_survey") or "nan")
         except ValueError:
             age = float("nan")
         qid_idx = qid_index(qid, row.get("question") or "")
         k = pid_idx * key_mult + qid_idx
-        cur = latest.get(k)
-        if cur is None or dt > cur[0]:
-            latest[k] = [dt, age, ans_idx]
-        elif dt == cur[0]:
-            answers = cur[2]
-            if isinstance(answers, int):
-                if ans_idx != answers:
-                    cur[2] = [answers, ans_idx]
-            elif ans_idx not in answers:
-                answers.append(ans_idx)
+        update_latest(latest_all, k, dt, age, ans_idx)
+        if ans_text and not is_missing_answer(ans_text):
+            update_latest(latest_valid, k, dt, age, ans_idx)
 
     questions = defaultdict(lambda: {"question": "", "responses": {}})
+    latest = dict(latest_all)
+    latest.update(latest_valid)
     while latest:
         k, (_dt, age, answer_indexes) = latest.popitem()
         pid_idx, qid_idx = divmod(k, key_mult)
@@ -682,6 +864,78 @@ def manifest_item_id(man: dict, fallback: str) -> str:
     return slug(item or fallback)
 
 
+def is_control_like_binary_answer(answer: str) -> bool:
+    ans = answer_norm(answer_tail(answer))
+    if ans in {
+        "no",
+        "none",
+        "never",
+        "no problems",
+        "no problem",
+        "no attempt",
+        "usa",
+        "united states",
+        "united states of america",
+    }:
+        return True
+    return (
+        ans.startswith("no ")
+        or ans.startswith("not ")
+        or ans.startswith("none ")
+        or ans.startswith("never ")
+        or ans.startswith("stayed about the same")
+    )
+
+
+def preferred_binary_complement_answer(
+    answers: set[str],
+    man: dict,
+    qtext: str,
+    ord_lookup: dict[tuple[str, str], float],
+) -> str:
+    """Choose the one GWAS to keep from an exact two-answer complement pair."""
+    item = man.get("item_concept", "")
+
+    def ordinal_value(answer: str) -> float | None:
+        ans_key = answer_norm(answer)
+        v = LIVE_ORDINAL_VALUE_BY_ITEM_ANSWER.get(item, {}).get(ans_key)
+        if v is None:
+            v = ord_lookup.get((item, ans_key))
+        if v is None:
+            v = ord_lookup.get((norm_q(qtext), ans_key))
+        if v is None:
+            v = ordinal_value_from_rule(man.get("ordinal_rule", ""), answer)
+        if v is None and man.get("ordinal_rule") == "ea_proxy_ordinal_text":
+            v = ea_proxy_ordinal_value_from_answer(answer)
+        return None if v is None else float(v)
+
+    def preference(answer: str):
+        ans = answer_norm(answer_tail(answer))
+        raw = answer_norm(answer)
+        value = ordinal_value(answer)
+        if ans in {"yes", "true"} or raw.endswith(": yes"):
+            return (7, 0.0, raw)
+        if "too many" in ans:
+            return (6, 0.0, raw)
+        if "needed treatment" in ans or "caused problems" in ans:
+            return (6, 0.0, raw)
+        if ans == "other" or raw.endswith(": other") or ans.startswith("other "):
+            return (5, 0.0, raw)
+        if ans.startswith("attempt"):
+            return (5, 0.0, raw)
+        if value is not None:
+            return (4, value, raw)
+        try:
+            return (4, float(ans), raw)
+        except ValueError:
+            pass
+        if is_control_like_binary_answer(answer):
+            return (0, 0.0, raw)
+        return (3, 0.0, raw)
+
+    return max(answers, key=preference)
+
+
 def ordinal_value_from_rule(rule: str, answer: str) -> float | None:
     """Map an answer to a value through a named ordinal template/override."""
     rule = (rule or "").strip()
@@ -712,6 +966,24 @@ def ordinal_value_from_rule(rule: str, answer: str) -> float | None:
         if ans == "not important":
             return 0.0
     return None
+
+
+def phq_gad_answer_value(answer: str) -> float | None:
+    """Score PHQ/GAD answer text on the standard 0..3 frequency scale."""
+    value = ordinal_value_from_rule(PHQ_GAD_RULE, answer)
+    if value is not None:
+        return value
+    ans = answer_norm(answer)
+    aliases = {
+        "over half the days": 2.0,
+        "nearly all days": 3.0,
+    }
+    return aliases.get(ans)
+
+
+def pss_answer_value(answer: str) -> float | None:
+    """Score PSS answer text on the standard 0..4 frequency scale."""
+    return ordinal_value_from_rule(PSS_RULE, answer)
 
 
 LIVE_ORDINAL_VALUE_BY_ITEM_ANSWER = {
@@ -803,6 +1075,254 @@ def ea_proxy_ordinal_value_from_answer(answer: str):
     return None
 
 
+def valid_single_phq_gad_response(questions: dict, qid: str, pid: str):
+    """Return (value, age) for a participant's selected latest-valid PHQ/GAD response."""
+    q = questions.get(qid)
+    if not q:
+        return None
+    resp = q["responses"].get(pid)
+    if not resp:
+        return None
+    age, answers = resp
+    non_missing = [a for a in answers if not is_missing_answer(a)]
+    if len(non_missing) != 1:
+        return None
+    value = phq_gad_answer_value(non_missing[0])
+    if value is None:
+        return None
+    return value, age
+
+
+def valid_single_pss_response(questions: dict, qid: str, pid: str):
+    """Return (value, age) for a participant's selected latest-valid PSS response."""
+    q = questions.get(qid)
+    if not q:
+        return None
+    resp = q["responses"].get(pid)
+    if not resp:
+        return None
+    age, answers = resp
+    non_missing = [a for a in answers if not is_missing_answer(a)]
+    if len(non_missing) != 1:
+        return None
+    value = pss_answer_value(non_missing[0])
+    if value is None:
+        return None
+    return value, age
+
+
+def pooled_phq_gad_item_values(questions: dict) -> dict[str, dict[str, tuple[float, float, float]]]:
+    """Build canonical PHQ/GAD item values using EHHWB first, COPE as fill-in.
+
+    Returns item_code -> {iid: (score, age, from_cope)}.
+    """
+    pooled = {}
+    for _scale, item_code, _label, ehhwb_qid, cope_qid in PHQ_GAD_POOLED_ITEMS:
+        values = {}
+        pids = set()
+        for qid in (ehhwb_qid, cope_qid):
+            if qid in questions:
+                pids.update(questions[qid]["responses"].keys())
+        for pid in pids:
+            ehhwb = valid_single_phq_gad_response(questions, ehhwb_qid, pid)
+            if ehhwb is not None:
+                values[pid] = (ehhwb[0], ehhwb[1], 0.0)
+                continue
+            cope = valid_single_phq_gad_response(questions, cope_qid, pid)
+            if cope is not None:
+                values[pid] = (cope[0], cope[1], 1.0)
+        pooled[item_code] = values
+    return pooled
+
+
+def build_pooled_phq_gad_phenotypes(questions):
+    """Yield EHHWB-priority, COPE-fill-in PHQ-9/GAD-7 item and sumscore phenotypes."""
+    pooled = pooled_phq_gad_item_values(questions)
+
+    for _scale, item_code, label, ehhwb_qid, cope_qid in PHQ_GAD_POOLED_ITEMS:
+        item_values = pooled.get(item_code, {})
+        from_cope = {pid: v[2] for pid, v in item_values.items()}
+        base_meta = {
+            "question_concept_id": f"{ehhwb_qid}|{cope_qid}",
+            "item_concept": item_code,
+            "question": f"Pooled EHHWB/COPE {label}",
+            "ordinal_rule": PHQ_GAD_RULE,
+            "covar_mode": "full",
+            "extra_covariates": {"from_cope": from_cope},
+            "extra_covariates_label": "from_cope",
+            "construction_id": PHQ_GAD_CONSTRUCTION_ID,
+        }
+        ordinal_values = {pid: (score, age) for pid, (score, age, _source) in item_values.items()}
+        yield f"ord_{item_code}", "ordinal", "quant", ordinal_values, {
+            **base_meta,
+            "answer": "",
+        }
+        for answer_label, answer_value in PHQ_GAD_RESPONSE_OPTIONS:
+            binary_values = {
+                pid: (1.0 if score == answer_value else 0.0, age)
+                for pid, (score, age, _source) in item_values.items()
+            }
+            yield f"bin_{item_code}__{answer_slug(answer_label)}", "binary", "binary", binary_values, {
+                **base_meta,
+                "answer": answer_label,
+                "ordinal_rule": "",
+            }
+
+    scale_specs = {
+        "phq9": ("comp_phq9_depression", "PHQ-9 depression symptoms, pooled EHHWB/COPE prorated sum", 9),
+        "gad7": ("comp_gad7_anxiety", "GAD-7 anxiety symptoms, pooled EHHWB/COPE prorated sum", 7),
+    }
+    for scale, (pheno_id, label, n_items) in scale_specs.items():
+        item_codes = [
+            item_code for item_scale, item_code, _label, _ehhwb_qid, _cope_qid in PHQ_GAD_POOLED_ITEMS
+            if item_scale == scale
+        ]
+        need = n_items // 2 + 1
+        pids = set()
+        for item_code in item_codes:
+            pids.update(pooled.get(item_code, {}).keys())
+        values = {}
+        from_cope = {}
+        for pid in pids:
+            got = []
+            ages = []
+            source_flags = []
+            for item_code in item_codes:
+                item = pooled.get(item_code, {}).get(pid)
+                if item is None:
+                    continue
+                score, age, source_flag = item
+                got.append(score)
+                ages.append(age)
+                source_flags.append(source_flag)
+            if len(got) < need:
+                continue
+            finite_ages = [age for age in ages if age is not None and not math.isnan(age)]
+            if not finite_ages:
+                continue
+            values[pid] = (sum(got) / len(got) * n_items, sum(finite_ages) / len(finite_ages))
+            from_cope[pid] = 1.0 if source_flags and all(flag == 1.0 for flag in source_flags) else 0.0
+        yield pheno_id, "composite", "quant", values, {
+            "question_concept_id": "|".join(
+                qid
+                for item_scale, _item_code, _label, ehhwb_qid, cope_qid in PHQ_GAD_POOLED_ITEMS
+                if item_scale == scale
+                for qid in (ehhwb_qid, cope_qid)
+            ),
+            "item_concept": scale,
+            "question": label,
+            "answer": f"{n_items}-item prorated sum; requires at least {need} valid items",
+            "ordinal_rule": "composite",
+            "covar_mode": "full",
+            "extra_covariates": {"from_cope": from_cope},
+            "extra_covariates_label": "from_cope",
+            "construction_id": PHQ_GAD_CONSTRUCTION_ID,
+        }
+
+
+def pooled_pss_item_values(questions: dict) -> dict[str, dict[str, tuple[float, float, float]]]:
+    """Build canonical PSS item values using SDOH first, COPE as fill-in.
+
+    Returns item_code -> {iid: (score, age, from_cope)}.
+    """
+    pooled = {}
+    for item_code, _label, sdoh_qid, cope_qid, _reverse in PSS_POOLED_ITEMS:
+        values = {}
+        pids = set()
+        for qid in (sdoh_qid, cope_qid):
+            if qid in questions:
+                pids.update(questions[qid]["responses"].keys())
+        for pid in pids:
+            sdoh = valid_single_pss_response(questions, sdoh_qid, pid)
+            if sdoh is not None:
+                values[pid] = (sdoh[0], sdoh[1], 0.0)
+                continue
+            cope = valid_single_pss_response(questions, cope_qid, pid)
+            if cope is not None:
+                values[pid] = (cope[0], cope[1], 1.0)
+        pooled[item_code] = values
+    return pooled
+
+
+def build_pooled_pss_phenotypes(questions):
+    """Yield SDOH-priority, COPE-fill-in PSS-10 item and sumscore phenotypes."""
+    pooled = pooled_pss_item_values(questions)
+
+    for item_code, label, sdoh_qid, cope_qid, _reverse in PSS_POOLED_ITEMS:
+        item_values = pooled.get(item_code, {})
+        from_cope = {pid: v[2] for pid, v in item_values.items()}
+        base_meta = {
+            "question_concept_id": f"{sdoh_qid}|{cope_qid}",
+            "item_concept": item_code,
+            "question": f"Pooled SDOH/COPE {label}",
+            "ordinal_rule": PSS_RULE,
+            "covar_mode": "full",
+            "extra_covariates": {"from_cope": from_cope},
+            "extra_covariates_label": "from_cope",
+            "construction_id": PSS_CONSTRUCTION_ID,
+        }
+        ordinal_values = {pid: (score, age) for pid, (score, age, _source) in item_values.items()}
+        yield f"ord_{item_code}", "ordinal", "quant", ordinal_values, {
+            **base_meta,
+            "answer": "",
+        }
+        for answer_label, answer_value in PSS_RESPONSE_OPTIONS:
+            binary_values = {
+                pid: (1.0 if score == answer_value else 0.0, age)
+                for pid, (score, age, _source) in item_values.items()
+            }
+            yield f"bin_{item_code}__{answer_slug(answer_label)}", "binary", "binary", binary_values, {
+                **base_meta,
+                "answer": answer_label,
+                "ordinal_rule": "",
+            }
+
+    n_items = len(PSS_POOLED_ITEMS)
+    need = n_items // 2 + 1
+    pids = set()
+    for item_code, *_ in PSS_POOLED_ITEMS:
+        pids.update(pooled.get(item_code, {}).keys())
+    values = {}
+    from_cope = {}
+    reverse_by_item = {item_code: reverse for item_code, _label, _sdoh_qid, _cope_qid, reverse in PSS_POOLED_ITEMS}
+    for pid in pids:
+        got = []
+        ages = []
+        source_flags = []
+        for item_code, *_ in PSS_POOLED_ITEMS:
+            item = pooled.get(item_code, {}).get(pid)
+            if item is None:
+                continue
+            score, age, source_flag = item
+            if reverse_by_item[item_code]:
+                score = 4.0 - score
+            got.append(score)
+            ages.append(age)
+            source_flags.append(source_flag)
+        if len(got) < need:
+            continue
+        finite_ages = [age for age in ages if age is not None and not math.isnan(age)]
+        if not finite_ages:
+            continue
+        values[pid] = (sum(got) / len(got) * n_items, sum(finite_ages) / len(finite_ages))
+        from_cope[pid] = 1.0 if source_flags and all(flag == 1.0 for flag in source_flags) else 0.0
+    yield "comp_pss_perceived_stress", "composite", "quant", values, {
+        "question_concept_id": "|".join(
+            qid
+            for _item_code, _label, sdoh_qid, cope_qid, _reverse in PSS_POOLED_ITEMS
+            for qid in (sdoh_qid, cope_qid)
+        ),
+        "item_concept": "pss_perceived_stress",
+        "question": "PSS-10 perceived stress, pooled SDOH/COPE prorated sum",
+        "answer": f"{n_items}-item prorated sum; requires at least {need} valid items",
+        "ordinal_rule": "composite",
+        "covar_mode": "full",
+        "extra_covariates": {"from_cope": from_cope},
+        "extra_covariates_label": "from_cope",
+        "construction_id": PSS_CONSTRUCTION_ID,
+    }
+
+
 # Minimum age-at-survey by ordinal rule, matching the repo's dedicated EA/income
 # GWAS (setup_ea_gwas.py / setup_income_gwas.py, --min-age-at-survey default 26):
 # exclude respondents who may not have completed education / are early-career.
@@ -812,13 +1332,19 @@ MIN_AGE_BY_RULE = {
 }
 
 
-def build_survey_phenotypes(questions, qman, ord_lookup):
+def build_survey_phenotypes(questions, qman, ord_lookup, sex_specific_items=None, skip_qids=None):
     """Yield (pheno_id, trait_type, kind, {iid: (y, age)}, meta)."""
+    sex_specific_items = sex_specific_items or {}
+    skip_qids = skip_qids or set()
     for qid, q in questions.items():
+        if qid in skip_qids:
+            continue
         qtext = q["question"]
         man = qman.get(qid) or qman.get(norm_q(qtext))
         if man is None:
             continue  # question not in our included/classified manifest
+        if (man.get("item_concept") or "").strip() in AUTOSOME_UNINFORMATIVE_ITEM_CONCEPTS:
+            continue
         disp = man["disposition"]
         if disp.startswith("excluded") or disp == "numeric":
             # numeric handled separately below via value_as_number
@@ -846,7 +1372,16 @@ def build_survey_phenotypes(questions, qman, ord_lookup):
                 for a in answers:
                     if not is_missing_answer(a):
                         valid_answers.add(a)
-            for ans in sorted(valid_answers):
+            emit_answers = set(valid_answers)
+            skipped_complement_answers = set()
+            kept_complement_pheno = ""
+            if not is_multi and len(valid_answers) == 2:
+                keep_answer = preferred_binary_complement_answer(valid_answers, man, qtext, ord_lookup)
+                emit_answers = {keep_answer}
+                skipped_complement_answers = set(valid_answers) - emit_answers
+                kept_complement_pheno = f"bin_{item_id}__{answer_slug(keep_answer)}"
+
+            def values_for_answer(ans: str) -> dict[str, tuple[float, float]]:
                 values = {}
                 for pid, (age, answers) in responses.items():
                     non_missing = {a for a in answers if not is_missing_answer(a)}
@@ -858,14 +1393,29 @@ def build_survey_phenotypes(questions, qman, ord_lookup):
                         # single-select control = answered another valid option;
                         # checkbox control = question shown and option not selected.
                         values[pid] = (0.0, age)
-                pid_ = f"bin_{item_id}__{answer_slug(ans)}"
-                yield pid_, "binary", "binary", values, {
+                return values
+
+            def meta_for_answer(ans: str) -> dict:
+                return {
                     "question_concept_id": qid,
                     "item_concept": man.get("item_concept", ""),
                     "question": qtext,
                     "answer": ans,
                     "ordinal_rule": "",
                 }
+
+            for ans in sorted(skipped_complement_answers):
+                pid_ = f"bin_{item_id}__{answer_slug(ans)}"
+                meta = meta_for_answer(ans)
+                meta["skip_reason"] = "redundant_binary_complement"
+                meta["construction_id"] = f"complement_of:{kept_complement_pheno}"
+                yield pid_, "binary", "binary", values_for_answer(ans), apply_sex_specific_item_rule(meta, sex_specific_items)
+
+            for ans in sorted(emit_answers):
+                pid_ = f"bin_{item_id}__{answer_slug(ans)}"
+                values = values_for_answer(ans)
+                meta = meta_for_answer(ans)
+                yield pid_, "binary", "binary", values, apply_sex_specific_item_rule(meta, sex_specific_items)
         # ---- ordinal -------------------------------------------------------
         if disp == "ordinal_and_binary":
             values = {}
@@ -886,16 +1436,18 @@ def build_survey_phenotypes(questions, qman, ord_lookup):
                     v = ea_proxy_ordinal_value_from_answer(non_missing[0])
                 if v is not None:
                     values[pid] = (float(v), age)
-            yield f"ord_{item_id}", "ordinal", "quant", values, {
+            meta = {
                 "question_concept_id": qid,
                 "item_concept": man.get("item_concept", ""),
                 "question": qtext,
                 "answer": "",
                 "ordinal_rule": man["ordinal_rule"],
             }
+            yield f"ord_{item_id}", "ordinal", "quant", values, apply_sex_specific_item_rule(meta, sex_specific_items)
 
 
-def build_numeric_phenotypes(questions, qman):
+def build_numeric_phenotypes(questions, qman, sex_specific_items=None):
+    sex_specific_items = sex_specific_items or {}
     for qid, q in questions.items():
         man = qman.get(qid) or qman.get(norm_q(q["question"]))
         if man is None or man["disposition"] != "numeric":
@@ -924,13 +1476,14 @@ def build_numeric_phenotypes(questions, qman):
             if lo is not None and (v < lo or v > hi):
                 continue
             values[pid] = (v, age)
-        yield f"num_{item_id}", "numeric", "quant", values, {
+        meta = {
             "question_concept_id": qid,
             "item_concept": man.get("item_concept", ""),
             "question": q["question"],
             "answer": "",
             "ordinal_rule": "",
         }
+        yield f"num_{item_id}", "numeric", "quant", values, apply_sex_specific_item_rule(meta, sex_specific_items)
 
 
 # Group -> PFHH category-screen question_concept_id used to recover controls.
@@ -1067,13 +1620,13 @@ def build_pfhh_phenotypes(questions, allowlist_path):
 
 
 def build_composite_phenotypes(
-    questions, manifest_path, ordinal_manifest_path=None, ord_lookup=None, qid_by_item=None
+    questions, manifest_path, ordinal_manifest_path=None, ord_lookup=None, qid_by_item=None, skip_slugs=None
 ):
     """Yield validated composite scores (GAD-7, PHQ-9, PSS, BFI-2 Big Five, ...).
 
     Each composite is a prorated sum over its items (matched to survey responses
-    by question text, reverse-keyed per composite_rules), requiring >= 80% of
-    items answered. Residualized on the full covariate set (survey age is known).
+    by question text, reverse-keyed per composite_rules), requiring more than
+    half of items answered. Residualized on the full covariate set (survey age is known).
 
     Scoring-sheet instruments come from `manifest_path`. The mixed-valence
     neighborhood/walkability/hunger composites are built from EXPLICIT_COMPOSITES
@@ -1087,6 +1640,7 @@ def build_composite_phenotypes(
             rows = list(csv.DictReader(f, delimiter="\t"))
 
     qid_by_item = qid_by_item or {}
+    skip_slugs = skip_slugs or set()
     qtext_to_qid = {}
     for qid, q in questions.items():
         qtext_to_qid.setdefault(norm_q(q["question"]), qid)
@@ -1111,7 +1665,7 @@ def build_composite_phenotypes(
     def score_items(item_list):
         """item_list: [(qid, ans_map, reverse, lo, hi)]. Yield {pid:(score,age)}."""
         n_items = len(item_list)
-        need = math.ceil(CR.MIN_ITEM_FRACTION * n_items)
+        need = CR.min_items_required(n_items)
         pids = set()
         for qid, *_ in item_list:
             pids |= set(questions[qid]["responses"].keys())
@@ -1138,6 +1692,8 @@ def build_composite_phenotypes(
 
     # merged-by-text sum instruments
     for slug, items in inst_items.items():
+        if slug in skip_slugs:
+            continue
         item_list = []
         for nq, ans_map in items.items():
             qid = qtext_to_qid.get(nq)
@@ -1156,6 +1712,8 @@ def build_composite_phenotypes(
 
     # BFI-2-XS Big Five domains
     for dom, spec in CR.BFI2_DOMAINS.items():
+        if dom in skip_slugs:
+            continue
         item_list = []
         for code, rev in spec:
             q, amap = code_q.get(code), code_answer.get(code)
@@ -1185,6 +1743,8 @@ def build_composite_phenotypes(
                 except (ValueError, TypeError):
                     pass
         for slug, (desc, items) in CR.EXPLICIT_COMPOSITES.items():
+            if slug in skip_slugs:
+                continue
             item_list = []
             for code, rev in items:
                 qt = code_qtext.get(code)
@@ -1338,6 +1898,9 @@ def build_derived_psych_phenotypes(questions, item_labels, qid_by_item=None):
         qid = qid_by_item.get(code) or (qtext_to_qid.get(norm_q(lab)) if lab else None)
         return questions.get(qid, {}).get("responses", {}) if qid else {}
 
+    def qid_list(codes):
+        return "|".join(qid_by_item.get(c, "") for c in codes if qid_by_item.get(c, ""))
+
     def nonmiss(pid, r):
         v = r.get(pid)
         return [a for a in v[1] if not is_missing_answer(a)] if v else []
@@ -1352,7 +1915,70 @@ def build_derived_psych_phenotypes(questions, item_labels, qid_by_item=None):
     def yes(ans_list):
         return any(answer_norm(a) == "yes" or answer_norm(a).startswith("yes,") for a in ans_list)
 
-    def binary_from(case_test, denom_codes, pheno_id, desc):
+    def no(ans_list):
+        return any(answer_norm(a) == "no" for a in ans_list)
+
+    def single_yes_no(pid, r):
+        a = nonmiss(pid, r)
+        if not a:
+            return None
+        if yes(a):
+            return 1.0
+        if no(a):
+            return 0.0
+        return None
+
+    def time_all_none_value(pid, r):
+        vals = [
+            ordinal_value_from_rule("time_all_none_0_4", a)
+            for a in nonmiss(pid, r)
+        ]
+        vals = [v for v in vals if v is not None]
+        return vals[0] if len(vals) == 1 else None
+
+    def present_most_or_all(pid, r):
+        v = time_all_none_value(pid, r)
+        return None if v is None else v >= 3.0
+
+    def trauma_ever(pid, r):
+        answers = [answer_norm(a) for a in nonmiss(pid, r)]
+        if not answers:
+            return None
+        if any(a.startswith("yes,") for a in answers):
+            return 1.0
+        if any(a == "never" for a in answers):
+            return 0.0
+        return None
+
+    def symptom_yes_no(pid, r):
+        return single_yes_no(pid, r)
+
+    def appetite_symptom(pid, r):
+        answers = {answer_norm(a) for a in nonmiss(pid, r)}
+        if not answers:
+            return None
+        if "increased appetite" in answers or "decreased appetite" in answers:
+            return 1.0
+        if "no changes in appetite" in answers:
+            return 0.0
+        return None
+
+    def weight_symptom(pid, r):
+        answers = {answer_norm(a) for a in nonmiss(pid, r)}
+        if not answers:
+            return None
+        if (
+            "gained weight" in answers
+            or "lost weight" in answers
+            or "both gained and lost some weight during the episode" in answers
+        ):
+            return 1.0
+        if "stayed about the same or was on a diet" in answers:
+            return 0.0
+        return None
+
+    def binary_from(case_test, denom_codes, pheno_id, desc, construction_id="",
+                    item_concept="", question_concept_id=""):
         """case_test(pid)->True/False/None(exclude); denom = answered any denom item."""
         rs = [resp(c) for c in denom_codes]
         pids = set().union(*[set(r) for r in rs]) if rs else set()
@@ -1367,8 +1993,10 @@ def build_derived_psych_phenotypes(questions, item_labels, qid_by_item=None):
             if a is not None:
                 values[pid] = (1.0 if y else 0.0, a)
         return (pheno_id, "binary", "binary", values,
-                {"question_concept_id": "", "question": pheno_id, "answer": desc,
-                 "ordinal_rule": "derived_psych", "covar_mode": "full"})
+                {"question_concept_id": question_concept_id, "item_concept": item_concept,
+                 "question": pheno_id, "answer": desc,
+                 "ordinal_rule": "derived_psych", "covar_mode": "full",
+                 "construction_id": construction_id})
 
     # ---- psychotic experiences (any of voices / thought-insertion / paranoia) --
     r21, r22, r23 = resp("cidi5_21"), resp("cidi5_22"), resp("cidi5_23")
@@ -1390,6 +2018,124 @@ def build_derived_psych_phenotypes(questions, item_labels, qid_by_item=None):
         r = resp(code)
         yield binary_from(lambda pid, r=r: (yes(nonmiss(pid, r)) if nonmiss(pid, r) else None),
                           [code], pid_name, desc)
+
+    ss_rs = [resp("ss_1"), resp("ss_2"), resp("ss_3")]
+    ss_codes = ["ss_1", "ss_2", "ss_3"]
+    ss_need = len(ss_codes) // 2 + 1
+    ss_values = {}
+    ss_pids = set().union(*[set(r) for r in ss_rs]) if ss_rs else set()
+    for pid in ss_pids:
+        scored = [single_yes_no(pid, r) for r in ss_rs]
+        scored = [v for v in scored if v is not None]
+        if len(scored) < ss_need:
+            continue
+        a = age_of(pid, *ss_rs)
+        if a is not None:
+            ss_values[pid] = (sum(scored) / len(scored) * len(ss_codes), a)
+    yield ("psych_sitbi_suicidality_count", "derived_psych", "quant", ss_values,
+           {"question_concept_id": qid_list(ss_codes), "item_concept": "|".join(ss_codes),
+            "question": "SITBI lifetime suicidality/self-harm count",
+            "answer": (
+                "Prorated count of ss_1, ss_2, ss_3; Yes=1, No=0; "
+                "requires at least 2 of 3 valid items"
+            ),
+            "ordinal_rule": "derived_psych", "covar_mode": "full",
+            "construction_id": "sitbi_count_v1"})
+
+    # ---- lifetime CIDI GAD: probable diagnosis and symptom-burden sum ----------
+    gad_codes = [f"cidi5_{i}" for i in range(6, 15)]
+    gad_rs = {code: resp(code) for code in gad_codes}
+    worry_r = resp("worryanxiety")
+    gad_need = len(gad_codes) // 2 + 1
+    gad_assoc_codes = ["cidi5_10", "cidi5_11", "cidi5_12", "cidi5_13", "cidi5_14"]
+    gad_pids = set(worry_r)
+    for r in gad_rs.values():
+        gad_pids.update(r)
+
+    def probable_gad(pid):
+        stem = single_yes_no(pid, worry_r)
+        if stem is None:
+            return None
+        if stem == 0.0:
+            return False
+
+        excessive = [present_most_or_all(pid, gad_rs[code]) for code in ("cidi5_8", "cidi5_9")]
+        assoc = [present_most_or_all(pid, gad_rs[code]) for code in gad_assoc_codes]
+        if any(v is True for v in excessive) and sum(v is True for v in assoc) >= 3:
+            return True
+
+        # Deterministic non-case: enough observed negatives to rule out meeting criteria.
+        if all(v is False for v in excessive):
+            return False
+        if sum(v is True for v in assoc) + sum(v is None for v in assoc) < 3:
+            return False
+        return None
+
+    yield binary_from(
+        probable_gad,
+        ["worryanxiety", *gad_codes],
+        "psych_probable_gad_lifetime",
+        (
+            "probable lifetime GAD: 6+ month worry/anxiety + excessive/uncontrollable worry "
+            "+ >=3/5 associated symptoms"
+        ),
+        "cidi_gad_lifetime_v1",
+        item_concept="|".join(["worryanxiety", *gad_codes]),
+        question_concept_id=qid_list(["worryanxiety", *gad_codes]),
+    )
+
+    gad_sum_values = {}
+    for pid in gad_pids:
+        stem = single_yes_no(pid, worry_r)
+        if stem is None:
+            continue
+        a = age_of(pid, worry_r, *gad_rs.values())
+        if a is None:
+            continue
+        if stem == 0.0:
+            gad_sum_values[pid] = (0.0, a)
+            continue
+        scores = [time_all_none_value(pid, gad_rs[code]) for code in gad_codes]
+        scores = [v for v in scores if v is not None]
+        if len(scores) < gad_need:
+            continue
+        gad_sum_values[pid] = (sum(scores) / len(scores) * len(gad_codes), a)
+    yield ("psych_cidi_gad_symptom_sum", "derived_psych", "quant", gad_sum_values,
+           {"question_concept_id": qid_list(["worryanxiety", *gad_codes]),
+            "item_concept": "|".join(["worryanxiety", *gad_codes]),
+            "question": "CIDI lifetime GAD symptom burden",
+            "answer": (
+                "Prorated sum of cidi5_6..cidi5_14, 0..4 each; "
+                "worryanxiety=No set to 0; requires at least 5 of 9 valid symptoms when stem=Yes"
+            ),
+            "ordinal_rule": "derived_psych", "covar_mode": "full",
+            "construction_id": "cidi_gad_lifetime_v1"})
+
+    # ---- UKB-MHQ trauma exposure count ---------------------------------------
+    trauma_codes = [f"mhqukb_{i}" for i in range(34, 43)]
+    trauma_rs = [resp(code) for code in trauma_codes]
+    trauma_need = len(trauma_codes) // 2 + 1
+    trauma_values = {}
+    trauma_pids = set().union(*[set(r) for r in trauma_rs]) if trauma_rs else set()
+    for pid in trauma_pids:
+        scored = [trauma_ever(pid, r) for r in trauma_rs]
+        scored = [v for v in scored if v is not None]
+        if len(scored) < trauma_need:
+            continue
+        a = age_of(pid, *trauma_rs)
+        if a is not None:
+            trauma_values[pid] = (sum(scored) / len(scored) * len(trauma_codes), a)
+    yield ("mhq_trauma_exposure_count", "derived_psych", "quant", trauma_values,
+           {"question_concept_id": qid_list(trauma_codes),
+            "item_concept": "|".join(trauma_codes),
+            "question": "UKB-MHQ lifetime trauma exposure count",
+            "answer": (
+                "Prorated count of mhqukb_34..mhqukb_42 lifetime trauma categories; "
+                "Yes within or before the last 12 months=1, Never=0; "
+                "requires at least 5 of 9 valid items"
+            ),
+            "ordinal_rule": "derived_psych", "covar_mode": "full",
+            "construction_id": "mhq_trauma_exposure_count_v1"})
 
     # ---- mania screen / probable bipolar (UKB Smith 2013 style) ---------------
     r43, r44, r45, r46, r47 = (resp("mhqukb_43"), resp("mhqukb_44"), resp("mhqukb_45"),
@@ -1443,6 +2189,53 @@ def build_derived_psych_phenotypes(questions, item_labels, qid_by_item=None):
 
     yield binary_from(recurrent_dep, ["mhqukb_5", "mhqukb_6"], "psych_probable_recurrent_depression",
                       "lifetime depressed episode + several episodes (recurrent-MDD proxy)")
+
+    dep_codes = [
+        "mhqukb_5", "mhqukb_6", "mhqukb_12", "mhqukb_14", "mhqukb_15",
+        "mhqukb_16", "mhqukb_17", "mhqukb_18", "mhqukb_19", "mhqukb_20",
+    ]
+    dep_rs = {code: resp(code) for code in dep_codes}
+    dep_need = len(dep_codes) // 2 + 1
+    dep_pids = set().union(*[set(r) for r in dep_rs.values()]) if dep_rs else set()
+    dep_values = {}
+    for pid in dep_pids:
+        screen5 = single_yes_no(pid, dep_rs["mhqukb_5"])
+        screen6 = single_yes_no(pid, dep_rs["mhqukb_6"])
+        a = age_of(pid, *dep_rs.values())
+        if a is None:
+            continue
+        if screen5 == 0.0 and screen6 == 0.0:
+            dep_values[pid] = (0.0, a)
+            continue
+
+        scored = [
+            screen5,
+            screen6,
+            symptom_yes_no(pid, dep_rs["mhqukb_12"]),
+            appetite_symptom(pid, dep_rs["mhqukb_14"]),
+            weight_symptom(pid, dep_rs["mhqukb_15"]),
+            symptom_yes_no(pid, dep_rs["mhqukb_16"]),
+            symptom_yes_no(pid, dep_rs["mhqukb_17"]),
+            symptom_yes_no(pid, dep_rs["mhqukb_18"]),
+            symptom_yes_no(pid, dep_rs["mhqukb_19"]),
+            symptom_yes_no(pid, dep_rs["mhqukb_20"]),
+        ]
+        scored = [v for v in scored if v is not None]
+        if len(scored) < dep_need:
+            continue
+        dep_values[pid] = (sum(scored) / len(scored) * len(dep_codes), a)
+    yield ("mhq_depression_symptom_count", "derived_psych", "quant", dep_values,
+           {"question_concept_id": qid_list(dep_codes),
+            "item_concept": "|".join(dep_codes),
+            "question": "UKB-MHQ lifetime depression symptom count",
+            "answer": (
+                "Prorated 10-item worst-episode depression symptom count; "
+                "screen-negative mhqukb_5=No and mhqukb_6=No set to 0; "
+                "mhqukb_13 atypical heavy-limbs item excluded; "
+                "requires at least 6 of 10 valid components for screen-positive respondents"
+            ),
+            "ordinal_rule": "derived_psych", "covar_mode": "full",
+            "construction_id": "mhq_depression_symptom_count_v1"})
 
 
 def build_acculturation_phenotype(questions, item_labels, qid_by_item=None):
@@ -1650,6 +2443,85 @@ def build_zip3_ses_phenotypes(zip3_ses_csv: Path | None, keep: set[str]):
         }
 
 
+def load_person_age(path: Path | None) -> dict[str, float]:
+    """Load person-level age covariates for derived non-survey phenotypes."""
+    out: dict[str, float] = {}
+    if not path or not Path(path).exists() or Path(path).stat().st_size == 0:
+        return out
+    with open(path, newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            iid = (row.get("person_id") or row.get("IID") or "").strip()
+            if not iid:
+                continue
+            try:
+                age = float(
+                    row.get("age_at_reference_date")
+                    or row.get("age_at_observation")
+                    or row.get("age")
+                    or "nan"
+                )
+            except (TypeError, ValueError):
+                continue
+            if not math.isnan(age):
+                out[iid] = age
+    return out
+
+
+def build_male_dragen_x0_xo_phenotype(
+    sex_ploidy_qc: Path | None,
+    person_age_csv: Path | None,
+    keep: set[str],
+    sex: dict[str, int],
+):
+    """Yield a male-only DRAGEN X0/XO candidate mLOY binary phenotype."""
+    if not sex_ploidy_qc or not Path(sex_ploidy_qc).exists() or Path(sex_ploidy_qc).stat().st_size == 0:
+        return
+    age_by_iid = load_person_age(person_age_csv)
+    if not age_by_iid:
+        log("  WARN: person age CSV missing/empty; skipping dragen_x0_xo_male")
+        return
+
+    values = {}
+    ploidy_counts = Counter()
+    with open(sex_ploidy_qc, newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        required = {"IID", "dragen_sex_ploidy"}
+        missing = required - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f"{sex_ploidy_qc} missing columns: {sorted(missing)}")
+        for row in reader:
+            iid = (row.get("IID") or "").strip()
+            if iid not in keep or sex.get(iid) != 1:
+                continue
+            age = age_by_iid.get(iid)
+            if age is None:
+                continue
+            ploidy = (row.get("dragen_sex_ploidy") or "").strip().upper()
+            if ploidy in {"X0", "XO"}:
+                values[iid] = (1.0, age)
+                ploidy_counts[ploidy] += 1
+            elif ploidy == "XY":
+                values[iid] = (0.0, age)
+                ploidy_counts[ploidy] += 1
+
+    if values:
+        log(
+            "  dragen_x0_xo_male source rows: "
+            f"XY={ploidy_counts.get('XY', 0)} "
+            f"X0={ploidy_counts.get('X0', 0)} "
+            f"XO={ploidy_counts.get('XO', 0)}"
+        )
+    yield "dragen_x0_xo_male", "sex_ploidy", "binary", values, {
+        "question_concept_id": "",
+        "question": "Male-only DRAGEN X0/XO sex ploidy, a mosaic loss-of-Y candidate phenotype",
+        "answer": "X0/XO vs XY among pan-AoU male-coded unrelated Europeans",
+        "ordinal_rule": "",
+        "covar_mode": "agepc",
+        "sex_filter": "male",
+    }
+
+
 def wants_phenotype_source(only: set[str], prefixes=(), exact=()) -> bool:
     if not only:
         return True
@@ -1748,21 +2620,56 @@ def build_measurement_phenotypes(meas_csv: Path, keep: set[str]):
 # --------------------------------------------------------------------------- #
 # residualize + write + PLINK2
 # --------------------------------------------------------------------------- #
-def prepare_and_write(pheno_id, kind, values, sex, pcs, fid_by_iid, outdir, covar_mode="full"):
+def prepare_and_write(
+    pheno_id,
+    kind,
+    values,
+    sex,
+    pcs,
+    fid_by_iid,
+    outdir,
+    covar_mode="full",
+    sex_filter="all",
+    extra_covariates=None,
+):
     """Return a prep dict, or a dict with skip_reason if the phenotype fails QC.
 
     covar_mode: "full"  -> age_c, sex_c, age_c:sex_c, PC1..PC10 (survey/measurement)
+                "agepc" -> age_c, PC1..PC10 only (sex-stratified phenotypes)
                 "sexpc" -> sex_c, PC1..PC10 only (pre-age-normalized external scores,
                            matching the repo's final g-EA proxy GWAS covariates).
     """
-    need_age = covar_mode == "full"
+    sex_filter = (sex_filter or "all").strip().lower()
+    if sex_filter not in SEX_FILTERS:
+        raise ValueError(f"{pheno_id}: invalid sex_filter {sex_filter}")
+    extra_covariates = extra_covariates or {}
+    extra_names = list(extra_covariates)
+    need_age = covar_mode in {"full", "agepc"}
     rows = []
     for iid, (y, age) in values.items():
         if iid not in sex or iid not in pcs or math.isnan(y):
             continue
+        if sex_filter == "female" and sex[iid] != 0:
+            continue
+        if sex_filter == "male" and sex[iid] != 1:
+            continue
         if need_age and (age is None or math.isnan(age)):
             continue
-        rows.append((iid, y, age, sex[iid], pcs[iid]))
+        extra_vals = []
+        missing_extra = False
+        for name in extra_names:
+            try:
+                v = float(extra_covariates[name][iid])
+            except (KeyError, TypeError, ValueError):
+                missing_extra = True
+                break
+            if math.isnan(v):
+                missing_extra = True
+                break
+            extra_vals.append(v)
+        if missing_extra:
+            continue
+        rows.append((iid, y, age, sex[iid], pcs[iid], extra_vals))
 
     if kind == "binary":
         ncase = sum(1 for _, y, *_ in rows if y == 1.0)
@@ -1797,12 +2704,21 @@ def prepare_and_write(pheno_id, kind, values, sex, pcs, fid_by_iid, outdir, cova
     y = np.array([r[1] for r in rows], dtype=float)
     sex_c = np.array([r[3] for r in rows], dtype=float) - 0.5
     pc = np.array([r[4] for r in rows], dtype=float)
+    extra = np.array([r[5] for r in rows], dtype=float) if extra_names else None
+    if extra is not None:
+        extra = extra - extra.mean(axis=0)
     if covar_mode == "sexpc":
         covars = np.column_stack([sex_c, pc])
+    elif covar_mode == "agepc":
+        age = np.array([r[2] for r in rows], dtype=float)
+        age_c = age - age.mean()
+        covars = np.column_stack([age_c, pc])
     else:
         age = np.array([r[2] for r in rows], dtype=float)
         age_c = age - age.mean()
         covars = np.column_stack([age_c, sex_c, age_c * sex_c, pc])
+    if extra is not None:
+        covars = np.column_stack([covars, extra])
 
     if kind == "binary":
         pheno_vec = residualize(y, covars)          # LPM residual, no INT
@@ -1843,6 +2759,93 @@ def final_gwas_paths(outdir: Path, pheno_id: str, pheno_name: str) -> tuple[Path
     glm = pdir / f"{pheno_id}.{pheno_name}.glm.linear"
     lite = pdir / f"{pheno_id}.sumstats.tsv.gz"
     return prefix, glm, lite
+
+
+GWAS_PARAM_FIELDS = [
+    "pheno_id",
+    "pheno_name",
+    "trait_type",
+    "kind",
+    "n",
+    "n_cases",
+    "n_controls",
+    "covar_mode",
+    "sex_filter",
+    "extra_covariates",
+    "construction_id",
+]
+
+
+def gwas_params_path(row: dict[str, object]) -> Path:
+    value = row.get("gwas_params", "")
+    if value:
+        return Path(str(value))
+    pheno_id = str(row["pheno_id"])
+    return Path(str(row["glm"])).parent / f"{pheno_id}.gwas.params.tsv"
+
+
+def expected_gwas_params(row: dict[str, object]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for field in GWAS_PARAM_FIELDS:
+        value = row.get(field, "")
+        if field == "sex_filter" and value == "":
+            value = "all"
+        if field == "covar_mode" and value == "":
+            value = "full"
+        out[field] = str(value)
+    return out
+
+
+def gwas_params_required(row: dict[str, object]) -> bool:
+    return (
+        str(row.get("sex_filter", "all") or "all") != "all"
+        or str(row.get("covar_mode", "full") or "full") != "full"
+        or str(row.get("extra_covariates", "") or "") != ""
+        or str(row.get("construction_id", "") or "") != ""
+    )
+
+
+def read_gwas_params(path: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    if not path.exists() or path.stat().st_size == 0:
+        return out
+    with path.open() as f:
+        header = f.readline().rstrip("\n").split("\t")
+        if header != ["parameter", "value"]:
+            return out
+        for line in f:
+            key, _, value = line.rstrip("\n").partition("\t")
+            if key:
+                out[key] = value
+    return out
+
+
+def gwas_params_match(row: dict[str, object]) -> bool:
+    observed = read_gwas_params(gwas_params_path(row))
+    if not observed:
+        return False
+    expected = expected_gwas_params(row)
+    return all(observed.get(field, "") == expected[field] for field in GWAS_PARAM_FIELDS)
+
+
+def write_gwas_params(path: Path, row: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    expected = expected_gwas_params(row)
+    with path.open("w") as f:
+        f.write("parameter\tvalue\n")
+        for field in GWAS_PARAM_FIELDS:
+            f.write(f"{field}\t{expected[field]}\n")
+
+
+def output_complete(row: dict[str, object]) -> bool:
+    glm = Path(str(row.get("glm", "")))
+    sumstats = Path(str(row.get("sumstats", "")))
+    if not (glm.exists() and glm.stat().st_size > 0 and sumstats.exists() and sumstats.stat().st_size > 0):
+        return False
+    if gwas_params_required(row):
+        return gwas_params_match(row)
+    params = gwas_params_path(row)
+    return not params.exists() or gwas_params_match(row)
 
 
 def read_pheno_values(path: Path, pheno_name: str) -> dict[tuple[str, str], str]:
@@ -1914,6 +2917,7 @@ def run_plink2_batch(plink2, bfile, batch_jobs, workdir: Path, batch_index: int)
         write_lightweight_sumstats(local_glm, final_lite)
         shutil.copy2(local_glm, final_glm)
         shutil.copy2(batch_log, final_glm.parent / f"{job['pheno_id']}.plink2.log")
+        write_gwas_params(gwas_params_path(job["row"]), job["row"])
         outputs[job["pheno_id"]] = (final_glm, final_lite, elapsed)
     return outputs
 
@@ -1956,6 +2960,10 @@ def main() -> None:
     ap.add_argument("--keep", type=Path, required=True)
     ap.add_argument("--sex", type=Path, required=True)
     ap.add_argument("--pcs", type=Path, required=True)
+    ap.add_argument("--sex-ploidy-qc", type=Path, default=None,
+                    help="sex_ploidy_qc.tsv from the main pipeline; used for DRAGEN X0/XO GWAS.")
+    ap.add_argument("--person-age-csv", type=Path, default=None,
+                    help="person_id,age_at_reference_date CSV for derived non-survey phenotypes.")
     ap.add_argument("--survey-csv", type=Path, required=True)
     ap.add_argument("--bhp-csv", type=Path, default=None)
     ap.add_argument("--measurements-csv", type=Path, default=None)
@@ -1981,6 +2989,8 @@ def main() -> None:
                     help="composite_items_manifest.tsv (validated sum/domain scores).")
     ap.add_argument("--external-scores", type=Path, default=None,
                     help="registry TSV of pre-computed cognitive/EA-proxy scores to GWAS.")
+    ap.add_argument("--sex-specific-items", type=Path, default=None,
+                    help="item_concept -> female/male sex-filter rules for sex-specific phenotypes.")
     ap.add_argument("--outdir", type=Path, required=True)
     ap.add_argument("--gwas-workdir", type=Path, default=None,
                     help="Local working directory for temporary batched PLINK2 output.")
@@ -2027,11 +3037,13 @@ def main() -> None:
             qman.setdefault(norm_q(label), row)
     ord_lookup = load_ordinal_lookup(args.ordinal_manifest)
     item_labels = load_item_labels(args.item_inventory)
+    sex_specific_items = load_sex_specific_items(args.sex_specific_items)
     log(
         f"manifest questions={len(qman_rows)}  live qid links={len(qman_by_qid)}  "
         f"ea_proxy_supplemental={len(ea_proxy_rows)}  "
         f"live_qid_overrides={len(live_override_rows)}  "
-        f"ordinal answer maps={len(ord_lookup)}  item labels={len(item_labels)}"
+        f"ordinal answer maps={len(ord_lookup)}  item labels={len(item_labels)}  "
+        f"sex-specific items={len(sex_specific_items)}"
     )
 
     survey_paths = [args.survey_csv]
@@ -2046,13 +3058,15 @@ def main() -> None:
     )
     allowed_qids.update(load_tsv_column_values(args.pfhh_allowlist, "question_concept_id"))
     allowed_qids.update(PFHH_SCREEN_QID.values())
+    allowed_qids.update(PHQ_GAD_SOURCE_QIDS)
+    allowed_qids.update(PSS_SOURCE_QIDS)
     allowed_question_texts = {
         norm_q(row.get("field_label") or "")
         for row in qman_rows
         if (row.get("field_label") or "").strip()
         and not (row.get("disposition") or "").startswith("excluded")
     }
-    log("Building latest-response table ...")
+    log("Building latest-valid response table ...")
     log(
         f"survey row filter: qids={len(allowed_qids)} "
         f"question_texts={len(allowed_question_texts)}"
@@ -2063,17 +3077,34 @@ def main() -> None:
     only = {p.strip() for p in args.phenotypes.split(",") if p.strip()}
 
     builders = []
+    if wants_phenotype_source(
+        only,
+        prefixes=("bin_phq9_", "ord_phq9_", "bin_gad7_", "ord_gad7_"),
+        exact=PHQ_GAD_COMPOSITE_SLUGS | {"comp_phq9_depression", "comp_gad7_anxiety"},
+    ):
+        builders.append(build_pooled_phq_gad_phenotypes(questions))
+    if wants_phenotype_source(
+        only,
+        prefixes=("bin_sdoh_cpss_", "ord_sdoh_cpss_"),
+        exact=PSS_COMPOSITE_SLUGS | {"comp_pss_perceived_stress"},
+    ):
+        builders.append(build_pooled_pss_phenotypes(questions))
+    pooled_source_qids = PHQ_GAD_SOURCE_QIDS | PSS_SOURCE_QIDS
+    pooled_composite_slugs = PHQ_GAD_COMPOSITE_SLUGS | PSS_COMPOSITE_SLUGS
     if wants_phenotype_source(only, prefixes=("bin_", "ord_")):
-        builders.append(build_survey_phenotypes(questions, qman, ord_lookup))
+        builders.append(build_survey_phenotypes(
+            questions, qman, ord_lookup, sex_specific_items, skip_qids=pooled_source_qids
+        ))
     if wants_phenotype_source(only, prefixes=("num_",)):
-        builders.append(build_numeric_phenotypes(questions, qman))
+        builders.append(build_numeric_phenotypes(questions, qman, sex_specific_items))
     if wants_phenotype_source(only, prefixes=("pfhh_",)):
         builders.append(build_pfhh_phenotypes(questions, args.pfhh_allowlist))
     if wants_phenotype_source(only, prefixes=("comp_",)):
         builders.append(build_composite_phenotypes(
-            questions, args.composite_manifest, args.ordinal_manifest, ord_lookup, qid_by_item
+            questions, args.composite_manifest, args.ordinal_manifest, ord_lookup, qid_by_item,
+            skip_slugs=pooled_composite_slugs
         ))
-    if wants_phenotype_source(only, prefixes=("psych_",)):
+    if wants_phenotype_source(only, prefixes=("psych_", "mhq_")):
         builders.append(build_derived_psych_phenotypes(questions, item_labels, qid_by_item))
     if wants_phenotype_source(only, exact=("accult_index",)):
         builders.append(build_acculturation_phenotype(questions, item_labels, qid_by_item))
@@ -2086,6 +3117,10 @@ def main() -> None:
         builders.append(build_measurement_phenotypes(args.measurements_csv, keep))
     if wants_phenotype_source(only, exact=set(ZIP3_SES_TRAITS)):
         builders.append(build_zip3_ses_phenotypes(args.zip3_ses_csv, keep))
+    if wants_phenotype_source(only, exact=("dragen_x0_xo_male",)):
+        builders.append(build_male_dragen_x0_xo_phenotype(
+            args.sex_ploidy_qc, args.person_age_csv, keep, sex
+        ))
     fitbit_ids = {
         "fitbit_mean_daily_steps",
         "fitbit_sedentary_minutes",
@@ -2112,7 +3147,31 @@ def main() -> None:
         for pheno_id, trait_type, kind, values, meta in gen:
             if only and pheno_id not in only:
                 continue
+            if meta.get("skip_reason"):
+                extra_covariates = meta.get("extra_covariates", {})
+                n_cases = sum(1 for y, _age in values.values() if y == 1.0) if kind == "binary" else 0
+                n_controls = sum(1 for y, _age in values.values() if y == 0.0) if kind == "binary" else 0
+                skipped_rows.append({
+                    "pheno_id": pheno_id,
+                    "trait_type": trait_type,
+                    "kind": kind,
+                    "skip_reason": meta.get("skip_reason", ""),
+                    "n": len(values),
+                    "n_cases": n_cases,
+                    "n_controls": n_controls,
+                    "n_levels": "",
+                    "question_concept_id": meta.get("question_concept_id", ""),
+                    "item_concept": meta.get("item_concept", ""),
+                    "question": meta.get("question", ""),
+                    "answer": meta.get("answer", ""),
+                    "covar_mode": meta.get("covar_mode", "full"),
+                    "sex_filter": meta.get("sex_filter", "all"),
+                    "extra_covariates": meta.get("extra_covariates_label", ",".join(extra_covariates.keys())),
+                    "construction_id": meta.get("construction_id", ""),
+                })
+                continue
             if pheno_id in seen_pheno_ids:
+                extra_covariates = meta.get("extra_covariates", {})
                 skipped_rows.append({
                     "pheno_id": pheno_id,
                     "trait_type": trait_type,
@@ -2126,10 +3185,24 @@ def main() -> None:
                     "item_concept": meta.get("item_concept", ""),
                     "question": meta.get("question", ""),
                     "answer": meta.get("answer", ""),
+                    "covar_mode": meta.get("covar_mode", "full"),
+                    "sex_filter": meta.get("sex_filter", "all"),
+                    "extra_covariates": meta.get("extra_covariates_label", ",".join(extra_covariates.keys())),
+                    "construction_id": meta.get("construction_id", ""),
                 })
                 continue
+            extra_covariates = meta.get("extra_covariates", {})
             prep = prepare_and_write(
-                pheno_id, kind, values, sex, pcs, fid_by_iid, args.outdir, meta.get("covar_mode", "full")
+                pheno_id,
+                kind,
+                values,
+                sex,
+                pcs,
+                fid_by_iid,
+                args.outdir,
+                meta.get("covar_mode", "full"),
+                meta.get("sex_filter", "all"),
+                extra_covariates,
             )
             if "skip_reason" in prep:
                 skipped_rows.append({
@@ -2145,6 +3218,10 @@ def main() -> None:
                     "item_concept": meta.get("item_concept", ""),
                     "question": meta.get("question", ""),
                     "answer": meta.get("answer", ""),
+                    "covar_mode": meta.get("covar_mode", "full"),
+                    "sex_filter": meta.get("sex_filter", "all"),
+                    "extra_covariates": meta.get("extra_covariates_label", ",".join(extra_covariates.keys())),
+                    "construction_id": meta.get("construction_id", ""),
                 })
                 continue
             seen_pheno_ids.add(pheno_id)
@@ -2161,14 +3238,19 @@ def main() -> None:
                 "item_concept": meta.get("item_concept", ""),
                 "question": meta.get("question", ""),
                 "answer": meta.get("answer", ""),
+                "covar_mode": meta.get("covar_mode", "full"),
+                "sex_filter": meta.get("sex_filter", "all"),
+                "extra_covariates": meta.get("extra_covariates_label", ",".join(extra_covariates.keys())),
+                "construction_id": meta.get("construction_id", ""),
                 "raw_pheno_path": str(prep["raw_path"]),
                 "pheno_path": str(prep["pheno_path"]),
             }
             _, glm, lite = final_gwas_paths(args.outdir, pheno_id, prep["pheno_name"])
             row["glm"] = str(glm)
             row["sumstats"] = str(lite)
+            row["gwas_params"] = str(gwas_params_path(row))
             if not args.skip_gwas:
-                if glm.exists() and glm.stat().st_size > 0 and lite.exists() and lite.stat().st_size > 0 and not args.force:
+                if not args.force and output_complete(row):
                     row["gwas_seconds"] = 0.0
                 else:
                     row["gwas_seconds"] = ""
@@ -2238,6 +3320,13 @@ def main() -> None:
                 "bfile": str(args.bfile),
                 "keep": str(args.keep),
                 "covariates": ["age_c", "sex_c", "age_c_sex_c_inter", *PC_COLUMNS],
+                "covariate_notes": {
+                    "latest_survey_response": "latest valid response per participant/question; latest missing response only if no valid response exists",
+                    "pooled_phq_gad": f"{PHQ_GAD_CONSTRUCTION_ID}; adds centered from_cope covariate",
+                    "pooled_pss": f"{PSS_CONSTRUCTION_ID}; adds centered from_cope covariate",
+                    "sexpc": "external scores use sex_c + PC1..PC10",
+                    "agepc": "sex-specific phenotypes use age_c + PC1..PC10",
+                },
                 "min_cases": MIN_CASES,
                 "min_controls": MIN_CONTROLS,
                 "min_quant_n": MIN_QUANT_N,

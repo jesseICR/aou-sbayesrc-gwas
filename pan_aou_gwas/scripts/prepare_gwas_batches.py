@@ -8,7 +8,7 @@ import csv
 import math
 from pathlib import Path
 
-from pan_aou_gwas import write_batch_pheno
+from pan_aou_gwas import gwas_params_path, output_complete, write_batch_pheno
 
 
 def read_manifest(path: Path) -> list[dict[str, str]]:
@@ -49,12 +49,6 @@ def pheno_name_from_file(path: Path) -> str:
     return header[2]
 
 
-def output_complete(row: dict[str, str]) -> bool:
-    glm = Path(row.get("glm", ""))
-    sumstats = Path(row.get("sumstats", ""))
-    return glm.exists() and glm.stat().st_size > 0 and sumstats.exists() and sumstats.stat().st_size > 0
-
-
 def pending_jobs(rows: list[dict[str, str]], force: bool) -> list[dict[str, object]]:
     jobs: list[dict[str, object]] = []
     for row in rows:
@@ -73,13 +67,38 @@ def pending_jobs(rows: list[dict[str, str]], force: bool) -> list[dict[str, obje
             "pheno_path": pheno_path,
             "glm": glm,
             "sumstats": sumstats,
+            "gwas_params": gwas_params_path(row),
+            "trait_type": row.get("trait_type", ""),
+            "kind": row.get("kind", ""),
+            "n": row.get("n", ""),
+            "n_cases": row.get("n_cases", ""),
+            "n_controls": row.get("n_controls", ""),
+            "covar_mode": row.get("covar_mode", "full"),
+            "sex_filter": row.get("sex_filter", "all"),
+            "extra_covariates": row.get("extra_covariates", ""),
+            "construction_id": row.get("construction_id", ""),
         })
     return jobs
 
 
 def write_batch_manifest(path: Path, batch_jobs: list[dict[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fields = ["pheno_id", "pheno_name", "glm", "sumstats"]
+    fields = [
+        "pheno_id",
+        "pheno_name",
+        "glm",
+        "sumstats",
+        "gwas_params",
+        "trait_type",
+        "kind",
+        "n",
+        "n_cases",
+        "n_controls",
+        "covar_mode",
+        "sex_filter",
+        "extra_covariates",
+        "construction_id",
+    ]
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields, delimiter="\t", lineterminator="\n")
         writer.writeheader()

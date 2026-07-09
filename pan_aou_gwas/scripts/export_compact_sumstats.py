@@ -232,6 +232,29 @@ def pipe_join(values: list[object]) -> str:
     return " | ".join(out)
 
 
+def covariate_mode_description(row: pd.Series) -> str:
+    mode = clean_cell(row.get("covar_mode", "")) or "full"
+    if mode == "sexpc":
+        covars = "sex_c + PC1..PC10"
+    elif mode == "agepc":
+        covars = "age_c + PC1..PC10"
+    else:
+        covars = "age_c + sex_c + age_c:sex_c + PC1..PC10"
+    extra = clean_cell(row.get("extra_covariates", ""))
+    if extra:
+        covars = f"{covars} + {extra}"
+    return f"pre-residualized on {covars}; PLINK2 --glm allow-no-covars"
+
+
+def sample_set_description(row: pd.Series) -> str:
+    sex_filter = clean_cell(row.get("sex_filter", "")) or "all"
+    if sex_filter == "female":
+        return "unrelated European female-only pan-AoU GWAS keep-list"
+    if sex_filter == "male":
+        return "unrelated European male-only pan-AoU GWAS keep-list"
+    return "unrelated European pan-AoU GWAS keep-list"
+
+
 def build_metadata(
     manifest: pd.DataFrame,
     skipped: pd.DataFrame,
@@ -312,6 +335,9 @@ def build_metadata(
             "n": row.get("n", ""),
             "n_cases": row.get("n_cases", ""),
             "n_controls": row.get("n_controls", ""),
+            "sex_filter": row.get("sex_filter", "all") or "all",
+            "extra_covariates": row.get("extra_covariates", ""),
+            "construction_id": row.get("construction_id", ""),
             "source_abbrev": source,
             "source_name": survey_name,
             "item_concept": item,
@@ -330,9 +356,9 @@ def build_metadata(
             "ordinal_coding_summary": pipe_join(ordinal_summary_by_item.get(item, [])),
             "branching_logic_present": invrow.get("has_branching", ""),
             "transform": "IRNT/residualized phenotype as written by pan_aou_gwas",
-            "covariate_mode": "pre-residualized; PLINK2 --glm allow-no-covars",
+            "covariate_mode": covariate_mode_description(row),
             "genotype_panel": "HapMap3 HQ bfile",
-            "sample_set": "unrelated European pan-AoU GWAS keep-list",
+            "sample_set": sample_set_description(row),
             "source_glm": row.get("glm", ""),
             "source_sumstats": row.get("sumstats", ""),
             "export_parquet": str(out_dir / "gwas" / f"{pheno_id}.parquet"),
@@ -340,6 +366,7 @@ def build_metadata(
 
     catalog_fields = [
         "pheno_id", "trait_label", "trait_type", "kind", "n", "n_cases", "n_controls",
+        "sex_filter", "extra_covariates", "construction_id",
         "source_abbrev", "source_name", "item_concept", "question_concept_id", "question",
         "target_answer", "field_type", "phenotype_class", "construction_method",
         "selection_semantics", "case_definition", "control_definition",

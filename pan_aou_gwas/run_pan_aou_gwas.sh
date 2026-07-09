@@ -86,6 +86,11 @@ PAN_AOU_EXTRACT_URI="${PAN_AOU_EXTRACT_URI:-${DX_OUTPUT_URI}/pan_aou_gwas/work/e
 PAN_AOU_SEX_COVAR="${PAN_AOU_SEX_COVAR:-${KEEP_DIR}/pan_aou_sex_covar.txt}"
 PAN_AOU_SEX_COVAR_SUMMARY="${PAN_AOU_SEX_COVAR_SUMMARY:-${KEEP_DIR}/pan_aou_sex_covar.summary.tsv}"
 PAN_AOU_SEX_COVAR_AUDIT="${PAN_AOU_SEX_COVAR_AUDIT:-${KEEP_DIR}/pan_aou_sex_covar.imputed_rows.tsv}"
+PAN_AOU_PERSON_AGE_REFERENCE_DATE="${PAN_AOU_PERSON_AGE_REFERENCE_DATE:-2026-07-01}"
+if [[ ! "${PAN_AOU_PERSON_AGE_REFERENCE_DATE}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+  echo "ERROR: PAN_AOU_PERSON_AGE_REFERENCE_DATE must be YYYY-MM-DD; got ${PAN_AOU_PERSON_AGE_REFERENCE_DATE}" >&2
+  exit 2
+fi
 
 if [[ "${SETUP_ONLY}" == 1 ]]; then
   PAN_AOU_GWAS_BACKEND="${PAN_AOU_GWAS_BACKEND:-none}"
@@ -418,6 +423,22 @@ print(f"  keep={len(keep)}  (fit_pca={len(fit_iids)}, sex={len(sex)}, excluded={
 PY
 fi
 
+# Person-level age covariate for derived non-survey phenotypes that do not have
+# their own measurement/survey date, currently the male-only DRAGEN X0/XO GWAS.
+PERSON_AGE_CSV="${EXTRACT_DIR}/person_age.csv"
+if [[ ! -s "${PERSON_AGE_CSV}" || "${FORCE}" == 1 ]]; then
+  echo "Extracting person age covariate from ${WORKSPACE_CDR}.person ..."
+  person_age_sql="
+    SELECT
+      CAST(p.person_id AS STRING) AS person_id,
+      DATE_DIFF(DATE '${PAN_AOU_PERSON_AGE_REFERENCE_DATE}', DATE(p.birth_datetime), DAY)/365.25 AS age_at_reference_date
+    FROM \`${WORKSPACE_CDR}.person\` p
+    WHERE p.birth_datetime IS NOT NULL
+  "
+  bq_query_to_csv "person_age" "${PERSON_AGE_CSV}" "${person_age_sql}"
+  echo "  wrote ${PERSON_AGE_CSV} ($(wc -l < "${PERSON_AGE_CSV}") lines; reference_date=${PAN_AOU_PERSON_AGE_REFERENCE_DATE})"
+fi
+
 # --- 2. extract survey responses ------------------------------------------- #
 if [[ "${SMOKE}" == 1 ]]; then
   SURVEY_CSV="${EXTRACT_DIR}/survey_responses.smoke.csv"
@@ -645,6 +666,8 @@ PY_ARGS=(
   --keep "${KEEP}"
   --sex "${PAN_AOU_SEX_COVAR}"
   --pcs "${PROJECTED_PCS}"
+  --sex-ploidy-qc "${SEX_PLOIDY_QC}"
+  --person-age-csv "${PERSON_AGE_CSV}"
   --survey-csv "${SURVEY_CSV}"
   --bhp-csv "${BHP_CSV}"
   --measurements-csv "${MEAS_CSV}"
@@ -661,6 +684,7 @@ PY_ARGS=(
   --pfhh-allowlist "${SCRIPT_DIR}/metadata/pfhh_self_allowlist.tsv"
   --composite-manifest "${SCRIPT_DIR}/metadata/composite_items_manifest.tsv"
   --external-scores "${SCRIPT_DIR}/metadata/external_scores.tsv"
+  --sex-specific-items "${SCRIPT_DIR}/metadata/sex_specific_items.tsv"
   --outdir "${PAN_AOU_OUTDIR}"
   --gwas-workdir "${GWAS_WORKDIR}"
   --gwas-batch-size "${PAN_AOU_GWAS_BATCH_SIZE:-64}"

@@ -54,9 +54,12 @@ def main() -> None:
     out.append("## 11c. Validated composite score definitions\n")
     out.append(
         "Each composite is a **prorated sum**: mean(available item scores) × n_items, "
-        "requiring ≥ 80% of items answered. Reverse-worded items (flagged per scale) are "
+        "requiring valid answers for more than half of items. Reverse-worded items (flagged per scale) are "
         "flipped on their own min/max before summing. Items are matched to survey responses "
-        "by question text and merged across survey administrations. The score is then "
+        "by question text and merged across survey administrations. PHQ-9 and GAD-7 pool "
+        "EHHWB and COPE administrations with EHHWB priority and a `from_cope` covariate; "
+        "PSS-10 pools SDOH and COPE administrations with SDOH priority and the same source "
+        "covariate. The score is then "
         "inverse-normal-transformed and residualized like any quantitative trait (§4.1). "
         "Phenotype ids are prefixed `comp_`.\n"
     )
@@ -89,6 +92,8 @@ def main() -> None:
         combo += f"; {len(revs)} reverse-keyed" if revs else "; no reverse-keyed items"
         out.append(f"- **Total score:** {combo}")
         out.append(f"- **Auto-built:** {'yes (comp_' + slug + ')' if slug else 'no — documented only; items are also GWASed individually as ordinal phenotypes'}")
+        if slug == "pss_perceived_stress":
+            out.append("- **Pooling:** SDOH is primary; COPE fills COPE-only responses. The GWAS residualization includes `from_cope`.")
         out.append("- **Questions:**")
         for k, (q, amap) in items.items():
             rev = " *(reverse-keyed)*" if any(f in k for f in REVERSE_FRAG) else ""

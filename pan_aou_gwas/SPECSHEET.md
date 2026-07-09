@@ -46,12 +46,14 @@ bfile was built in the AoU environment.
    ACE, IES, ASRS, AUDIT-C, Everyday Discrimination, loneliness, social support, PROMIS, resilience,
    spiritual experience, health literacy, the BFI-2 Big Five domains, and the neighborhood social
    cohesion / disorder / walkability and Hunger Vital Sign composites (§11c), as prorated sums with
-   per-scale reverse-keying (opposite-valence items flipped).
+   per-scale reverse-keying (opposite-valence items flipped). PHQ-9 and GAD-7 are pooled across
+   EHHWB and COPE with EHHWB priority; PSS-10 is pooled across SDOH and COPE with SDOH priority.
 12. **Wearable (Fitbit) phenotypes** — mean daily steps, sedentary/active minutes, sleep duration,
    efficiency, and a chronotype (sleep-onset) proxy (§10b), on the Fitbit subcohort.
-13. **Derived psychiatric phenotypes** (§11d) from the UKB-MHQ/CIDI/PCL items — probable MDD (incl.
-   recurrent), probable bipolar/mania, psychotic experiences, PCL-PTSD, and lifetime suicidal
-   ideation / attempt (all sensitive).
+13. **Derived psychiatric phenotypes** (§11d) from the UKB-MHQ/CIDI/PCL/SITBI items — probable MDD
+   (incl. recurrent), probable bipolar/mania, lifetime probable GAD, psychotic experiences,
+   PCL-PTSD, lifetime trauma/depression symptom counts, and lifetime suicidal ideation / attempt /
+   count burden (all sensitive).
 14. **Acculturation index** (§11e) — US-born + English-at-home + English proficiency.
 15. **Geographic / political state-cluster membership** (§11f) — 12 binary Census-region / subregion /
    political-grouping phenotypes (primarily capture residual geographic structure).
@@ -124,6 +126,13 @@ close relatives must be removed up front; PCs and covariates handle residual str
 Per-phenotype, the analysis sample is further intersected with participants who have a codeable
 response / valid measurement and complete covariates (§5).
 
+The derived `dragen_x0_xo_male` phenotype uses the same unrelated-European keep-list but is
+restricted to pan-AoU male-coded samples with DRAGEN `XY`, `X0`, or `XO` in
+`genetic_sex/sex_ploidy_qc.tsv`.
+
+Item-level rules in `metadata/sex_specific_items.tsv` additionally restrict female reproductive
+and anatomy phenotypes to pan-AoU female-coded samples before QC, residualization, and GWAS.
+
 ---
 
 ## 4. Method: residualize-first, covariate-free PLINK2
@@ -162,6 +171,13 @@ Binary phenotypes are **not** inverse-normal-transformed (they are LPM residuals
 phenotypes **are** INT'd before residualizing. This matches the covariate-experiment arms exactly
 (`binary_resid_nocovar`, `rint_raw_resid_nocovar`).
 
+Sex-stratified phenotypes, including female-only reproductive/anatomy items and the male-only
+`dragen_x0_xo_male` binary phenotype, are residualized on `age_c + PC1..PC10` only, because sex is
+constant by construction.
+
+Pooled PHQ-9/GAD-7 and PSS-10 phenotypes add a centered `from_cope` indicator to the
+residualization model.
+
 ### 4.3 IRNT and residualization definitions
 
 ```text
@@ -184,16 +200,34 @@ PC1_AVG ... PC10_AVG                                       # from pca_eur/aou_pr
 ```
 
 `age_at_event` is age at the selected survey response date (survey phenotypes) or the measurement
-date (physical measurements). Covariates are centered within each phenotype's own complete-case
-analysis sample. A phenotype's analysis sample = GWAS keep-list ∩ codeable response ∩ non-missing
-`age`, `sex_01`, `PC1..PC10`.
+date (physical measurements). Derived non-survey phenotypes without their own event date use
+`person_age.csv`, currently extracted as age at `PAN_AOU_PERSON_AGE_REFERENCE_DATE`
+(default `2026-07-01`). Covariates are centered within each phenotype's own complete-case analysis
+sample. A phenotype's analysis sample = GWAS keep-list ∩ codeable response ∩ non-missing `age`,
+`sex_01`, `PC1..PC10`.
+
+For sex-specific phenotypes, the analysis sample is further restricted by `sex_01` from the pan-AoU
+binary sex covariate before QC counts are computed.
+
+For pooled PHQ-9/GAD-7 phenotypes, `from_cope` is 1 when COPE supplied the response and 0 when EHHWB
+supplied it. For pooled PSS-10 phenotypes, `from_cope` is 1 when COPE supplied the response and 0
+when SDOH supplied it. For pooled sumscores, `from_cope` is 1 only for participants with no
+contributing primary-survey items for that scale.
 
 ---
 
 ## 6. Survey phenotype construction
 
 Every codeable closed-ended survey item yields **binary one-vs-rest** phenotypes; every arguably
-ordinal single-select item *additionally* yields an **ordinal linear** phenotype.
+ordinal single-select item *additionally* yields an **ordinal linear** phenotype. For single-select
+questions with exactly two observed valid answers, the two one-vs-rest binaries are exact complements,
+so only one is run; the omitted side is recorded in `skipped_phenotypes.tsv` as
+`redundant_binary_complement`.
+
+When a participant has multiple responses to the same question, the pipeline uses the latest response
+event with at least one valid non-missing answer. A later skip/prefer-not-to-answer event does not
+mask an earlier valid response. If a participant never has a valid response for that question, the
+latest missing response is retained so downstream missingness handling remains explicit.
 
 ### 6.1 Binary response GWAS
 
@@ -208,8 +242,9 @@ missing (never control): Skip, Prefer Not To Answer, Don't Know, Not sure, branc
                          invalid concept 2000000010, free-text-only, suppressed, conflicting dup
 ```
 
-Exact complements (Yes vs No) are both kept for a complete atlas and flagged `exact_complement` in
-the phenotype manifest.
+Exact complements (Yes vs No, 1 vs 2, etc.) are collapsed to one GWAS. The retained side prefers a
+case-like answer (`Yes`, `Too many to count`, `Needed treatment/problems`, `Other`, `Attempt`) and
+otherwise keeps the higher ordinal/numeric value when available.
 
 ### 6.2 Ordinal linear GWAS
 
@@ -530,9 +565,43 @@ zip3_fraction_vacant_housing
 zip3_fraction_high_school_edu
 ```
 
+## 11b.2 Male-only DRAGEN X0/XO candidate mLOY GWAS
+
+`dragen_x0_xo_male` is a derived binary phenotype from `genetic_sex/sex_ploidy_qc.tsv`:
+
+```text
+analysis sample = unrelated European keep-list ∩ pan-AoU male-coded sex covariate ∩ non-missing age/PCs
+case            = DRAGEN sex ploidy X0 or XO
+control         = DRAGEN sex ploidy XY
+missing         = other / missing DRAGEN sex ploidy
+covariates      = age_c + PC1..PC10
+```
+
+This is intended as a candidate mosaic loss-of-Y phenotype. It is deliberately male-only and does
+not include other noncanonical sex-ploidy calls as controls.
+
+## 11b.3 Female-only reproductive/anatomy GWAS
+
+The following Overall Health item concepts are restricted to pan-AoU female-coded samples by
+`metadata/sex_specific_items.tsv`:
+
+```text
+pregnancy_1pregnancystatus
+overallhealth_ovaryremovalhistory
+overallhealthovaryremovalhistoryage
+overallhealth_hysterectomyhistory
+overallhealth_hysterectomyhistoryage
+overallhealth_menstrualstopped
+yesnone_menstrualstoppedreason
+```
+
+This restriction applies to every binary, ordinal, and numeric phenotype generated from those
+items. The output `pheno_id` is unchanged, but the manifest records `sex_filter=female` and
+`covar_mode=agepc`.
+
 ## 11c. Validated composite score definitions
 
-Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring ≥ 80% of items answered. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. Items are matched to survey responses by question text and merged across survey administrations. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
+Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring valid answers for more than half of items. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. Items are matched to survey responses by question text and merged across survey administrations. PHQ-9 and GAD-7 pool EHHWB and COPE administrations with EHHWB priority and a `from_cope` covariate; PSS-10 pools SDOH and COPE administrations with SDOH priority and the same source covariate. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
 
 ### GAD-7 — Generalized Anxiety Disorder scale (anxiety)
 
@@ -572,6 +641,7 @@ Each composite is a **prorated sum**: mean(available item scores) × n_items, re
 - **Per-item scoring:** 2 answer scales across items (shown per item below)
 - **Total score:** prorated sum of 10 items; 4 reverse-keyed
 - **Auto-built:** yes (comp_pss_perceived_stress)
+- **Pooling:** SDOH is primary; COPE fills COPE-only responses. The GWAS residualization includes `from_cope`.
 - **Questions:**
     - In the last month, how often have you been upset because of something that happened unexpectedly?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
     - In the last month, how often have you felt that you were unable to control the important things in your life?  — [Never=0.0, Almost never=1.0, Sometime=2.0, Fairly often=3.0, Often=4.0]
@@ -790,16 +860,43 @@ psych_psychotic_experiences_any     any Yes to voices / thought-insertion / para
 psych_self_harm_ideation_lifetime   ss_1  (ever thoughts of purposely hurting yourself)
 psych_suicidal_ideation_lifetime    ss_2  (ever thoughts of killing yourself)
 psych_suicide_attempt_lifetime      ss_3  (ever a suicide attempt)
+psych_sitbi_suicidality_count       prorated count of ss_1/ss_2/ss_3 Yes endorsements; >=2/3 valid items
+psych_probable_gad_lifetime         worryanxiety Yes AND (cidi5_8 OR cidi5_9 present) AND >=3/5 associated symptoms
+psych_cidi_gad_symptom_sum          prorated sum of cidi5_6..14 (0..4 each); worryanxiety No = 0
+mhq_trauma_exposure_count           prorated count of mhqukb_34..42 lifetime trauma categories; >=5/9 valid items
 psych_mania_episode_screen          (ever high/hyper OR irritable) AND >=3 manic symptoms (mhqukb_43/44/45)
 psych_probable_bipolar              mania screen AND >=4-day duration (mhqukb_46) AND impairment (mhqukb_47)
 psych_lifetime_depressed_episode    ever a >=2-week low-mood / anhedonia period (mhqukb_5/6)
 psych_probable_recurrent_depression lifetime depressed episode AND several episodes (mhqukb_24)
+mhq_depression_symptom_count        prorated 10-item worst-episode symptom count; screen-negatives set to 0
 ptsd_pcl (composite, §11c)          abbreviated PCL 5-item sum (pcl_1..5), continuous
 ```
+
+The SITBI count is additive to the three standalone SITBI binaries. It is scored as
+mean(valid Yes/No items) × 3, requiring more than half of the three items, so partial but mostly
+complete SITBI respondents can contribute without treating missing items as No.
+
+The lifetime GAD binary follows the CIDI-SF structure mapped to available AoU EHHWB items:
+symptoms are present when endorsed "Most of the time" or "All or almost all of the time".
+AoU has five of the associated GAD symptoms available here (restless/on edge, concentration,
+irritability, muscle tension, sleep), so the diagnosis proxy requires ≥3 of 5. Participants with
+`worryanxiety = No` are controls and get symptom-sum score 0; `worryanxiety = Yes` respondents
+with enough symptom data get a prorated 0..36 severity sum from cidi5_6..14.
+
+The MHQ trauma count scores mhqukb_34..42 as ever exposed (either "within the last 12 months" or
+"but not in the last 12 months") vs never exposed, then prorates to a 0..9 count when at least
+five of nine items have valid responses. It is the lifetime/adult analogue of the ACE childhood
+adversity score, not a replacement for it.
 
 The depression and bipolar derivations follow the UKB Smith et al. 2013 logic at the item level; they
 are not the full CIDI symptom-count diagnoses, so they read as "probable"/"screen". Controls are
 participants who completed the relevant module and do not meet criteria.
+The MHQ depression symptom count is an additional continuous severity proxy for the worst lifetime
+episode: mhqukb_5/6/12/16/17/18/19/20 are Yes/No symptoms, mhqukb_14 counts appetite increase or
+decrease, and mhqukb_15 counts gained/lost/both weight change. The atypical-features heavy-limbs
+item mhqukb_13 is not included in the primary 10-item DSM-style count. Participants who validly
+screen negative on mhqukb_5 and mhqukb_6 are scored 0; screen-positive participants need at least
+six of ten valid symptom components and are prorated to the 0..10 scale.
 
 ## 11e. Acculturation index
 
@@ -886,11 +983,11 @@ Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case 
 | ZIP3 socioeconomic context (§11b.1) | 7 | 0 | 0 | 7 | 7 |
 | Cognitive / EA-proxy external scores | 10 | 0 | 0 | 10 | 10 |
 | Validated composite scores (§11c): scales + BFI-2 Big Five + neighborhood/walkability/hunger + PCL + well-being | 29 | 0 | 29 | 0 | 29 |
-| Derived psychiatric phenotypes (§11d) | 8 | 8 | 0 | 0 | 8 |
+| Derived psychiatric phenotypes (§11d) | 13 | 9 | 0 | 4 | 13 |
 | Acculturation index (§11e) | 1 | 0 | 1 | 0 | 1 |
 | Geographic / political state clusters (§11f) | 12 | 12 | 0 | 0 | 12 |
 | Wearable (Fitbit) phenotypes incl. chronotype (§10b) | 6 | 0 | 0 | 6 | 6 |
-| **TOTAL** | **~852** | **3036** | **408** | **86** | **3531** |
+| **TOTAL** | **~857** | **3037** | **408** | **90** | **3536** |
 
 (The 33 `pfhh_burden_*` sumscores and the 10 `cog_*` external scores are counted as
 quantitative traits. Physical measurements now include pulse pressure and MAP.)

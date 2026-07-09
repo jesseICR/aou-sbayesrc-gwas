@@ -89,7 +89,7 @@ write_lightweight() {
     ' "${glm}" | gzip -c > "${out}"
 }
 
-tail -n +2 "${BATCH_MANIFEST}" | while IFS=$'\t' read -r pheno_id pheno_name glm_path sumstats_path; do
+tail -n +2 "${BATCH_MANIFEST}" | while IFS=$'\t' read -r pheno_id pheno_name glm_path sumstats_path gwas_params trait_type kind n n_cases n_controls covar_mode sex_filter extra_covariates construction_id; do
     [[ -n "${pheno_id}" ]] || continue
     local_glm="${PREFIX}.${pheno_name}.glm.linear"
     if [[ ! -s "${local_glm}" ]]; then
@@ -101,6 +101,20 @@ tail -n +2 "${BATCH_MANIFEST}" | while IFS=$'\t' read -r pheno_id pheno_name glm
     cp "${local_glm}" "${pheno_dir}/${pheno_id}.${pheno_name}.glm.linear"
     cp "${PREFIX}.log" "${pheno_dir}/${pheno_id}.plink2.log"
     write_lightweight "${local_glm}" "${pheno_dir}/${pheno_id}.sumstats.tsv.gz"
+    {
+        printf 'parameter\tvalue\n'
+        printf 'pheno_id\t%s\n' "${pheno_id}"
+        printf 'pheno_name\t%s\n' "${pheno_name}"
+        printf 'trait_type\t%s\n' "${trait_type}"
+        printf 'kind\t%s\n' "${kind}"
+        printf 'n\t%s\n' "${n}"
+        printf 'n_cases\t%s\n' "${n_cases}"
+        printf 'n_controls\t%s\n' "${n_controls}"
+        printf 'covar_mode\t%s\n' "${covar_mode:-full}"
+        printf 'sex_filter\t%s\n' "${sex_filter:-all}"
+        printf 'extra_covariates\t%s\n' "${extra_covariates:-}"
+        printf 'construction_id\t%s\n' "${construction_id:-}"
+    } > "${pheno_dir}/${pheno_id}.gwas.params.tsv"
 done
 
 log "=== done batch ${BATCH_INDEX} ==="
