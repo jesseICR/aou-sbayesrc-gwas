@@ -227,6 +227,20 @@ REUSED_ITEM_CONCEPTS_REQUIRE_QID = {
     "copect_50_xx19_cope_a_152",
 }
 
+POP_GATED_SOURCE_QIDS = {
+    # Smoking and IPAQ hard qids from the live ds_survey metadata.  Several of
+    # these are repeated generic follow-up labels, so item-code matching is not
+    # sufficient to recover the intended source field.
+    "1585857", "1585873", "1586162",
+    "1333286", "1333288", "1333289",
+    "1332870", "1332871", "1332872",
+    "903629", "903630", "903631", "903633", "903634", "903635",
+    "903641", "903642",
+    "1332849", "1332756", "1333011", "1333299",
+    "715713", "715719", "715720", "715721", "715722", "715723",
+    "1333017", "1333013",
+}
+
 
 def log(msg: str) -> None:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
@@ -1499,6 +1513,614 @@ def build_numeric_phenotypes(questions, qman, sex_specific_items=None):
             "ordinal_rule": "",
         }
         yield f"num_{item_id}", "numeric", "quant", values, apply_sex_specific_item_rule(meta, sex_specific_items)
+
+
+def build_population_gated_phenotypes(questions, item_labels, qid_by_item=None):
+    """Derived zero-population versions of selected gated survey follow-ups.
+
+    Existing endorser-only survey item GWAS remain unchanged.  These derived
+    phenotypes add explicit screener-negative respondents as true zeros where
+    the follow-up is structurally absent because the participant is at the floor.
+    Missing/DK/PNA screeners remain missing.
+    """
+    qid_by_item = qid_by_item or {}
+    qtext_to_qid = {}
+    for qid, q in questions.items():
+        qtext_to_qid.setdefault(norm_q(q["question"]), qid)
+
+    def resp_item(code):
+        lab = item_labels.get(code)
+        qid = qid_by_item.get(code) or (qtext_to_qid.get(norm_q(lab)) if lab else None)
+        return questions.get(qid, {}).get("responses", {}) if qid else {}
+
+    def resp_qid(qid):
+        return questions.get(str(qid), {}).get("responses", {})
+
+    def qid_for_item(code):
+        lab = item_labels.get(code)
+        return qid_by_item.get(code) or (qtext_to_qid.get(norm_q(lab)) if lab else "")
+
+    def nonmiss(pid, r):
+        v = r.get(pid)
+        return [a for a in v[1] if not is_missing_answer(a)] if v else []
+
+    def age_of(pid, *rs):
+        for r in rs:
+            v = r.get(pid)
+            if v and v[0] is not None and not math.isnan(v[0]):
+                return v[0]
+        return None
+
+    def single_yes_no(pid, r):
+        vals = [answer_norm(a) for a in nonmiss(pid, r)]
+        if any(a == "yes" or a.startswith("yes,") for a in vals):
+            return 1.0
+        if any(a == "no" for a in vals):
+            return 0.0
+        return None
+
+    def current_past_never(pid, r):
+        vals = [answer_norm(a) for a in nonmiss(pid, r)]
+        if any(a in {"yes, every day", "yes, some days"} for a in vals):
+            return "current"
+        if any(a == "not currently, but in the past" for a in vals):
+            return "past"
+        if any(a == "no, never" for a in vals):
+            return "never"
+        return None
+
+    def numeric_value(pid, r, lo=None, hi=None):
+        vals = []
+        for a in nonmiss(pid, r):
+            try:
+                v = float(a)
+            except (TypeError, ValueError):
+                continue
+            if lo is not None and v < lo:
+                continue
+            if hi is not None and v > hi:
+                continue
+            vals.append(v)
+        return vals[0] if len(vals) == 1 else None
+
+    def ordinal_value(pid, r, rule):
+        vals = [ordinal_value_from_rule(rule, a) for a in nonmiss(pid, r)]
+        vals = [v for v in vals if v is not None]
+        return vals[0] if len(vals) == 1 else None
+
+    def audit_drinks_per_occasion_score(pid, r):
+        score = {
+            "1 or 2": 0.0,
+            "3 or 4": 1.0,
+            "5 or 6": 2.0,
+            "7 to 9": 3.0,
+            "10 or more": 4.0,
+        }
+        vals = [score.get(answer_norm(a)) for a in nonmiss(pid, r)]
+        vals = [v for v in vals if v is not None]
+        return vals[0] if len(vals) == 1 else None
+
+    def checkbox_status(pid, r, predicate):
+        vals = [answer_norm(a) for a in nonmiss(pid, r)]
+        if not vals:
+            return None
+        return any(predicate(a) for a in vals)
+
+    def source_meta(qids, item_concept, question, answer, construction_id, ordinal_rule="population_zero_imputed"):
+        return {
+            "question_concept_id": "|".join(str(q) for q in qids if q),
+            "item_concept": item_concept,
+            "question": question,
+            "answer": answer,
+            "ordinal_rule": ordinal_rule,
+            "covar_mode": "full",
+            "construction_id": construction_id,
+        }
+
+    # ---- smoking: population-referenced quantity and pack-years -------------
+    smoke_gate = resp_qid("1585857") or resp_item("smoking_100cigslifetime")
+    smoke_cpd = resp_qid("1586162") or resp_item("smoking_averagedailycigarette")
+    smoke_years = resp_qid("1585873") or resp_item("smoking_numberofyears")
+    smoke_qids = [
+        "1585857",
+        "1586162",
+        "1585873",
+        qid_for_item("smoking_100cigslifetime"),
+        qid_for_item("smoking_averagedailycigarette"),
+        qid_for_item("smoking_numberofyears"),
+    ]
+    smoke_pids = set(smoke_gate) | set(smoke_cpd) | set(smoke_years)
+    cpd_values = {}
+    years_values = {}
+    pack_values = {}
+    for pid in smoke_pids:
+        stem = single_yes_no(pid, smoke_gate)
+        if stem is None:
+            continue
+        if stem == 0.0:
+            a = age_of(pid, smoke_gate)
+            if a is None:
+                continue
+            cpd_values[pid] = (0.0, a)
+            years_values[pid] = (0.0, a)
+            pack_values[pid] = (0.0, a)
+            continue
+        cpd = numeric_value(pid, smoke_cpd, 0.0, 200.0)
+        yrs = numeric_value(pid, smoke_years, 0.0, 100.0)
+        if cpd is not None:
+            a = age_of(pid, smoke_cpd, smoke_gate)
+            if a is not None:
+                cpd_values[pid] = (cpd, a)
+        if yrs is not None:
+            a = age_of(pid, smoke_years, smoke_gate)
+            if a is not None:
+                years_values[pid] = (yrs, a)
+        if cpd is not None and yrs is not None:
+            a = age_of(pid, smoke_cpd, smoke_years, smoke_gate)
+            if a is not None:
+                pack_values[pid] = ((cpd / 20.0) * yrs, a)
+    yield ("num_smoking_averagedailycigarettenumber_pop", "derived_population", "quant", cpd_values,
+           source_meta(smoke_qids, "smoking_100cigslifetime|smoking_averagedailycigarette",
+                       "Population-referenced lifetime cigarettes per day",
+                       "100-cig lifetime No=0; Yes uses average lifetime cigarettes/day",
+                       "smoking_population_zero_v1"))
+    yield ("num_smoking_numberofyears_pop", "derived_population", "quant", years_values,
+           source_meta(smoke_qids, "smoking_100cigslifetime|smoking_numberofyears",
+                       "Population-referenced years smoked",
+                       "100-cig lifetime No=0; Yes uses years smoked",
+                       "smoking_population_zero_v1"))
+    yield ("num_smoking_pack_years_pop", "derived_population", "quant", pack_values,
+           source_meta(smoke_qids, "smoking_100cigslifetime|smoking_averagedailycigarette|smoking_numberofyears",
+                       "Population-referenced smoking pack-years",
+                       "(average cigarettes/day / 20) * years smoked; 100-cig lifetime No=0",
+                       "smoking_population_zero_v1"))
+
+    # ---- alcohol: AUDIT-C-style items with lifetime abstainers at zero -------
+    alcohol_gate = resp_item("alcohol_alcoholparticipant")
+    alcohol_specs = [
+        (
+            "ord_alcohol_drinkfrequencypastyear_pop",
+            "alcohol_drinkfrequencypastyear",
+            "audit_freq_0_4",
+            "Past-year drinking frequency with lifetime abstainers at zero",
+            "lifetime alcohol No=0; Yes uses AUDIT-C frequency score",
+            "audit_freq_0_4_population_zero",
+        ),
+        (
+            "ord_alcohol_averagedailydrinkcount_pop",
+            "alcohol_averagedailydrinkcount",
+            "drink_count_band_midpoint",
+            "Typical drinks per drinking day with lifetime abstainers at zero",
+            "lifetime alcohol No=0; Yes uses drinks-per-occasion band midpoint",
+            "drink_count_band_midpoint_population_zero",
+        ),
+        (
+            "ord_alcohol_6ormoredrinksoccurence_pop",
+            "alcohol_6ormoredrinksoccurence",
+            "binge_freq_0_4",
+            "Past-year 6+ drink frequency with lifetime abstainers at zero",
+            "lifetime alcohol No=0; Yes uses 6+ drink frequency score",
+            "binge_freq_0_4_population_zero",
+        ),
+    ]
+    audit_item_values = {}
+    for pheno_id, code, rule, question, answer, ordinal_rule in alcohol_specs:
+        r = resp_item(code)
+        values = {}
+        for pid in set(alcohol_gate) | set(r):
+            stem = single_yes_no(pid, alcohol_gate)
+            if stem == 0.0:
+                a = age_of(pid, alcohol_gate)
+                if a is not None:
+                    values[pid] = (0.0, a)
+                continue
+            v = ordinal_value(pid, r, rule)
+            if v is not None:
+                a = age_of(pid, r, alcohol_gate)
+                if a is not None:
+                    values[pid] = (v, a)
+        audit_item_values[code] = values
+        yield (pheno_id, "ordinal", "quant", values,
+               source_meta([qid_for_item("alcohol_alcoholparticipant"), qid_for_item(code)],
+                           f"alcohol_alcoholparticipant|{code}",
+                           question, answer,
+                           "alcohol_population_zero_v1",
+                           ordinal_rule=ordinal_rule))
+
+    audit_freq = resp_item("alcohol_drinkfrequencypastyear")
+    audit_qty = resp_item("alcohol_averagedailydrinkcount")
+    audit_binge = resp_item("alcohol_6ormoredrinksoccurence")
+    audit_values = {}
+    audit_pids = set(alcohol_gate) | set(audit_freq) | set(audit_qty) | set(audit_binge)
+    for pid in audit_pids:
+        stem = single_yes_no(pid, alcohol_gate)
+        if stem == 0.0:
+            a = age_of(pid, alcohol_gate)
+            if a is not None:
+                audit_values[pid] = (0.0, a)
+            continue
+        scores = [
+            ordinal_value(pid, audit_freq, "audit_freq_0_4"),
+            audit_drinks_per_occasion_score(pid, audit_qty),
+            ordinal_value(pid, audit_binge, "binge_freq_0_4"),
+        ]
+        scores = [v for v in scores if v is not None]
+        if len(scores) < 2:
+            continue
+        a = age_of(pid, audit_freq, audit_qty, audit_binge, alcohol_gate)
+        if a is not None:
+            audit_values[pid] = (sum(scores) / len(scores) * 3.0, a)
+    yield ("comp_auditc_alcohol_pop", "derived_population", "quant", audit_values,
+           source_meta(
+               [
+                   qid_for_item("alcohol_alcoholparticipant"),
+                   qid_for_item("alcohol_drinkfrequencypastyear"),
+                   qid_for_item("alcohol_averagedailydrinkcount"),
+                   qid_for_item("alcohol_6ormoredrinksoccurence"),
+               ],
+               (
+                   "alcohol_alcoholparticipant|alcohol_drinkfrequencypastyear|"
+                   "alcohol_averagedailydrinkcount|alcohol_6ormoredrinksoccurence"
+               ),
+               "Population-referenced AUDIT-C alcohol score",
+               "lifetime alcohol No=0; drinkers use prorated 3-item AUDIT-C score requiring at least 2 valid items",
+               "auditc_population_zero_v1",
+               ordinal_rule="auditc_population_zero",
+           ))
+
+    # ---- marijuana/cannabis frequency: non-users at zero ---------------------
+    drug_gate = resp_item("recreationaldruguse_whichdrugsused")
+    marijuana_freq = resp_item("past3monthusefrequency_marijuana3monthuse")
+    marijuana_values = {}
+    for pid in set(drug_gate) | set(marijuana_freq):
+        selected = checkbox_status(
+            pid,
+            drug_gate,
+            lambda a: "marijuana" in a or "cannabis" in a,
+        )
+        if selected is False:
+            a = age_of(pid, drug_gate)
+            if a is not None:
+                marijuana_values[pid] = (0.0, a)
+            continue
+        v = ordinal_value(pid, marijuana_freq, "subuse_lifestyle_0_4")
+        if v is not None:
+            a = age_of(pid, marijuana_freq, drug_gate)
+            if a is not None:
+                marijuana_values[pid] = (v, a)
+    yield ("ord_past3monthusefrequency_marijuana3monthuse_pop", "ordinal", "quant", marijuana_values,
+           source_meta([qid_for_item("recreationaldruguse_whichdrugsused"),
+                        qid_for_item("past3monthusefrequency_marijuana3monthuse")],
+                       "recreationaldruguse_whichdrugsused|past3monthusefrequency_marijuana3monthuse",
+                       "Past-3-month marijuana use frequency with lifetime non-users at zero",
+                       "lifetime marijuana/cannabis non-use=0; users use Never..Daily 0..4 frequency",
+                       "marijuana_lifestyle_population_zero_v1",
+                       ordinal_rule="subuse_lifestyle_0_4_population_zero"))
+
+    cope_drug_gate = resp_qid("1333017")
+    cope_cannabis_freq = resp_qid("1333013")
+    cope_cannabis_values = {}
+    for pid in set(cope_drug_gate) | set(cope_cannabis_freq):
+        selected = checkbox_status(pid, cope_drug_gate, lambda a: "cannabis" in a)
+        if selected is False:
+            a = age_of(pid, cope_drug_gate)
+            if a is not None:
+                cope_cannabis_values[pid] = (0.0, a)
+            continue
+        v = ordinal_value(pid, cope_cannabis_freq, "freq_covid_contact_0_3")
+        if v is not None:
+            a = age_of(pid, cope_cannabis_freq, cope_drug_gate)
+            if a is not None:
+                cope_cannabis_values[pid] = (v + 1.0, a)
+    yield ("ord_tsu_ds5_13_xx3_pop", "ordinal", "quant", cope_cannabis_values,
+           source_meta(["1333017", "1333013"], "tsu_ds5_13_xx|tsu_ds5_13_xx3",
+                       "COPE past-month cannabis use frequency with non-users at zero",
+                       "COPE no cannabis selected=0; selected cannabis uses frequency levels shifted to 1..4",
+                       "marijuana_cope_population_zero_v1",
+                       ordinal_rule="freq_covid_contact_0_3_shifted_population_zero"))
+
+    # ---- IPAQ: activity-specific population fields and total MET-min/week ----
+    activity_specs = [
+        ("vigorous", "1333286", "1332870", "903633", "903631", 24.0, 8.0),
+        ("moderate", "1333288", "1332871", "903634", "903629", 24.0, 4.0),
+        ("walking", "1333289", "1332872", "903635", "903630", 7.0, 3.3),
+    ]
+    met_components = {}
+    for activity, gate_qid, days_qid, hours_qid, minutes_qid, max_hours, met in activity_specs:
+        gate = resp_qid(gate_qid)
+        days_r = resp_qid(days_qid)
+        hours_r = resp_qid(hours_qid)
+        minutes_r = resp_qid(minutes_qid)
+        pids = set(gate) | set(days_r) | set(hours_r) | set(minutes_r)
+        day_values = {}
+        minute_values = {}
+        component = {}
+        for pid in pids:
+            stem = single_yes_no(pid, gate)
+            if stem is None:
+                continue
+            if stem == 0.0:
+                a = age_of(pid, gate)
+                if a is None:
+                    continue
+                day_values[pid] = (0.0, a)
+                minute_values[pid] = (0.0, a)
+                component[pid] = (0.0, 0.0, a)
+                continue
+            days = numeric_value(pid, days_r, 1.0, 7.0)
+            hours = numeric_value(pid, hours_r, 0.0, max_hours)
+            minutes = numeric_value(pid, minutes_r, 0.0, 59.0)
+            total_minutes = None
+            if hours is not None or minutes is not None:
+                total_minutes = (hours or 0.0) * 60.0 + (minutes or 0.0)
+            a = age_of(pid, days_r, hours_r, minutes_r, gate)
+            if a is None:
+                continue
+            if days is not None:
+                day_values[pid] = (days, a)
+            if total_minutes is not None:
+                minute_values[pid] = (total_minutes, a)
+            if days is not None and total_minutes is not None:
+                component[pid] = (days, total_minutes, a)
+        met_components[activity] = (component, met)
+        qids = [gate_qid, days_qid, hours_qid, minutes_qid]
+        yield (f"num_ipaq_{activity}_days_per_week_pop", "derived_population", "quant", day_values,
+               source_meta(qids, f"ipaq_{activity}_gate|days",
+                           f"Population-referenced IPAQ {activity} days/week",
+                           "activity gate No=0; Yes uses days/week", "ipaq_population_zero_v1"))
+        yield (f"num_ipaq_{activity}_minutes_per_day_pop", "derived_population", "quant", minute_values,
+               source_meta(qids, f"ipaq_{activity}_gate|duration",
+                           f"Population-referenced IPAQ {activity} minutes/day",
+                           "activity gate No=0; Yes uses hours/minutes per day", "ipaq_population_zero_v1"))
+
+    total_met = {}
+    all_ipaq_pids = set()
+    for component, _met in met_components.values():
+        all_ipaq_pids.update(component)
+    for pid in all_ipaq_pids:
+        total = 0.0
+        ages = []
+        complete = True
+        for component, met in met_components.values():
+            row = component.get(pid)
+            if row is None:
+                complete = False
+                break
+            days, minutes, age = row
+            total += days * minutes * met
+            ages.append(age)
+        if complete and ages:
+            total_met[pid] = (total, ages[0])
+    yield ("num_ipaq_total_met_minutes_week_pop", "derived_population", "quant", total_met,
+           source_meta([q for spec in activity_specs for q in spec[1:5]], "ipaq_total_met_minutes",
+                       "IPAQ total MET-minutes/week, population-referenced",
+                       "sum(days * minutes/day * MET weight); inactive activity gates=0",
+                       "ipaq_population_zero_v1"))
+
+    sitting_hours = resp_qid("903641")
+    sitting_minutes = resp_qid("903642")
+    sitting_values = {}
+    for pid in set(sitting_hours) | set(sitting_minutes):
+        hours = numeric_value(pid, sitting_hours, 0.0, 24.0)
+        minutes = numeric_value(pid, sitting_minutes, 0.0, 59.0)
+        if hours is None and minutes is None:
+            continue
+        a = age_of(pid, sitting_hours, sitting_minutes)
+        if a is not None:
+            sitting_values[pid] = (((hours or 0.0) * 60.0) + (minutes or 0.0), a)
+    yield ("num_ipaq_sitting_minutes_weekday", "derived_population", "quant", sitting_values,
+           source_meta(["903641", "903642"], "ipaq_sitting_time",
+                       "IPAQ sitting minutes on a weekday",
+                       "hours/minutes converted to minutes; no zero imputation",
+                       "ipaq_sitting_v1"))
+
+    # ---- CIDI-GAD and panic follow-ups: stem-negative population zeros --------
+    worry = resp_item("worryanxiety")
+    for i in range(6, 15):
+        code = f"cidi5_{i}"
+        r = resp_item(code)
+        values = {}
+        for pid in set(worry) | set(r):
+            stem = single_yes_no(pid, worry)
+            if stem is None:
+                continue
+            if stem == 0.0:
+                a = age_of(pid, worry)
+                if a is not None:
+                    values[pid] = (0.0, a)
+                continue
+            v = ordinal_value(pid, r, "time_all_none_0_4")
+            if v is not None:
+                a = age_of(pid, r, worry)
+                if a is not None:
+                    values[pid] = (v, a)
+        yield (f"ord_{code}_pop", "ordinal", "quant", values,
+               source_meta([qid_for_item("worryanxiety"), qid_for_item(code)], f"worryanxiety|{code}",
+                           f"Population-referenced {code} lifetime GAD symptom",
+                           "worryanxiety No=0; Yes uses 0..4 symptom frequency",
+                           "cidi_gad_item_population_zero_v1",
+                           ordinal_rule="time_all_none_0_4_population_zero"))
+
+    panic_gate = resp_item("cidi5_16")
+    panic_count = resp_item("cidi5_19")
+    panic_values = {}
+    for pid in set(panic_gate) | set(panic_count):
+        stem = single_yes_no(pid, panic_gate)
+        if stem is None:
+            continue
+        if stem == 0.0:
+            a = age_of(pid, panic_gate)
+            if a is not None:
+                panic_values[pid] = (0.0, a)
+            continue
+        v = ordinal_value(pid, panic_count, "count_band_midpoint")
+        if v is not None:
+            a = age_of(pid, panic_count, panic_gate)
+            if a is not None:
+                panic_values[pid] = (v, a)
+    yield ("ord_cidi5_19_pop", "ordinal", "quant", panic_values,
+           source_meta([qid_for_item("cidi5_16"), qid_for_item("cidi5_19")], "cidi5_16|cidi5_19",
+                       "Population-referenced lifetime panic attack count band",
+                       "cidi5_16 No=0; Yes uses count-band midpoint",
+                       "cidi_panic_population_zero_v1",
+                       ordinal_rule="count_band_midpoint_population_zero"))
+
+    ss3 = resp_item("ss_3")
+    ss3_count = resp_item("ss_3_number")
+    ss3_values = {}
+    for pid in set(ss3) | set(ss3_count):
+        stem = single_yes_no(pid, ss3)
+        if stem is None:
+            continue
+        if stem == 0.0:
+            a = age_of(pid, ss3)
+            if a is not None:
+                ss3_values[pid] = (0.0, a)
+            continue
+        v = numeric_value(pid, ss3_count, 1.0, 999.0)
+        if v is not None:
+            a = age_of(pid, ss3_count, ss3)
+            if a is not None:
+                ss3_values[pid] = (v, a)
+    yield ("num_ss_3_number_pop", "derived_population", "quant", ss3_values,
+           source_meta([qid_for_item("ss_3"), qid_for_item("ss_3_number")], "ss_3|ss_3_number",
+                       "Population-referenced lifetime suicide attempt count",
+                       "ss_3 No=0; Yes uses numeric attempt count",
+                       "sitbi_attempt_count_population_zero_v1"))
+
+    # ---- UKB-MHQ depression follow-ups: no lifetime episode at zero ----------
+    dep5 = resp_item("mhqukb_5")
+    dep6 = resp_item("mhqukb_6")
+
+    def depressed_screen(pid):
+        s5 = single_yes_no(pid, dep5)
+        s6 = single_yes_no(pid, dep6)
+        if s5 == 1.0 or s6 == 1.0:
+            return 1.0
+        if s5 == 0.0 and s6 == 0.0:
+            return 0.0
+        return None
+
+    dep_followups = [
+        (
+            "ord_mhqukb_21_pop",
+            "mhqukb_21",
+            "duration_month_midpoint",
+            "Population-referenced lifetime depression episode duration",
+            "mhqukb_5=No and mhqukb_6=No set to 0 months; screen-positive respondents use duration midpoints",
+            "duration_month_midpoint_population_zero",
+        ),
+        (
+            "ord_mhqukb_24_pop",
+            "mhqukb_24",
+            "episode_count_1_2",
+            "Population-referenced lifetime depression episode-count band",
+            "mhqukb_5=No and mhqukb_6=No set to 0 episodes; screen-positive respondents use one/several count band",
+            "episode_count_1_2_population_zero",
+        ),
+    ]
+    for pheno_id, code, rule, question, answer, ordinal_rule in dep_followups:
+        r = resp_item(code)
+        values = {}
+        for pid in set(dep5) | set(dep6) | set(r):
+            stem = depressed_screen(pid)
+            if stem == 0.0:
+                a = age_of(pid, dep5, dep6)
+                if a is not None:
+                    values[pid] = (0.0, a)
+                continue
+            if stem != 1.0:
+                continue
+            v = ordinal_value(pid, r, rule)
+            if v is not None:
+                a = age_of(pid, r, dep5, dep6)
+                if a is not None:
+                    values[pid] = (v, a)
+        yield (pheno_id, "ordinal", "quant", values,
+               source_meta([qid_for_item("mhqukb_5"), qid_for_item("mhqukb_6"), qid_for_item(code)],
+                           f"mhqukb_5|mhqukb_6|{code}",
+                           question, answer,
+                           "mhq_depression_followup_population_zero_v1",
+                           ordinal_rule=ordinal_rule))
+
+    dep_count = resp_item("mhqukb_25_number")
+    dep_count_values = {}
+    for pid in set(dep5) | set(dep6) | set(dep_count):
+        stem = depressed_screen(pid)
+        if stem == 0.0:
+            a = age_of(pid, dep5, dep6)
+            if a is not None:
+                dep_count_values[pid] = (0.0, a)
+            continue
+        if stem != 1.0:
+            continue
+        v = numeric_value(pid, dep_count, 2.0, 999.0)
+        if v is not None:
+            a = age_of(pid, dep_count, dep5, dep6)
+            if a is not None:
+                dep_count_values[pid] = (v, a)
+    yield ("num_mhqukb_25_number_pop", "derived_population", "quant", dep_count_values,
+           source_meta([qid_for_item("mhqukb_5"), qid_for_item("mhqukb_6"), qid_for_item("mhqukb_25_number")],
+                       "mhqukb_5|mhqukb_6|mhqukb_25_number",
+                       "Population-referenced numeric lifetime depression episode count",
+                       "mhqukb_5=No and mhqukb_6=No set to 0 episodes; screen-positive respondents use numeric count",
+                       "mhq_depression_followup_population_zero_v1"))
+
+    # ---- COPE quit recency: current users at zero months ---------------------
+    quit_specs = [
+        (
+            "num_cope_months_since_last_smoked_current0",
+            "1333011", "1332849",
+            {"years": "715723", "months": "715720", "weeks": "715719"},
+            "tobacco/nicotine",
+        ),
+        (
+            "num_cope_months_since_last_enicotine_current0",
+            "1333299", "1332756",
+            {"years": "715721", "months": "715713", "weeks": "715722"},
+            "electronic nicotine",
+        ),
+    ]
+    for pheno_id, current_qid, unit_qid, value_qids, label in quit_specs:
+        current_r = resp_qid(current_qid)
+        unit_r = resp_qid(unit_qid)
+        unit_rs = {unit: resp_qid(qid) for unit, qid in value_qids.items()}
+        values = {}
+        pids = set(current_r) | set(unit_r)
+        for r in unit_rs.values():
+            pids.update(r)
+        for pid in pids:
+            status = current_past_never(pid, current_r)
+            if status == "current":
+                a = age_of(pid, current_r)
+                if a is not None:
+                    values[pid] = (0.0, a)
+                continue
+            if status != "past":
+                continue
+            units = [answer_norm(a) for a in nonmiss(pid, unit_r)]
+            if len(units) != 1 or units[0] not in value_qids:
+                continue
+            unit = units[0]
+            unit_bounds = {"years": (1.0, 99.0), "months": (1.0, 11.0), "weeks": (1.0, 51.0)}
+            lo, hi = unit_bounds[unit]
+            raw = numeric_value(pid, unit_rs[unit], lo, hi)
+            if raw is None:
+                continue
+            if unit == "years":
+                months = raw * 12.0
+            elif unit == "months":
+                months = raw
+            else:
+                months = raw / 4.345
+            a = age_of(pid, unit_rs[unit], unit_r, current_r)
+            if a is not None:
+                values[pid] = (months, a)
+        yield (pheno_id, "derived_population", "quant", values,
+               source_meta([current_qid, unit_qid, *value_qids.values()], f"{label}_quit_recency",
+                           f"COPE months since last {label} use",
+                           "current users=0; past users convert weeks/months/years to months; never-users missing",
+                           "cope_quit_recency_current0_v1"))
 
 
 # Group -> PFHH category-screen question_concept_id used to recover controls.
@@ -3075,6 +3697,7 @@ def main() -> None:
     allowed_qids.update(PFHH_SCREEN_QID.values())
     allowed_qids.update(PHQ_GAD_SOURCE_QIDS)
     allowed_qids.update(PSS_SOURCE_QIDS)
+    allowed_qids.update(POP_GATED_SOURCE_QIDS)
     allowed_question_texts = {
         norm_q(row.get("field_label") or "")
         for row in qman_rows
@@ -3121,6 +3744,8 @@ def main() -> None:
         ))
     if wants_phenotype_source(only, prefixes=("psych_", "mhq_")):
         builders.append(build_derived_psych_phenotypes(questions, item_labels, qid_by_item))
+    if wants_phenotype_source(only, prefixes=("num_", "ord_")):
+        builders.append(build_population_gated_phenotypes(questions, item_labels, qid_by_item))
     if wants_phenotype_source(only, exact=("accult_index",)):
         builders.append(build_acculturation_phenotype(questions, item_labels, qid_by_item))
     if wants_phenotype_source(only, prefixes=("geo_",)):

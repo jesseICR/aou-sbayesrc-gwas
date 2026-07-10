@@ -107,6 +107,9 @@ one-vs-rest encodings are exact complements; the omitted side is listed as
 `redundant_binary_complement` in `skipped_phenotypes.tsv`.
 Same-survey reused codebook item labels are disambiguated with `_q<question_id>`
 in the phenotype ID when the shared label refers to distinct follow-up questions.
+Selected gated follow-up items also emit population-referenced `_pop` or
+`current0` derived phenotypes where explicit screener-negative respondents are
+scored as 0; the original endorser-only item GWAS are retained.
 PHQ-9 and GAD-7 item and sumscore GWAS pool EHHWB with COPE using EHHWB priority.
 PSS-10 item and sumscore GWAS pool SDOH with COPE using SDOH priority. COPE
 fill-in is included as a `from_cope` residualization covariate.

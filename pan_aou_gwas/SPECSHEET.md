@@ -266,6 +266,11 @@ sample fall back to binary-only.
 Free-numeric survey entries (counts, ages, durations, minutes): parse `value_as_number`, range-check
 against the codebook min/max, drop impossible values, then run the §4.1 continuous pipeline (§8).
 
+Selected gated follow-up fields also emit separate population-referenced derived phenotypes. These
+keep the original endorser-only item GWAS but add explicit screener-negative respondents as true
+zeros when the follow-up is structurally absent because the participant is at the floor. Missing,
+DK, and PNA screeners remain missing. Age-at-onset/event fields are never zero-imputed.
+
 ---
 
 ## 7. Ordinal mappings (machine-readable)
@@ -375,6 +380,33 @@ counts, etc.) are parsed as numbers, range-checked against the codebook min/max,
 dropped, then INT'd and residualized (§4.1). Companion "too many to count / one episode ran into the
 next" categorical top-codes are treated as missing for the numeric phenotype (they remain valid
 one-vs-rest binary answers). SSN, phone, address, and other PII numeric fields are excluded.
+
+Additional population-referenced gated phenotypes are emitted with `_pop` or `current0` suffixes:
+
+```text
+num_smoking_averagedailycigarettenumber_pop   100-cig lifetime No=0; Yes uses lifetime cigarettes/day
+num_smoking_numberofyears_pop                 100-cig lifetime No=0; Yes uses years smoked
+num_smoking_pack_years_pop                    (cigarettes/day / 20) * years smoked; never-smokers=0
+ord_alcohol_drinkfrequencypastyear_pop        lifetime alcohol No=0; Yes uses past-year AUDIT-C frequency
+ord_alcohol_averagedailydrinkcount_pop        lifetime alcohol No=0; Yes uses drinks-per-occasion midpoints
+ord_alcohol_6ormoredrinksoccurence_pop        lifetime alcohol No=0; Yes uses past-year 6+ drink frequency
+comp_auditc_alcohol_pop                       lifetime alcohol No=0; drinkers use prorated 3-item AUDIT-C score
+ord_past3monthusefrequency_marijuana3monthuse_pop
+                                               lifetime marijuana/cannabis non-use=0; users use 0..4 frequency
+ord_tsu_ds5_13_xx3_pop                        COPE no cannabis selected=0; users use shifted 1..4 frequency
+num_ipaq_{vigorous,moderate,walking}_days_per_week_pop
+num_ipaq_{vigorous,moderate,walking}_minutes_per_day_pop
+num_ipaq_total_met_minutes_week_pop           8.0 vigorous + 4.0 moderate + 3.3 walking MET-min/week
+num_ipaq_sitting_minutes_weekday              sitting hours/minutes converted to minutes; no zero-imputation
+ord_cidi5_6_pop ... ord_cidi5_14_pop          worryanxiety No=0; Yes uses each 0..4 GAD symptom item
+ord_cidi5_19_pop                              no lifetime panic attack=0; Yes uses count-band midpoint
+num_ss_3_number_pop                           no lifetime suicide attempt=0; Yes uses attempt count
+ord_mhqukb_21_pop                             no lifetime depression/anhedonia episode=0; Yes uses duration midpoints
+ord_mhqukb_24_pop                             no lifetime depression/anhedonia episode=0; Yes uses one/several count band
+num_mhqukb_25_number_pop                      no lifetime depression/anhedonia episode=0; Yes uses numeric episode count
+num_cope_months_since_last_smoked_current0    current tobacco/nicotine use=0; past use converted to months
+num_cope_months_since_last_enicotine_current0 current e-nicotine use=0; past use converted to months
+```
 
 ---
 
