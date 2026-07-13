@@ -89,7 +89,11 @@ write_lightweight() {
     ' "${glm}" | gzip -c > "${out}"
 }
 
-tail -n +2 "${BATCH_MANIFEST}" | while IFS=$'\t' read -r pheno_id pheno_name glm_path sumstats_path gwas_params trait_type kind n n_cases n_controls covar_mode sex_filter extra_covariates construction_id; do
+tail -n +2 "${BATCH_MANIFEST}" | while IFS= read -r manifest_line; do
+    # Bash treats tab in IFS as whitespace and collapses empty fields. Translate
+    # tabs to a non-whitespace separator first so blank metadata columns survive.
+    manifest_line="${manifest_line//$'\t'/$'\x1f'}"
+    IFS=$'\x1f' read -r pheno_id pheno_name glm_path sumstats_path gwas_params trait_type kind n n_cases n_controls covar_mode sex_filter extra_covariates construction_id <<< "${manifest_line}"
     [[ -n "${pheno_id}" ]] || continue
     local_glm="${PREFIX}.${pheno_name}.glm.linear"
     if [[ ! -s "${local_glm}" ]]; then

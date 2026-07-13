@@ -112,7 +112,10 @@ Selected gated follow-up items also emit population-referenced `_pop` or
 scored as 0; the original endorser-only item GWAS are retained.
 PHQ-9 and GAD-7 item and sumscore GWAS pool EHHWB with COPE using EHHWB priority.
 PSS-10 item and sumscore GWAS pool SDOH with COPE using SDOH priority. COPE
-fill-in is included as a `from_cope` residualization covariate.
+fill-in is included as a `from_cope` residualization covariate. A small set of
+baseline survey items duplicated in COPE (health insurance, marital status,
+pregnancy, and household counts) are likewise pooled with the baseline survey
+as primary and COPE as fill-in.
 
 The run also extracts `ds_zip_code_socioeconomic` and GWASes the seven numeric
 ZIP3 context traits: deprivation index, median income, poverty, assisted income,
@@ -130,7 +133,7 @@ identical to covariates-in-PLINK2 and ~30× faster (validated in
 
 Exceptions are explicit in `phenotype_manifest.tsv`: already age/sex-normalized
 external scores use sex+PC covariates, and sex-stratified phenotypes use age+PC
-covariates. Pooled PHQ-9/GAD-7 and PSS-10 phenotypes also include `from_cope`.
+covariates. Pooled COPE-fill-in phenotypes also include `from_cope`.
 
 ## Local validation
 

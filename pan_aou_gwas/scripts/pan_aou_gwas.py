@@ -212,6 +212,57 @@ for _item_code, _label, _sdoh_qid, _cope_qid, _reverse in PSS_POOLED_ITEMS:
     PSS_SOURCE_QIDS.add(_cope_qid)
 PSS_COMPOSITE_SLUGS = {"pss_perceived_stress"}
 
+BASELINE_COPE_CONSTRUCTION_ID = "baseline_cope_pooled_v1"
+BASELINE_COPE_POOLED_ITEMS = [
+    (
+        "categorical",
+        "insurance_healthinsurance",
+        "Health insurance coverage, pooled Basics/COPE",
+        "1585386",
+        "1332874",
+        "Basics",
+    ),
+    (
+        "categorical",
+        "maritalstatus_currentmaritalstatus",
+        "Current marital status, pooled Basics/COPE",
+        "1585892",
+        "1332833",
+        "Basics",
+    ),
+    (
+        "categorical",
+        "pregnancy_1pregnancystatus",
+        "Current pregnancy status, pooled Overall Health/COPE",
+        "1585811",
+        "1332792",
+        "Overall Health",
+    ),
+    (
+        "numeric",
+        "livingsituation_howmanypeople",
+        "Other people living at home, pooled Basics/COPE",
+        "1585889",
+        "1333015",
+        "Basics",
+    ),
+    (
+        "numeric",
+        "livingsituation_peopleunder18",
+        "People at home under age 18, pooled Basics/COPE",
+        "1585890",
+        "1333023",
+        "Basics",
+    ),
+]
+BASELINE_COPE_SOURCE_QIDS = set()
+BASELINE_COPE_PHENO_PREFIXES = []
+for _kind, _item_code, _label, _primary_qid, _cope_qid, _primary_source in BASELINE_COPE_POOLED_ITEMS:
+    BASELINE_COPE_SOURCE_QIDS.add(_primary_qid)
+    BASELINE_COPE_SOURCE_QIDS.add(_cope_qid)
+    BASELINE_COPE_PHENO_PREFIXES.append(f"{'num' if _kind == 'numeric' else 'bin'}_{_item_code}")
+BASELINE_COPE_PHENO_PREFIXES = tuple(BASELINE_COPE_PHENO_PREFIXES)
+
 AUTOSOME_UNINFORMATIVE_ITEM_CONCEPTS = {
     "biologicalsexatbirth_sexatbirth",
 }
@@ -748,13 +799,14 @@ def build_latest_responses(
 ):
     """Return dict[qid] -> {question, pid -> (age, [(ans_text)...])}.
 
-    Per (person, question), prefer the latest event containing at least one
-    valid non-missing answer. If a participant never has a valid answer for that
-    question, retain the latest event so skip/PNA-only records still have the
-    expected missing-answer behavior downstream.
+    Per (person, question), keep the latest event containing at least one valid
+    non-missing answer. Participants with only skip/PNA/missing answers for a
+    question are omitted; downstream phenotype builders treat absence the same
+    as an all-missing response, and this avoids retaining millions of unusable
+    rows in memory.
     """
-    # Per (pid, qid): keep max valid datetime and max overall datetime,
-    # collecting answers at the selected datetime.
+    # Per (pid, qid): keep max valid datetime, collecting answers at the
+    # selected datetime.
     # The full v9 survey export is large enough that storing string tuple keys
     # can exceed default AoU Jupyter RAM. Use compact integer ids internally and
     # expand back to strings only after aggregation completes.
@@ -766,8 +818,7 @@ def build_latest_responses(
     question_text_by_qid_index = []
     answer_to_index = {}
     answer_by_index = []
-    latest_all = {}    # compact_key -> [datetime, age, answer_index | list[answer_index]]
-    latest_valid = {}  # same layout, but only events with a non-missing answer
+    latest_valid = {}  # compact_key -> [datetime, age, answer_index | list[answer_index]]
 
     def qid_index(qid: str, question_text: str) -> int:
         idx = qid_to_index.get(qid)
@@ -803,6 +854,9 @@ def build_latest_responses(
                 answers.append(ans_idx)
 
     for row in read_survey_rows(survey_paths, keep, allowed_qids, allowed_question_texts):
+        ans_text_raw = (row.get("answer") or "").strip()
+        if not ans_text_raw or is_missing_answer(ans_text_raw):
+            continue
         pid = row["person_id"].strip()
         pid_idx = pid_to_index.get(pid)
         if pid_idx is None:
@@ -811,7 +865,7 @@ def build_latest_responses(
         if not qid:
             continue
         dt = sys.intern((row.get("survey_datetime") or "").strip())
-        ans_text = sys.intern((row.get("answer") or "").strip())
+        ans_text = sys.intern(ans_text_raw)
         ans_idx = answer_index(ans_text)
         try:
             age = float(row.get("age_at_survey") or "nan")
@@ -819,15 +873,11 @@ def build_latest_responses(
             age = float("nan")
         qid_idx = qid_index(qid, row.get("question") or "")
         k = pid_idx * key_mult + qid_idx
-        update_latest(latest_all, k, dt, age, ans_idx)
-        if ans_text and not is_missing_answer(ans_text):
-            update_latest(latest_valid, k, dt, age, ans_idx)
+        update_latest(latest_valid, k, dt, age, ans_idx)
 
     questions = defaultdict(lambda: {"question": "", "responses": {}})
-    latest = dict(latest_all)
-    latest.update(latest_valid)
-    while latest:
-        k, (_dt, age, answer_indexes) = latest.popitem()
+    while latest_valid:
+        k, (_dt, age, answer_indexes) = latest_valid.popitem()
         pid_idx, qid_idx = divmod(k, key_mult)
         pid = pid_by_index[pid_idx]
         qid = qid_by_index[qid_idx]
@@ -887,7 +937,7 @@ def manifest_item_id(man: dict, fallback: str) -> str:
     """Stable codebook-backed identifier used in phenotype IDs."""
     item = (man.get("item_concept") or "").strip()
     if item in REUSED_ITEM_CONCEPTS_REQUIRE_QID:
-        qid = (man.get("question_concept_id") or fallback or "").strip()
+        qid = (fallback or man.get("question_concept_id") or "").strip()
         if qid:
             return slug(f"{item}_q{qid}")
     return slug(item or fallback)
@@ -1352,6 +1402,153 @@ def build_pooled_pss_phenotypes(questions):
     }
 
 
+def valid_single_answer_response(questions: dict, qid: str, pid: str):
+    """Return (answer, age) for a participant's selected latest-valid single answer."""
+    q = questions.get(qid)
+    if not q:
+        return None
+    resp = q["responses"].get(pid)
+    if not resp:
+        return None
+    age, answers = resp
+    non_missing = [a for a in answers if not is_missing_answer(a)]
+    if len(non_missing) != 1:
+        return None
+    return non_missing[0], age
+
+
+def numeric_range_from_manifest(man: dict) -> tuple[float | None, float | None]:
+    """Parse validation range "range [lo, hi]" from manifest notes if present."""
+    lo, hi = None, None
+    m = re.search(r"range \[([^,]+),\s*([^\]]+)\]", man.get("notes", ""))
+    if m:
+        try:
+            lo = float(m.group(1))
+            hi = float(m.group(2))
+        except ValueError:
+            pass
+    return lo, hi
+
+
+def valid_single_numeric_response(questions: dict, qid: str, pid: str, lo=None, hi=None):
+    """Return (numeric value, age) for a participant's selected latest-valid numeric answer."""
+    got = valid_single_answer_response(questions, qid, pid)
+    if got is None:
+        return None
+    answer, age = got
+    try:
+        value = float(answer)
+    except (TypeError, ValueError):
+        return None
+    if lo is not None and hi is not None and (value < lo or value > hi):
+        return None
+    return value, age
+
+
+def pooled_baseline_cope_single_values(questions: dict, primary_qid: str, cope_qid: str):
+    """Build primary-source first, COPE-fill-in values for single-answer categorical items."""
+    values = {}
+    pids = set()
+    for qid in (primary_qid, cope_qid):
+        if qid in questions:
+            pids.update(questions[qid]["responses"].keys())
+    for pid in pids:
+        primary = valid_single_answer_response(questions, primary_qid, pid)
+        if primary is not None:
+            values[pid] = (answer_norm(primary[0]), primary[1], 0.0)
+            continue
+        cope = valid_single_answer_response(questions, cope_qid, pid)
+        if cope is not None:
+            values[pid] = (answer_norm(cope[0]), cope[1], 1.0)
+    return values
+
+
+def pooled_baseline_cope_numeric_values(questions: dict, primary_qid: str, cope_qid: str, lo=None, hi=None):
+    """Build primary-source first, COPE-fill-in values for numeric items."""
+    values = {}
+    pids = set()
+    for qid in (primary_qid, cope_qid):
+        if qid in questions:
+            pids.update(questions[qid]["responses"].keys())
+    for pid in pids:
+        primary = valid_single_numeric_response(questions, primary_qid, pid, lo, hi)
+        if primary is not None:
+            values[pid] = (primary[0], primary[1], 0.0)
+            continue
+        cope = valid_single_numeric_response(questions, cope_qid, pid, lo, hi)
+        if cope is not None:
+            values[pid] = (cope[0], cope[1], 1.0)
+    return values
+
+
+def build_pooled_baseline_cope_phenotypes(questions, qman, ord_lookup, sex_specific_items=None):
+    """Yield baseline-priority, COPE-fill-in duplicate survey phenotypes."""
+    sex_specific_items = sex_specific_items or {}
+    for kind, item_code, label, primary_qid, cope_qid, _primary_source in BASELINE_COPE_POOLED_ITEMS:
+        man = qman.get(primary_qid) or qman.get(cope_qid)
+        if man is None:
+            continue
+        item_id = slug(item_code)
+        base_meta = {
+            "question_concept_id": f"{primary_qid}|{cope_qid}",
+            "item_concept": item_code,
+            "question": label,
+            "answer": "",
+            "ordinal_rule": "",
+            "covar_mode": "full",
+            "extra_covariates_label": "from_cope",
+            "construction_id": BASELINE_COPE_CONSTRUCTION_ID,
+        }
+
+        if kind == "numeric":
+            lo, hi = numeric_range_from_manifest(man)
+            item_values = pooled_baseline_cope_numeric_values(questions, primary_qid, cope_qid, lo, hi)
+            from_cope = {pid: v[2] for pid, v in item_values.items()}
+            values = {pid: (value, age) for pid, (value, age, _source) in item_values.items()}
+            yield f"num_{item_id}", "numeric", "quant", values, apply_sex_specific_item_rule({
+                **base_meta,
+                "extra_covariates": {"from_cope": from_cope},
+            }, sex_specific_items)
+            continue
+
+        item_values = pooled_baseline_cope_single_values(questions, primary_qid, cope_qid)
+        from_cope = {pid: v[2] for pid, v in item_values.items()}
+        valid_answers = {answer for answer, _age, _source in item_values.values()}
+        emit_answers = set(valid_answers)
+        skipped_complement_answers = set()
+        kept_complement_pheno = ""
+        is_multi = man.get("phenotype_class") == "multi_select"
+        if not is_multi and len(valid_answers) == 2:
+            keep_answer = preferred_binary_complement_answer(valid_answers, man, label, ord_lookup)
+            emit_answers = {keep_answer}
+            skipped_complement_answers = set(valid_answers) - emit_answers
+            kept_complement_pheno = f"bin_{item_id}__{answer_slug(keep_answer)}"
+
+        def values_for_answer(ans: str) -> dict[str, tuple[float, float]]:
+            return {
+                pid: (1.0 if answer == ans else 0.0, age)
+                for pid, (answer, age, _source) in item_values.items()
+            }
+
+        def meta_for_answer(ans: str) -> dict:
+            return apply_sex_specific_item_rule({
+                **base_meta,
+                "answer": ans,
+                "extra_covariates": {"from_cope": from_cope},
+            }, sex_specific_items)
+
+        for ans in sorted(skipped_complement_answers):
+            pid_ = f"bin_{item_id}__{answer_slug(ans)}"
+            meta = meta_for_answer(ans)
+            meta["skip_reason"] = "redundant_binary_complement"
+            meta["construction_id"] = f"complement_of:{kept_complement_pheno}"
+            yield pid_, "binary", "binary", values_for_answer(ans), meta
+
+        for ans in sorted(emit_answers):
+            pid_ = f"bin_{item_id}__{answer_slug(ans)}"
+            yield pid_, "binary", "binary", values_for_answer(ans), meta_for_answer(ans)
+
+
 # Minimum age-at-survey by ordinal rule, matching the repo's dedicated EA/income
 # GWAS (setup_ea_gwas.py / setup_income_gwas.py, --min-age-at-survey default 26):
 # exclude respondents who may not have completed education / are early-career.
@@ -1475,22 +1672,17 @@ def build_survey_phenotypes(questions, qman, ord_lookup, sex_specific_items=None
             yield f"ord_{item_id}", "ordinal", "quant", values, apply_sex_specific_item_rule(meta, sex_specific_items)
 
 
-def build_numeric_phenotypes(questions, qman, sex_specific_items=None):
+def build_numeric_phenotypes(questions, qman, sex_specific_items=None, skip_qids=None):
     sex_specific_items = sex_specific_items or {}
+    skip_qids = skip_qids or set()
     for qid, q in questions.items():
+        if qid in skip_qids:
+            continue
         man = qman.get(qid) or qman.get(norm_q(q["question"]))
         if man is None or man["disposition"] != "numeric":
             continue
         item_id = manifest_item_id(man, qid)
-        # parse validation range "range [lo, hi]" from notes if present
-        lo, hi = None, None
-        m = re.search(r"range \[([^,]+),\s*([^\]]+)\]", man.get("notes", ""))
-        if m:
-            try:
-                lo = float(m.group(1))
-                hi = float(m.group(2))
-            except ValueError:
-                pass
+        lo, hi = numeric_range_from_manifest(man)
         values = {}
         for pid, (age, answers) in q["responses"].items():
             nums = []
@@ -3697,6 +3889,7 @@ def main() -> None:
     allowed_qids.update(PFHH_SCREEN_QID.values())
     allowed_qids.update(PHQ_GAD_SOURCE_QIDS)
     allowed_qids.update(PSS_SOURCE_QIDS)
+    allowed_qids.update(BASELINE_COPE_SOURCE_QIDS)
     allowed_qids.update(POP_GATED_SOURCE_QIDS)
     allowed_question_texts = {
         norm_q(row.get("field_label") or "")
@@ -3727,14 +3920,20 @@ def main() -> None:
         exact=PSS_COMPOSITE_SLUGS | {"comp_pss_perceived_stress"},
     ):
         builders.append(build_pooled_pss_phenotypes(questions))
-    pooled_source_qids = PHQ_GAD_SOURCE_QIDS | PSS_SOURCE_QIDS
+    if wants_phenotype_source(only, prefixes=BASELINE_COPE_PHENO_PREFIXES):
+        builders.append(build_pooled_baseline_cope_phenotypes(
+            questions, qman, ord_lookup, sex_specific_items
+        ))
+    pooled_source_qids = PHQ_GAD_SOURCE_QIDS | PSS_SOURCE_QIDS | BASELINE_COPE_SOURCE_QIDS
     pooled_composite_slugs = PHQ_GAD_COMPOSITE_SLUGS | PSS_COMPOSITE_SLUGS
     if wants_phenotype_source(only, prefixes=("bin_", "ord_")):
         builders.append(build_survey_phenotypes(
             questions, qman, ord_lookup, sex_specific_items, skip_qids=pooled_source_qids
         ))
     if wants_phenotype_source(only, prefixes=("num_",)):
-        builders.append(build_numeric_phenotypes(questions, qman, sex_specific_items))
+        builders.append(build_numeric_phenotypes(
+            questions, qman, sex_specific_items, skip_qids=pooled_source_qids
+        ))
     if wants_phenotype_source(only, prefixes=("pfhh_",)):
         builders.append(build_pfhh_phenotypes(questions, args.pfhh_allowlist))
     if wants_phenotype_source(only, prefixes=("comp_",)):
@@ -3964,6 +4163,7 @@ def main() -> None:
                     "latest_survey_response": "latest valid response per participant/question; latest missing response only if no valid response exists",
                     "pooled_phq_gad": f"{PHQ_GAD_CONSTRUCTION_ID}; adds centered from_cope covariate",
                     "pooled_pss": f"{PSS_CONSTRUCTION_ID}; adds centered from_cope covariate",
+                    "pooled_baseline_cope": f"{BASELINE_COPE_CONSTRUCTION_ID}; adds centered from_cope covariate",
                     "sexpc": "external scores use sex_c + PC1..PC10",
                     "agepc": "sex-specific phenotypes use age_c + PC1..PC10",
                 },

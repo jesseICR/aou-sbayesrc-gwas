@@ -175,8 +175,9 @@ Sex-stratified phenotypes, including female-only reproductive/anatomy items and 
 `dragen_x0_xo_male` binary phenotype, are residualized on `age_c + PC1..PC10` only, because sex is
 constant by construction.
 
-Pooled PHQ-9/GAD-7 and PSS-10 phenotypes add a centered `from_cope` indicator to the
-residualization model.
+Pooled COPE-fill-in phenotypes add a centered `from_cope` indicator to the residualization
+model. This includes PHQ-9/GAD-7, PSS-10, and the small set of baseline survey items
+duplicated in COPE.
 
 ### 4.3 IRNT and residualization definitions
 
@@ -211,8 +212,10 @@ binary sex covariate before QC counts are computed.
 
 For pooled PHQ-9/GAD-7 phenotypes, `from_cope` is 1 when COPE supplied the response and 0 when EHHWB
 supplied it. For pooled PSS-10 phenotypes, `from_cope` is 1 when COPE supplied the response and 0
-when SDOH supplied it. For pooled sumscores, `from_cope` is 1 only for participants with no
-contributing primary-survey items for that scale.
+when SDOH supplied it. Baseline+COPE duplicate items use the same indicator with Basics or Overall
+Health as the primary source. In every pooled item phenotype, age is taken from the selected source
+response. For pooled sumscores, `from_cope` is 1 only for participants with no contributing
+primary-survey items for that scale.
 
 ---
 
@@ -642,6 +645,34 @@ items. The output `pheno_id` is unchanged, but the manifest records `sex_filter=
 ## 11c. Validated composite score definitions
 
 Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring valid answers for more than half of items. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. Items are matched to survey responses by question text and merged across survey administrations. PHQ-9 and GAD-7 pool EHHWB and COPE administrations with EHHWB priority and a `from_cope` covariate; PSS-10 pools SDOH and COPE administrations with SDOH priority and the same source covariate. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
+
+The cross-item scale GWAS are therefore **continuous quantitative summary phenotypes**, not ordinal
+summary phenotypes. The individual Likert-style questions still receive ordinal GWAS when they have
+a defensible ordered response scale (§6.2), plus binary one-vs-rest GWAS where applicable (§6.1).
+No cross-item scale below is emitted as an ordinal GWAS; "ordinal" refers to the component
+question-level phenotypes. The summary-score coverage for the named survey instruments is:
+
+| Instrument / construct | Summary phenotype(s) | Summary type | Item-level GWAS |
+| --- | --- | --- | --- |
+| GAD-7, Generalized Anxiety Disorder scale | `comp_gad7_anxiety` | 7-item prorated continuous symptom sum, pooled EHHWB+COPE | PHQ/GAD items also have ordinal and binary item-level GWAS |
+| PHQ-9, Patient Health Questionnaire depression scale | `comp_phq9_depression` | 9-item prorated continuous symptom sum, pooled EHHWB+COPE | PHQ/GAD items also have ordinal and binary item-level GWAS |
+| PSS / CPSS, Perceived Stress Scale | `comp_pss_perceived_stress` | 10-item prorated continuous stress sum, pooled SDOH+COPE, positive-valence items reverse-keyed | Pooled PSS items also have ordinal and binary item-level GWAS |
+| UCLA Loneliness Scale / ULS-8 | `comp_ucla_loneliness` | Prorated continuous loneliness sum, reverse-keyed companionship/outgoing items | UCLA items also have ordinal and binary item-level GWAS |
+| Everyday Discrimination Scale (EDS) | `comp_everyday_discrimination` | Prorated continuous discrimination-frequency sum | EDS items also have ordinal and binary item-level GWAS |
+| RAND MOS / Medical Outcomes Study Social Support Survey | `comp_social_support`; `comp_social_support_tangible` | Continuous social-support sums, including the tangible-support subscale | MOS items also have ordinal and binary item-level GWAS |
+| Social Cohesion Neighborhood Scale | `comp_social_cohesion` | 4-item prorated continuous cohesion sum | Component items also have ordinal and binary item-level GWAS |
+| Ross-Mirowsky Perceived Neighborhood Disorder Scale | `comp_neighborhood_disorder`; `comp_neighborhood_physical_disorder`; `comp_neighborhood_social_disorder` | Continuous disorder sums with order/safety items reverse-keyed | Component items also have ordinal and binary item-level GWAS |
+| PANES / International Physical Activity Prevalence Study neighborhood walkability | `comp_neighborhood_walkability` | Continuous built-environment/walkability sum with crime-safety items reverse-keyed | PANES/IPS environment items also have ordinal and binary item-level GWAS |
+| IPAQ, International Physical Activity Questionnaire | `num_ipaq_total_met_minutes_week_pop`; `num_ipaq_sitting_minutes_weekday`; activity-specific `_pop` day/minute phenotypes | Continuous activity-volume phenotypes; total MET-min/week is population-referenced with inactive activity gates set to 0 | Raw IPAQ day/hour/minute fields are also numeric phenotypes where QC permits |
+| Children’s HealthWatch Hunger Vital Sign | `comp_hunger_vital_sign` | 2-item continuous food-insecurity sum | Hunger Vital Sign items also have ordinal and binary item-level GWAS |
+| BMMRS / Brief Multidimensional Measure of Religiousness/Spirituality | `comp_daily_spiritual_experience` | Daily Spiritual Experience short-form continuous sum | BMMRS/DSES items also have ordinal and binary item-level GWAS; no broad all-domain BMMRS total is currently built |
+| IES-R-6 / Impact of Event Scale | `comp_ies_event_impact` | 6-item continuous event-related distress sum | IES items also have ordinal and binary item-level GWAS |
+| PTSD Checklist / PCL-C-style abbreviated checklist | `comp_ptsd_pcl` | 5-item continuous PTSD symptom sum | PCL items also have ordinal and binary item-level GWAS |
+| CIDI-derived lifetime anxiety | `psych_probable_gad_lifetime`; `psych_cidi_gad_symptom_sum` | Binary probable lifetime GAD plus continuous lifetime GAD symptom-severity sum | CIDI items also have item-level ordinal/binary/numeric GWAS where applicable |
+| SITBI, Self-Injurious Thoughts and Behaviors Interview | `psych_sitbi_suicidality_count`; population-zero attempt-count phenotype | Continuous self-harm/suicidality count plus standalone sensitive binaries | SITBI items also have binary/numeric item-level GWAS where applicable |
+| BRFSS-derived modules | no single BRFSS total score | BRFSS is treated as a source/module, not one unified psychometric scale | BRFSS-derived items are GWASed individually when codeable |
+| Accountable Health Communities: Housing Insecurity | no cross-item housing-insecurity summary score currently built | Not currently a composite; housing/living-situation questions are item-level phenotypes | Housing items are GWASed individually when codeable |
+| Optimism / Life Orientation Test | no cross-item LOT-R summary score currently built | Only the available `lot_r_1` item is currently represented | `lot_r_1` has ordinal and binary item-level GWAS |
 
 ### GAD-7 — Generalized Anxiety Disorder scale (anxiety)
 
