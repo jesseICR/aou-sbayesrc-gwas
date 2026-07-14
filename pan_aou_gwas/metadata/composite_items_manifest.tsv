@@ -195,21 +195,21 @@ UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_18	People 
 UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_18	People are around me but not with me	Sometime	2.0
 UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_18	People are around me but not with me	Rarely	1.0
 UCLA LONELINESS SCALE	COVID-19 Participant Experience (COPE)	ucla_ls8_18	People are around me but not with me	Never	0.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	Never	0.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	Monthly or less	1.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	Two to four times a month	2.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	Two to three times a week	3.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	Four or more times a week	4.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_1	In the past month: How often do you have a drink containing alcohol?	Never	0.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_1	In the past month: How often do you have a drink containing alcohol?	Monthly or less	1.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_1	In the past month: How often do you have a drink containing alcohol?	2-4 times a month	2.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_1	In the past month: How often do you have a drink containing alcohol?	2-3 times a week	3.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_1	In the past month: How often do you have a drink containing alcohol?	4 or more times a week	4.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	1 or 2	0.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	3 or 4	1.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	5 or 6	2.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	7 to 9	3.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_2	In the past month: How many standard drinks containing alcohol do you have on a typical day?	10 or more	4.0
 AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Never	0.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Monthly or less	1.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Two to four times a month	2.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Two to three times a week	3.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Four or more times a week	4.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	tsu_ds5_13_xx	In the past month, have you used any of the following drugs? Select all that apply.	Never	0.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	tsu_ds5_13_xx	In the past month, have you used any of the following drugs? Select all that apply.	Monthly or less	1.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	tsu_ds5_13_xx	In the past month, have you used any of the following drugs? Select all that apply.	Two to four times a month	2.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	tsu_ds5_13_xx	In the past month, have you used any of the following drugs? Select all that apply.	Two to three times a week	3.0
-AUDIT-C	COVID-19 Participant Experience (COPE)	tsu_ds5_13_xx	In the past month, have you used any of the following drugs? Select all that apply.	Four or more times a week	4.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Less than monthly	1.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Monthly	2.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Weekly	3.0
+AUDIT-C	COVID-19 Participant Experience (COPE)	audit_c_3	In the past month: How often do you have six or more drinks containing alcohol on one occasion?	Daily or almost daily	4.0
 BRCS	COVID-19 Participant Experience (COPE)	brcs_1	I look for creative ways to alter difficult situations.	Does not describe me at all	1.0
 BRCS	COVID-19 Participant Experience (COPE)	brcs_1	I look for creative ways to alter difficult situations.	Does not describe me	2.0
 BRCS	COVID-19 Participant Experience (COPE)	brcs_1	I look for creative ways to alter difficult situations.	Neutral	3.0
@@ -248,12 +248,24 @@ Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_3	You r
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_3	You receive poorer service than other people at restaurants or stores.	A few times a year	2.0
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_3	You receive poorer service than other people at restaurants or stores.	Less than once a year	1.0
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_3	You receive poorer service than other people at restaurants or stores.	Never	0.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_4	People act as if they think you are not smart.	Almost everyday	5.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_4	People act as if they think you are not smart.	At least once a week	4.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_4	People act as if they think you are not smart.	A few times a month	3.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_4	People act as if they think you are not smart.	A few times a year	2.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_4	People act as if they think you are not smart.	Less than once a year	1.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_4	People act as if they think you are not smart.	Never	0.0
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	Almost everyday	5.0
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	At least once a week	4.0
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	A few times a month	3.0
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	A few times a year	2.0
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	Less than once a year	1.0
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_5	People act as if they are afraid of you.	Never	0.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_6	People act as if they think you are dishonest.	Almost everyday	5.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_6	People act as if they think you are dishonest.	At least once a week	4.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_6	People act as if they think you are dishonest.	A few times a month	3.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_6	People act as if they think you are dishonest.	A few times a year	2.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_6	People act as if they think you are dishonest.	Less than once a year	1.0
+Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_6	People act as if they think you are dishonest.	Never	0.0
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_7	People act as if they're better than you are.	Almost everyday	5.0
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_7	People act as if they're better than you are.	At least once a week	4.0
 Everyday Discrimination Scale	COVID-19 Participant Experience (COPE)	eds_7	People act as if they're better than you are.	A few times a month	3.0
@@ -317,11 +329,11 @@ Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_Av
 Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_AverageDailyDrinkCount	On a typical day when you drink, how many drinks do you have?	5 or 6	2.0
 Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_AverageDailyDrinkCount	On a typical day when you drink, how many drinks do you have?	7 to 9	3.0
 Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_AverageDailyDrinkCount	On a typical day when you drink, how many drinks do you have?	10 or more	4.0
-Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Less than monthly	0.0
-Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Monthly	1.0
-Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Weekly	2.0
-Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Daily or almost daily	3.0
-Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Never in the last year	4.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Less than monthly	1.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Monthly	2.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Weekly	3.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Daily or almost daily	4.0
+Alcohol Use Disorders Identification Test-Concise (AUDIT-C)	Lifestyle	Alcohol_6orMoreDrinksOccurence	How often did you have six or more drinks on one occasion in the past year?	Never in the last year	0.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_2	I lack companionship	Never	0.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_2	I lack companionship	Rarely	1.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_2	I lack companionship	Sometimes	2.0
@@ -330,6 +342,10 @@ UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_3	There is no 
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_3	There is no one I can turn to	Rarely	1.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_3	There is no one I can turn to	Sometimes	2.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_3	There is no one I can turn to	Often	3.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_9	I am an outgoing person	Never	0.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_9	I am an outgoing person	Rarely	1.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_9	I am an outgoing person	Sometimes	2.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_9	I am an outgoing person	Often	3.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_11	I feel left out	Never	0.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_11	I feel left out	Rarely	1.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_11	I feel left out	Sometimes	2.0
@@ -338,18 +354,10 @@ UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_14	I feel isol
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_14	I feel isolated from others	Rarely	1.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_14	I feel isolated from others	Sometimes	2.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_14	I feel isolated from others	Often	3.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Never	0.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Rarely	1.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Sometimes	2.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Often	3.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Never	0.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Rarely	1.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Sometimes	2.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Often	3.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Never	0.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Rarely	1.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Sometimes	2.0
-UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Often	3.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_15	I can find companionship when I want it	Never	0.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_15	I can find companionship when I want it	Rarely	1.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_15	I can find companionship when I want it	Sometimes	2.0
+UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_15	I can find companionship when I want it	Often	3.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Never	0.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Rarely	1.0
 UCLA Loneliness Scale	Social Determinants of Health	sdoh_ucla_ls8_17	I am unhappy being so withdrawn	Sometimes	2.0
@@ -473,12 +481,14 @@ Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_1
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_1	I feel God's (or a higher power's) presence	Some days	4.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_1	I feel God's (or a higher power's) presence	Once in a while	5.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_1	I feel God's (or a higher power's) presence	Never or almost never	6.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_1	I feel God's (or a higher power's) presence	I do not believe in God (or a higher power)	6.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Many times a day	1.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Every day	2.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Most days	3.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Some days	4.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Once in a while	5.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	Never or almost never	6.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_2	I find strength and comfort in my religion	I am not religious	6.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_3	I feel deep inner peace or harmony	Many times a day	1.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_3	I feel deep inner peace or harmony	Every day	2.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_3	I feel deep inner peace or harmony	Most days	3.0
@@ -491,12 +501,14 @@ Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_4
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_4	I desire to be closer to or in union with God (or a higher power)	Some days	4.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_4	I desire to be closer to or in union with God (or a higher power)	Once in a while	5.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_4	I desire to be closer to or in union with God (or a higher power)	Never or almost never	6.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_4	I desire to be closer to or in union with God (or a higher power)	I do not believe in God (or a higher power)	6.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Many times a day	1.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Every day	2.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Most days	3.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Some days	4.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Once in a while	5.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	Never or almost never	6.0
+Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_5	I feel God's (or a higher power's) love for me, directly or through others	I do not believe in God (or a higher power)	6.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_6	I am spiritually touched by the beauty of creation	Many times a day	1.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_6	I am spiritually touched by the beauty of creation	Every day	2.0
 Daily Spritual Experience Scale Short Form	Social Determinants of Health	bmmrs_6	I am spiritually touched by the beauty of creation	Most days	3.0
