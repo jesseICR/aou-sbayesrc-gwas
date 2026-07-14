@@ -212,6 +212,72 @@ for _item_code, _label, _sdoh_qid, _cope_qid, _reverse in PSS_POOLED_ITEMS:
     PSS_SOURCE_QIDS.add(_cope_qid)
 PSS_COMPOSITE_SLUGS = {"pss_perceived_stress"}
 
+MOS_SS_CONSTRUCTION_ID = "mos_ss_sdoh_cope_pooled_v1"
+MOS_SS_RULE = "time_none_all_0_4"
+MOS_SS_RESPONSE_OPTIONS = [
+    ("None of the time", 0.0),
+    ("A little of the time", 1.0),
+    ("Some of the time", 2.0),
+    ("Most of the time", 3.0),
+    ("All of the time", 4.0),
+]
+MOS_SS_POOLED_ITEMS = [
+    (
+        "sdoh_mos_ss_1",
+        "MOS-SS item 1: someone to help if confined to bed",
+        "40192442",
+        "1333200",
+    ),
+    (
+        "sdoh_mos_ss_2",
+        "MOS-SS item 2: someone to take you to the doctor",
+        "40192480",
+        "1333168",
+    ),
+    (
+        "sdoh_mos_ss_3",
+        "MOS-SS item 3: someone to prepare meals",
+        "40192388",
+        "1333185",
+    ),
+    (
+        "sdoh_mos_ss_4",
+        "MOS-SS item 4: someone to help with daily chores",
+        "40192511",
+        "1333188",
+    ),
+    (
+        "sdoh_mos_ss_5",
+        "MOS-SS item 5: someone to have a good time with",
+        "40192439",
+        "1333190",
+    ),
+    (
+        "sdoh_mos_ss_6",
+        "MOS-SS item 6: someone to suggest how to handle a personal problem",
+        "40192528",
+        "1333191",
+    ),
+    (
+        "sdoh_mos_ss_7",
+        "MOS-SS item 7: someone who understands your problems",
+        "40192399",
+        "1333193",
+    ),
+    (
+        "sdoh_mos_ss_8",
+        "MOS-SS item 8: someone to love and make you feel wanted",
+        "40192446",
+        "1333194",
+    ),
+]
+MOS_SS_SOURCE_QIDS = {
+    qid
+    for _item_code, _label, sdoh_qid, cope_qid in MOS_SS_POOLED_ITEMS
+    for qid in (sdoh_qid, cope_qid)
+}
+MOS_SS_COMPOSITE_SLUGS = {"social_support", "social_support_tangible"}
+
 BASELINE_COPE_CONSTRUCTION_ID = "baseline_cope_pooled_v1"
 BASELINE_COPE_POOLED_ITEMS = [
     (
@@ -306,6 +372,32 @@ def norm_q(text: str) -> str:
 
 def compact_key(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(text or "").lower())
+
+
+TEXT_MATCH_STOPWORDS = {
+    "a", "about", "all", "also", "an", "and", "answer", "are", "as", "at",
+    "be", "best", "by", "choose", "describes", "did", "disagree", "do",
+    "does", "during", "for", "from", "have", "how", "i", "if", "in", "is",
+    "it", "me", "month", "much", "my", "of", "or", "other", "past", "please",
+    "response", "say", "select", "that", "the", "their", "this", "to", "was",
+    "were", "what", "when", "whether", "which", "with", "would", "you",
+    "your",
+}
+
+
+def content_tokens(text: str) -> set[str]:
+    """Content-token signature for constrained codebook/live prompt matching."""
+    text = norm_q(text)
+    text = re.sub(r"[^a-z0-9']+", " ", text)
+    out = set()
+    for token in text.split():
+        token = token.strip("'")
+        if len(token) <= 2 or token in TEXT_MATCH_STOPWORDS:
+            continue
+        if token.endswith("s") and len(token) > 4:
+            token = token[:-1]
+        out.add(token)
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -437,6 +529,80 @@ def load_question_manifest(path: Path) -> tuple[dict[str, dict], dict[str, dict]
     return by_text, by_item, rows
 
 
+HCAU_PROVIDER_VISIT_SPECS = (
+    ("general doctor", "healthadvice_spokentogeneraldoctor", "43528660",
+     "healthadvice_generaldoctorvisits", "43530588"),
+    ("nurse practitioner, physician assistant, or midwife",
+     "healthadvice_spokentonursepractitioner", "43530404",
+     "healthadvice_nursepractitionervisits", "43529973"),
+    ("OB/GYN", "healthadvice_spokentoobgyn", "43530401",
+     "healthadvice_obgynvisits", "43529975"),
+    ("mental health professional", "healthadvice_spokentomentalhealthprofessional", "43530402",
+     "healthadvice_mentalhealthprofessionalvisits", "43529977"),
+    ("eye doctor", "healthadvice_spokentoeyedoctor", "43530403",
+     "healthadvice_eyedoctorvisits", "43530591"),
+    ("podiatrist", "healthadvice_spokentopodiatrist", "43530406",
+     "healthadvice_podiatristvisits", "43530590"),
+    ("chiropractor", "healthadvice_spokentochiropractor", "43530399",
+     "healthadvice_chiropractorvisits", "43530589"),
+    ("physical, speech, respiratory, or occupational therapist or audiologist",
+     "healthadvice_spokentophysicaltherapist", "43530405",
+     "healthadvice_physicaltherapistvisits", "43530592"),
+    ("dentist or orthodontist", "healthadvice_spokentodentist", "43530400",
+     "healthadvice_dentistvisits", "43529974"),
+    ("medical specialist", "healthadvice_spokentomedicalspecialist", "43528661",
+     "healthadvice_medicalspecialistvisits", "43529976"),
+    ("traditional healer", "healthadvice_spokentotraditionalhealer", "43530407",
+     "healthadvice_traditionalhealervisits", "43529978"),
+)
+HCAU_PROVIDER_VISIT_SOURCE_QIDS = {
+    qid
+    for _label, _screener_item, screener_qid, _visit_item, visit_qid
+    in HCAU_PROVIDER_VISIT_SPECS
+    for qid in (screener_qid, visit_qid)
+}
+HCAU_PROVIDER_VISIT_FOLLOWUP_QIDS = {
+    visit_qid
+    for _label, _screener_item, _screener_qid, _visit_item, visit_qid
+    in HCAU_PROVIDER_VISIT_SPECS
+}
+HCAU_PROVIDER_VISIT_SCREENER_QIDS = {
+    screener_qid
+    for _label, _screener_item, screener_qid, _visit_item, _visit_qid
+    in HCAU_PROVIDER_VISIT_SPECS
+}
+POP_GATED_SOURCE_QIDS.update(HCAU_PROVIDER_VISIT_SOURCE_QIDS)
+
+
+HCAU_ALREADY_COMPLETED_BINARY_QIDS = HCAU_PROVIDER_VISIT_SCREENER_QIDS | {
+    "43530594",  # delayed care because nervous about seeing a provider
+    "43529905",  # delayed care because unable to get time off work
+    "43530411",  # could not afford prescription medicines
+    "43530410",  # could not afford mental-health counseling
+    "43528663",  # could not afford emergency care
+    "43528662",  # could not afford dental care
+    "43530408",  # could not afford eyeglasses
+    "43528664",  # could not afford a regular health care provider
+    "43530412",  # could not afford specialist care
+    "43530409",  # could not afford follow-up care
+}
+HCAU_ALREADY_COMPLETED_ORDINAL_QIDS = {
+    "43529901",  # importance of provider concordance/similarity
+    "43529902",  # frequency of access to a concordant/similar provider
+    "43529899",  # care delayed/avoided because provider was different
+}
+
+
+TARGETED_HCAU_LIVE_QID_TO_ITEM = {
+    "43530557": "cantaffordcare_worriedaboutpaying",
+    "43530439": "healthadvice_respectedbyprovider",
+    "43530437": "healthadvice_askedforopinion",
+    "43530438": "healthadvice_easeofunderstanding",
+    "43530559": "insurance_healthcarecoverage",
+    "43530595": "healthadvice_spokentoprofessional",
+}
+
+
 def load_live_question_crosswalk(path: Path | None, manifest_rows: list[dict], by_text: dict[str, dict]):
     """Map live AoU question_concept_id and item_concept to manifest rows.
 
@@ -451,8 +617,12 @@ def load_live_question_crosswalk(path: Path | None, manifest_rows: list[dict], b
         return qid_to_manifest, item_to_qid
 
     rows_by_survey = defaultdict(list)
+    rows_by_item = {}
     for row in manifest_rows:
         rows_by_survey[row.get("survey", "")].append(row)
+        item = compact_key(row.get("item_concept", ""))
+        if item:
+            rows_by_item.setdefault(item, row)
 
     with open(path, newline="") as f:
         for live in csv.DictReader(f, delimiter="\t"):
@@ -461,7 +631,10 @@ def load_live_question_crosswalk(path: Path | None, manifest_rows: list[dict], b
                 continue
             live_text = live.get("question", "")
             live_norm = norm_q(live_text)
-            man = by_text.get(live_norm)
+            target_item = TARGETED_HCAU_LIVE_QID_TO_ITEM.get(qid)
+            man = rows_by_item.get(compact_key(target_item or "")) if target_item else None
+            if man is None:
+                man = by_text.get(live_norm)
             if man is None:
                 live_compact = compact_key(live_text)
                 candidates = []
@@ -478,11 +651,31 @@ def load_live_question_crosswalk(path: Path | None, manifest_rows: list[dict], b
                 if len(candidates) == 1:
                     man = candidates[0]
             if man is None:
+                live_tokens = content_tokens(live_text)
+                if live_tokens:
+                    candidates = []
+                    for row in rows_by_survey.get(live.get("survey", ""), []):
+                        label = row.get("field_label", "")
+                        label_tokens = content_tokens(label)
+                        if len(label_tokens) < 2:
+                            continue
+                        overlap = len(label_tokens & live_tokens)
+                        coverage = overlap / len(label_tokens)
+                        if label_tokens <= live_tokens or coverage >= 0.8:
+                            candidates.append((coverage, overlap, len(label_tokens), row))
+                    if candidates:
+                        candidates.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
+                        best = candidates[0]
+                        runner_up = candidates[1] if len(candidates) > 1 else None
+                        if runner_up is None or best[:3] > runner_up[:3]:
+                            man = best[3]
+            if man is None:
                 continue
             qid_to_manifest[qid] = man
             item = (man.get("item_concept") or "").strip()
             if item:
                 item_to_qid[item] = qid
+                item_to_qid.setdefault(compact_key(item), qid)
     return qid_to_manifest, item_to_qid
 
 
@@ -1024,6 +1217,10 @@ def ordinal_value_from_rule(rule: str, answer: str) -> float | None:
     candidates = [ans]
     if ";" in ans:
         candidates.append(ans.split(";", 1)[0].strip())
+    if rule == "visit_count_band_midpoint":
+        match = re.fullmatch(r"(\d+)\s+to\s+(\d+)", ans)
+        if match:
+            candidates.append(f"{match.group(1)}-{match.group(2)}")
     template = R.TEMPLATES.get(rule)
     if template:
         if any(a in template.get("local_missing", set()) for a in candidates):
@@ -1065,7 +1262,20 @@ def pss_answer_value(answer: str) -> float | None:
     return ordinal_value_from_rule(PSS_RULE, answer)
 
 
+def mos_ss_answer_value(answer: str) -> float | None:
+    """Score MOS-SS answer text from none (0) through all of the time (4)."""
+    return ordinal_value_from_rule(MOS_SS_RULE, answer)
+
+
 LIVE_ORDINAL_VALUE_BY_ITEM_ANSWER = {
+    "livingsituation_howmanylivingyears": {
+        "less 1": 0.5,
+        "1 to 2": 1.5,
+        "3 to 5": 4.0,
+        "6 to 10": 8.0,
+        "11 to 20": 15.0,
+        "more 20": 25.0,
+    },
     "educationlevel_highestgrade": {
         "never attended": 9.0,
         "one through four": 9.0,
@@ -1402,6 +1612,142 @@ def build_pooled_pss_phenotypes(questions):
     }
 
 
+def valid_single_mos_ss_response(questions: dict, qid: str, pid: str):
+    """Return (value, age) for a participant's selected latest-valid MOS-SS response."""
+    q = questions.get(qid)
+    if not q:
+        return None
+    resp = q["responses"].get(pid)
+    if not resp:
+        return None
+    age, answers = resp
+    non_missing = [a for a in answers if not is_missing_answer(a)]
+    if len(non_missing) != 1:
+        return None
+    value = mos_ss_answer_value(non_missing[0])
+    if value is None:
+        return None
+    return value, age
+
+
+def pooled_mos_ss_item_values(questions: dict) -> dict[str, dict[str, tuple[float, float, float]]]:
+    """Build eight canonical MOS-SS items using explicit SDOH/COPE qid pairs.
+
+    Returns item_code -> {iid: (score, age, from_cope)}. SDOH always wins when
+    both sources have a valid response; COPE fills participants without SDOH.
+    """
+    pooled = {}
+    for item_code, _label, sdoh_qid, cope_qid in MOS_SS_POOLED_ITEMS:
+        values = {}
+        pids = set()
+        for qid in (sdoh_qid, cope_qid):
+            if qid in questions:
+                pids.update(questions[qid]["responses"].keys())
+        for pid in pids:
+            sdoh = valid_single_mos_ss_response(questions, sdoh_qid, pid)
+            if sdoh is not None:
+                values[pid] = (sdoh[0], sdoh[1], 0.0)
+                continue
+            cope = valid_single_mos_ss_response(questions, cope_qid, pid)
+            if cope is not None:
+                values[pid] = (cope[0], cope[1], 1.0)
+        pooled[item_code] = values
+    return pooled
+
+
+def build_pooled_mos_ss_phenotypes(questions):
+    """Yield eight pooled MOS-SS items plus total and tangible-support scores."""
+    pooled = pooled_mos_ss_item_values(questions)
+
+    for item_code, label, sdoh_qid, cope_qid in MOS_SS_POOLED_ITEMS:
+        item_values = pooled.get(item_code, {})
+        from_cope = {pid: value[2] for pid, value in item_values.items()}
+        base_meta = {
+            "question_concept_id": f"{sdoh_qid}|{cope_qid}",
+            "item_concept": item_code,
+            "question": f"Pooled SDOH/COPE {label}",
+            "ordinal_rule": MOS_SS_RULE,
+            "covar_mode": "full",
+            "extra_covariates": {"from_cope": from_cope},
+            "extra_covariates_label": "from_cope",
+            "construction_id": MOS_SS_CONSTRUCTION_ID,
+        }
+        ordinal_values = {pid: (score, age) for pid, (score, age, _source) in item_values.items()}
+        yield f"ord_{item_code}", "ordinal", "quant", ordinal_values, {
+            **base_meta,
+            "answer": "",
+        }
+        for answer_label, answer_value in MOS_SS_RESPONSE_OPTIONS:
+            binary_values = {
+                pid: (1.0 if score == answer_value else 0.0, age)
+                for pid, (score, age, _source) in item_values.items()
+            }
+            yield f"bin_{item_code}__{answer_slug(answer_label)}", "binary", "binary", binary_values, {
+                **base_meta,
+                "answer": answer_label,
+                "ordinal_rule": "",
+            }
+
+    composite_specs = [
+        (
+            "comp_social_support",
+            "social_support",
+            "RAND/MOS social support, pooled SDOH/COPE prorated sum",
+            [item_code for item_code, *_ in MOS_SS_POOLED_ITEMS],
+        ),
+        (
+            "comp_social_support_tangible",
+            "social_support_tangible",
+            "MOS tangible support, pooled SDOH/COPE prorated sum",
+            [item_code for item_code, *_ in MOS_SS_POOLED_ITEMS[:4]],
+        ),
+    ]
+    qids_by_item = {
+        item_code: (sdoh_qid, cope_qid)
+        for item_code, _label, sdoh_qid, cope_qid in MOS_SS_POOLED_ITEMS
+    }
+    for pheno_id, item_concept, label, item_codes in composite_specs:
+        n_items = len(item_codes)
+        need = n_items // 2 + 1
+        pids = set()
+        for item_code in item_codes:
+            pids.update(pooled.get(item_code, {}).keys())
+        values = {}
+        from_cope = {}
+        for pid in pids:
+            got = []
+            ages = []
+            source_flags = []
+            for item_code in item_codes:
+                item = pooled.get(item_code, {}).get(pid)
+                if item is None:
+                    continue
+                score, age, source_flag = item
+                got.append(score + 1.0)  # Preserve the canonical MOS 1..5 item scale.
+                ages.append(age)
+                source_flags.append(source_flag)
+            if len(got) < need:
+                continue
+            finite_ages = [age for age in ages if age is not None and not math.isnan(age)]
+            if not finite_ages:
+                continue
+            values[pid] = (sum(got) / len(got) * n_items, sum(finite_ages) / len(finite_ages))
+            from_cope[pid] = 1.0 if source_flags and all(flag == 1.0 for flag in source_flags) else 0.0
+        yield pheno_id, "composite", "quant", values, {
+            "question_concept_id": "|".join(
+                qid for item_code in item_codes for qid in qids_by_item[item_code]
+            ),
+            "item_concept": item_concept,
+            "question": label,
+            "answer": f"{n_items}-item prorated sum; requires at least {need} valid items",
+            "ordinal_rule": "composite",
+            "covar_mode": "full",
+            "extra_covariates": {"from_cope": from_cope},
+            "extra_covariates_label": "from_cope",
+            "construction_id": MOS_SS_CONSTRUCTION_ID,
+        }
+
+
 def valid_single_answer_response(questions: dict, qid: str, pid: str):
     """Return (answer, age) for a participant's selected latest-valid single answer."""
     q = questions.get(qid)
@@ -1558,10 +1904,18 @@ MIN_AGE_BY_RULE = {
 }
 
 
-def build_survey_phenotypes(questions, qman, ord_lookup, sex_specific_items=None, skip_qids=None):
+def build_survey_phenotypes(
+    questions,
+    qman,
+    ord_lookup,
+    sex_specific_items=None,
+    skip_qids=None,
+    skip_ordinal_qids=None,
+):
     """Yield (pheno_id, trait_type, kind, {iid: (y, age)}, meta)."""
     sex_specific_items = sex_specific_items or {}
     skip_qids = skip_qids or set()
+    skip_ordinal_qids = skip_ordinal_qids or set()
     for qid, q in questions.items():
         if qid in skip_qids:
             continue
@@ -1643,7 +1997,7 @@ def build_survey_phenotypes(questions, qman, ord_lookup, sex_specific_items=None
                 meta = meta_for_answer(ans)
                 yield pid_, "binary", "binary", values, apply_sex_specific_item_rule(meta, sex_specific_items)
         # ---- ordinal -------------------------------------------------------
-        if disp == "ordinal_and_binary":
+        if disp == "ordinal_and_binary" and qid not in skip_ordinal_qids:
             values = {}
             for pid, (age, answers) in responses.items():
                 non_missing = [a for a in answers if not is_missing_answer(a)]
@@ -1808,6 +2162,41 @@ def build_population_gated_phenotypes(questions, item_labels, qid_by_item=None):
             "covar_mode": "full",
             "construction_id": construction_id,
         }
+
+    # ---- HCAU provider contact: screener-No population zeros ----------------
+    for label, screener_item, screener_qid, visit_item, visit_qid in HCAU_PROVIDER_VISIT_SPECS:
+        screener_r = resp_qid(screener_qid)
+        visit_r = resp_qid(visit_qid)
+        values = {}
+        for pid in set(screener_r) | set(visit_r):
+            stem = single_yes_no(pid, screener_r)
+            if stem is None:
+                continue
+            if stem == 0.0:
+                a = age_of(pid, screener_r)
+                if a is not None:
+                    values[pid] = (0.0, a)
+                continue
+            visits = ordinal_value(pid, visit_r, "visit_count_band_midpoint")
+            if visits is None:
+                continue
+            a = age_of(pid, visit_r, screener_r)
+            if a is not None:
+                values[pid] = (visits, a)
+        yield (
+            f"num_{visit_item}_pop",
+            "derived_population",
+            "quant",
+            values,
+            source_meta(
+                [screener_qid, visit_qid],
+                visit_item,
+                f"Population-referenced {label} visits in the past 12 months",
+                f"{screener_item} No=0; Yes uses visit-count-band midpoint; 16 or more=16",
+                "hcau_provider_visits_population_zero_v1",
+                ordinal_rule="visit_count_band_midpoint_population_zero",
+            ),
+        )
 
     # ---- smoking: population-referenced quantity and pack-years -------------
     smoke_gate = resp_qid("1585857") or resp_item("smoking_100cigslifetime")
@@ -2449,7 +2838,8 @@ def build_pfhh_phenotypes(questions, allowlist_path):
 
 
 def build_composite_phenotypes(
-    questions, manifest_path, ordinal_manifest_path=None, ord_lookup=None, qid_by_item=None, skip_slugs=None
+    questions, manifest_path, ordinal_manifest_path=None, ord_lookup=None, qid_by_item=None,
+    item_manifest=None, skip_slugs=None
 ):
     """Yield validated composite scores (GAD-7, PHQ-9, PSS, BFI-2 Big Five, ...).
 
@@ -2469,13 +2859,62 @@ def build_composite_phenotypes(
             rows = list(csv.DictReader(f, delimiter="\t"))
 
     qid_by_item = qid_by_item or {}
+    item_manifest = item_manifest or {}
     skip_slugs = skip_slugs or set()
-    qtext_to_qid = {}
+    qtext_to_qids = defaultdict(list)
     for qid, q in questions.items():
-        qtext_to_qid.setdefault(norm_q(q["question"]), qid)
+        qtext_to_qids[norm_q(q["question"])].append(qid)
 
-    # per instrument slug: {norm_question: {norm_answer: value}} merged across
-    # administrations; plus per item_code answer maps for BFI-2.
+    qid_by_item_alias = {}
+    for item, qid in qid_by_item.items():
+        if not item or not qid:
+            continue
+        qid_by_item_alias.setdefault(item, qid)
+        qid_by_item_alias.setdefault(compact_key(item), qid)
+
+    item_manifest_alias = {}
+    for key, row in item_manifest.items():
+        if not row:
+            continue
+        item = (row.get("item_concept") or "").strip()
+        for alias in (key, item, compact_key(item)):
+            if alias:
+                item_manifest_alias.setdefault(alias, row)
+        qid = (row.get("question_concept_id") or "").strip()
+        if qid and qid.lower() != "nan":
+            for alias in (key, item, compact_key(item)):
+                if alias:
+                    qid_by_item_alias.setdefault(alias, qid)
+
+    def item_code_keys(code):
+        keys = []
+        for key in (code, compact_key(code)):
+            if key and key not in keys:
+                keys.append(key)
+        return keys
+
+    def resolve_item_qids(code, fallback_question=""):
+        qids = []
+        labels = []
+        for key in item_code_keys(code):
+            qid = qid_by_item_alias.get(key)
+            if qid and qid not in qids:
+                qids.append(qid)
+            row = item_manifest_alias.get(key)
+            if row:
+                for label in (row.get("field_label", ""), row.get("question", "")):
+                    if label and label not in labels:
+                        labels.append(label)
+        if fallback_question and fallback_question not in labels:
+            labels.append(fallback_question)
+        for label in labels:
+            for qid in qtext_to_qids.get(norm_q(label), []):
+                if qid not in qids:
+                    qids.append(qid)
+        return qids
+
+    # per instrument slug: {conceptual item: {codes, question, answers}} merged
+    # across administrations; plus per item_code answer maps for BFI-2.
     inst_items = defaultdict(dict)
     code_answer = defaultdict(dict)
     code_q = {}
@@ -2485,25 +2924,42 @@ def build_composite_phenotypes(
         except (ValueError, TypeError):
             continue
         ans = R.norm(r["answer_label"])
-        code_answer[r["item_code"]][ans] = val
-        code_q[r["item_code"]] = r["question"]
+        code = (r.get("item_code") or "").strip()
+        code_answer[code][ans] = val
+        code_q[code] = r["question"]
         slug = CR.SUM_INSTRUMENTS.get(r["instrument"])
         if slug:
-            inst_items[slug].setdefault(norm_q(r["question"]), {})[ans] = val
+            item_key = norm_q(r["question"]) or code
+            rec = inst_items[slug].setdefault(item_key, {
+                "codes": [],
+                "question": r["question"],
+                "answers": {},
+            })
+            if code and code not in rec["codes"]:
+                rec["codes"].append(code)
+            rec["answers"][ans] = val
 
     def score_items(item_list):
-        """item_list: [(qid, ans_map, reverse, lo, hi)]. Yield {pid:(score,age)}."""
+        """item_list: [(qids, ans_map, reverse, lo, hi)]. Yield {pid:(score,age)}."""
         n_items = len(item_list)
         need = CR.min_items_required(n_items)
         pids = set()
-        for qid, *_ in item_list:
-            pids |= set(questions[qid]["responses"].keys())
+        for qids, *_ in item_list:
+            for qid in qids:
+                if qid in questions:
+                    pids |= set(questions[qid]["responses"].keys())
         out = {}
         for pid in pids:
             got, age = [], None
-            for qid, ans_map, rev, lo, hi in item_list:
-                resp = questions[qid]["responses"].get(pid)
-                if not resp:
+            for qids, ans_map, rev, lo, hi in item_list:
+                resp = None
+                for qid in qids:
+                    if qid not in questions:
+                        continue
+                    resp = questions[qid]["responses"].get(pid)
+                    if resp:
+                        break
+                if resp is None:
                     continue
                 answers = [a for a in resp[1] if not is_missing_answer(a)]
                 if len(answers) != 1:
@@ -2524,12 +2980,18 @@ def build_composite_phenotypes(
         if slug in skip_slugs:
             continue
         item_list = []
-        for nq, ans_map in items.items():
-            qid = qtext_to_qid.get(nq)
-            if qid is None or not ans_map:
+        for spec in items.values():
+            ans_map = spec["answers"]
+            qids = []
+            for code in spec["codes"] or [""]:
+                for qid in resolve_item_qids(code, spec["question"]):
+                    if qid not in qids:
+                        qids.append(qid)
+            if not qids or not ans_map:
                 continue
+            nq = norm_q(spec["question"])
             rev = any(frag in nq for frag in CR.REVERSE_TEXT_FRAGMENTS)
-            item_list.append((qid, ans_map, rev, min(ans_map.values()), max(ans_map.values())))
+            item_list.append((tuple(qids), ans_map, rev, min(ans_map.values()), max(ans_map.values())))
         if len(item_list) < 2:
             continue
         vals, n_items = score_items(item_list)
@@ -2548,10 +3010,10 @@ def build_composite_phenotypes(
             q, amap = code_q.get(code), code_answer.get(code)
             if not q or not amap:
                 continue
-            qid = qid_by_item.get(code) or qtext_to_qid.get(norm_q(q))
-            if qid is None:
+            qids = resolve_item_qids(code, q)
+            if not qids:
                 continue
-            item_list.append((qid, amap, rev, min(amap.values()), max(amap.values())))
+            item_list.append((tuple(qids), amap, rev, min(amap.values()), max(amap.values())))
         if len(item_list) < 2:
             continue
         vals, n_items = score_items(item_list)
@@ -2580,14 +3042,14 @@ def build_composite_phenotypes(
                 if not qt:
                     continue
                 nq = norm_q(qt)
-                qid = qid_by_item.get(code) or qtext_to_qid.get(nq)
+                qids = resolve_item_qids(code, qt)
                 vals_c = code_vals.get(code)
-                if qid is None or not vals_c:
+                if not qids or not vals_c:
                     continue
                 ans_map = {a: v for (q_, a), v in ord_lookup.items() if q_ in (code, nq)}
                 if not ans_map:
                     continue
-                item_list.append((qid, ans_map, rev, min(vals_c), max(vals_c)))
+                item_list.append((tuple(qids), ans_map, rev, min(vals_c), max(vals_c)))
             if len(item_list) < 2:
                 continue
             vals, n_items = score_items(item_list)
@@ -2966,9 +3428,120 @@ def build_derived_psych_phenotypes(questions, item_labels, qid_by_item=None):
             "ordinal_rule": "derived_psych", "covar_mode": "full",
             "construction_id": "mhq_trauma_exposure_count_v1"})
 
+    # ---- social anxiety / agoraphobia chronicity, with screener-No floor -----
+    def chronicity_values(screener_r, followup_r):
+        values = {}
+        for pid in set(screener_r):
+            stem = single_yes_no(pid, screener_r)
+            if stem is None:
+                continue
+            a = age_of(pid, screener_r, followup_r)
+            if a is None:
+                continue
+            if stem == 0.0:
+                values[pid] = (0.0, a)
+                continue
+            chronic = single_yes_no(pid, followup_r)
+            if chronic is None:
+                continue
+            values[pid] = (2.0 if chronic == 1.0 else 1.0, a)
+        return values
+
+    chronicity_specs = [
+        (
+            "ord_social_shy_chronicity",
+            "cidi5_27",
+            "cidi5_29",
+            "social avoidance from painful shyness/fear",
+        ),
+        (
+            "ord_social_judgment_chronicity",
+            "pmi_3",
+            "cidi5_29",
+            "worry about embarrassment or judgment",
+        ),
+        (
+            "ord_agoraphobia_chronicity",
+            "cidi5_30",
+            "cidi5_32",
+            "agoraphobic fear interfering with normal life",
+        ),
+    ]
+    for pheno_id, screener_code, followup_code, desc in chronicity_specs:
+        yield (
+            pheno_id,
+            "ordinal",
+            "quant",
+            chronicity_values(resp(screener_code), resp(followup_code)),
+            {
+                "question_concept_id": qid_list([screener_code, followup_code]),
+                "item_concept": f"{screener_code}|{followup_code}",
+                "question": f"BHP chronicity: {desc}",
+                "answer": (
+                    f"0={screener_code} No; 1={screener_code} Yes and {followup_code} No; "
+                    f"2={screener_code} Yes and {followup_code} Yes"
+                ),
+                "ordinal_rule": "derived_psych_chronicity_0_2",
+                "covar_mode": "full",
+                "construction_id": "social_phobia_chronicity_v1",
+            },
+        )
+
     # ---- mania screen / probable bipolar (UKB Smith 2013 style) ---------------
     r43, r44, r45, r46, r47 = (resp("mhqukb_43"), resp("mhqukb_44"), resp("mhqukb_45"),
                                resp("mhqukb_46"), resp("mhqukb_47"))
+
+    mania_symptoms = [
+        ("active", "I was more active than usual"),
+        ("talkative", "I was more talkative than usual"),
+        ("less_sleep", "I needed less sleep than usual"),
+        ("creative_ideas", "I was more creative or had more ideas than usual"),
+        ("restless", "I was more restless than usual"),
+        ("confident", "I was more confident than usual"),
+        ("thoughts_racing", "My thoughts were racing"),
+        ("easily_distracted", "I was easily distracted"),
+    ]
+
+    def selected_mania_symptoms(pid):
+        return {answer_norm(a) for a in nonmiss(pid, r45)}
+
+    def mania_symptom_population_values(screener_r, symptom_label):
+        symptom = answer_norm(symptom_label)
+        values = {}
+        for pid in set(screener_r):
+            stem = single_yes_no(pid, screener_r)
+            if stem is None:
+                continue
+            a = age_of(pid, screener_r, r45)
+            if a is None:
+                continue
+            y = stem == 1.0 and symptom in selected_mania_symptoms(pid)
+            values[pid] = (1.0 if y else 0.0, a)
+        return values
+
+    for prefix, screener_code, screener_r, screener_desc in [
+        ("euphoric", "mhqukb_43", r43, "high/excited/hyper episode"),
+        ("irritable", "mhqukb_44", r44, "irritable episode"),
+    ]:
+        for symptom_slug, symptom_label in mania_symptoms:
+            yield (
+                f"bin_mania_{prefix}__{symptom_slug}",
+                "binary",
+                "binary",
+                mania_symptom_population_values(screener_r, symptom_label),
+                {
+                    "question_concept_id": qid_list([screener_code, "mhqukb_45"]),
+                    "item_concept": f"{screener_code}|mhqukb_45",
+                    "question": f"BHP mania symptom during {screener_desc}: {symptom_label}",
+                    "answer": (
+                        f"Case = {screener_code} Yes and endorsed '{symptom_label}'; "
+                        f"control = {screener_code} No or Yes without that symptom"
+                    ),
+                    "ordinal_rule": "derived_psych",
+                    "covar_mode": "full",
+                    "construction_id": "mania_symptom_screener_no_controls_v1",
+                },
+            )
 
     def mania_core(pid):
         return yes(nonmiss(pid, r43)) or yes(nonmiss(pid, r44))
@@ -3889,6 +4462,7 @@ def main() -> None:
     allowed_qids.update(PFHH_SCREEN_QID.values())
     allowed_qids.update(PHQ_GAD_SOURCE_QIDS)
     allowed_qids.update(PSS_SOURCE_QIDS)
+    allowed_qids.update(MOS_SS_SOURCE_QIDS)
     allowed_qids.update(BASELINE_COPE_SOURCE_QIDS)
     allowed_qids.update(POP_GATED_SOURCE_QIDS)
     allowed_question_texts = {
@@ -3920,28 +4494,56 @@ def main() -> None:
         exact=PSS_COMPOSITE_SLUGS | {"comp_pss_perceived_stress"},
     ):
         builders.append(build_pooled_pss_phenotypes(questions))
+    if wants_phenotype_source(
+        only,
+        prefixes=("bin_sdoh_mos_ss_", "ord_sdoh_mos_ss_"),
+        exact=MOS_SS_COMPOSITE_SLUGS | {"comp_social_support", "comp_social_support_tangible"},
+    ):
+        builders.append(build_pooled_mos_ss_phenotypes(questions))
     if wants_phenotype_source(only, prefixes=BASELINE_COPE_PHENO_PREFIXES):
         builders.append(build_pooled_baseline_cope_phenotypes(
             questions, qman, ord_lookup, sex_specific_items
         ))
-    pooled_source_qids = PHQ_GAD_SOURCE_QIDS | PSS_SOURCE_QIDS | BASELINE_COPE_SOURCE_QIDS
-    pooled_composite_slugs = PHQ_GAD_COMPOSITE_SLUGS | PSS_COMPOSITE_SLUGS
+    pooled_source_qids = (
+        PHQ_GAD_SOURCE_QIDS | PSS_SOURCE_QIDS | MOS_SS_SOURCE_QIDS | BASELINE_COPE_SOURCE_QIDS
+    )
+    generic_survey_skip_qids = (
+        pooled_source_qids
+        | HCAU_PROVIDER_VISIT_FOLLOWUP_QIDS
+        | HCAU_ALREADY_COMPLETED_BINARY_QIDS
+    )
+    pooled_composite_slugs = (
+        PHQ_GAD_COMPOSITE_SLUGS | PSS_COMPOSITE_SLUGS | MOS_SS_COMPOSITE_SLUGS
+    )
     if wants_phenotype_source(only, prefixes=("bin_", "ord_")):
         builders.append(build_survey_phenotypes(
-            questions, qman, ord_lookup, sex_specific_items, skip_qids=pooled_source_qids
+            questions,
+            qman,
+            ord_lookup,
+            sex_specific_items,
+            skip_qids=generic_survey_skip_qids,
+            skip_ordinal_qids=HCAU_ALREADY_COMPLETED_ORDINAL_QIDS,
         ))
     if wants_phenotype_source(only, prefixes=("num_",)):
         builders.append(build_numeric_phenotypes(
-            questions, qman, sex_specific_items, skip_qids=pooled_source_qids
+            questions, qman, sex_specific_items, skip_qids=generic_survey_skip_qids
         ))
     if wants_phenotype_source(only, prefixes=("pfhh_",)):
         builders.append(build_pfhh_phenotypes(questions, args.pfhh_allowlist))
     if wants_phenotype_source(only, prefixes=("comp_",)):
         builders.append(build_composite_phenotypes(
             questions, args.composite_manifest, args.ordinal_manifest, ord_lookup, qid_by_item,
-            skip_slugs=pooled_composite_slugs
+            item_manifest=qman_by_item, skip_slugs=pooled_composite_slugs
         ))
-    if wants_phenotype_source(only, prefixes=("psych_", "mhq_")):
+    if wants_phenotype_source(
+        only,
+        prefixes=("psych_", "mhq_", "bin_mania_"),
+        exact=(
+            "ord_social_shy_chronicity",
+            "ord_social_judgment_chronicity",
+            "ord_agoraphobia_chronicity",
+        ),
+    ):
         builders.append(build_derived_psych_phenotypes(questions, item_labels, qid_by_item))
     if wants_phenotype_source(only, prefixes=("num_", "ord_")):
         builders.append(build_population_gated_phenotypes(questions, item_labels, qid_by_item))
@@ -4163,6 +4765,7 @@ def main() -> None:
                     "latest_survey_response": "latest valid response per participant/question; latest missing response only if no valid response exists",
                     "pooled_phq_gad": f"{PHQ_GAD_CONSTRUCTION_ID}; adds centered from_cope covariate",
                     "pooled_pss": f"{PSS_CONSTRUCTION_ID}; adds centered from_cope covariate",
+                    "pooled_mos_ss": f"{MOS_SS_CONSTRUCTION_ID}; adds centered from_cope covariate",
                     "pooled_baseline_cope": f"{BASELINE_COPE_CONSTRUCTION_ID}; adds centered from_cope covariate",
                     "sexpc": "external scores use sex_c + PC1..PC10",
                     "agepc": "sex-specific phenotypes use age_c + PC1..PC10",

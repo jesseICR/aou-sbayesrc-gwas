@@ -135,16 +135,16 @@ Each composite is a **prorated sum**: mean(available item scores) × n_items, re
 
 ### MOS Social Support (RAND) + Tangible subscale
 
-- **Items:** 9
+- **Items:** 8 unique questions; the tangible subscale uses items 1-4
 - **Per-item scoring:** None of the time = 1, A little of the time = 2, Some of the time = 3, Most of the time = 4, All of the time = 5
-- **Total score:** prorated sum of 9 items; no reverse-keyed items
-- **Auto-built:** yes (comp_social_support)
+- **Total score:** prorated sum of 8 items; no reverse-keyed items
+- **Auto-built:** yes (`comp_social_support` and `comp_social_support_tangible`)
+- **Pooling:** eight fixed SDOH/COPE question-concept pairs, with SDOH priority, COPE fill-in, and a `from_cope` residualization covariate
 - **Questions:**
     - Someone to help you if you were confined to bed
-    - Someone to take you to the doctor if you needed it
+    - Someone to take you to the doctor if you need/needed it
     - Someone to prepare your meals if you were unable to do it yourself
     - Someone to help with daily chores if you were sick
-    - Someone to take you to the doctor if you need it
     - Someone to have a good time with
     - Someone to turn to for suggestions about how to deal with a personal problem
     - Someone who understands your problems

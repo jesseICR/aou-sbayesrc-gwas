@@ -211,10 +211,10 @@ For sex-specific phenotypes, the analysis sample is further restricted by `sex_0
 binary sex covariate before QC counts are computed.
 
 For pooled PHQ-9/GAD-7 phenotypes, `from_cope` is 1 when COPE supplied the response and 0 when EHHWB
-supplied it. For pooled PSS-10 phenotypes, `from_cope` is 1 when COPE supplied the response and 0
-when SDOH supplied it. Baseline+COPE duplicate items use the same indicator with Basics or Overall
-Health as the primary source. In every pooled item phenotype, age is taken from the selected source
-response. For pooled sumscores, `from_cope` is 1 only for participants with no contributing
+supplied it. For pooled PSS-10 and MOS-SS phenotypes, `from_cope` is 1 when COPE supplied the response
+and 0 when SDOH supplied it. Baseline+COPE duplicate items use the same indicator with Basics or
+Overall Health as the primary source. In every pooled item phenotype, age is taken from the selected
+source response. For pooled sumscores, `from_cope` is 1 only for participants with no contributing
 primary-survey items for that scale.
 
 ---
@@ -372,6 +372,73 @@ Also matching those scripts: **every education and income phenotype (ordinal and
 each binary one-vs-rest) restricts to respondents aged ≥ 26 at the survey response**
 (`--min-age-at-survey 26`), so people who may not have finished education / are
 early-career are excluded.
+
+The Basics item `ord_livingsituation_howmanylivingyears` scores the six live response bands as
+approximate years at the current address: less than 1 year = 0.5, 1-2 = 1.5, 3-5 = 4, 6-10 = 8,
+11-20 = 15, and more than 20 = 25. The top band is right-censored at 25. Live v9 answer labels use
+abbreviated tails such as `less 1`, `1 to 2`, and `more 20`; these are mapped explicitly before the
+standard IRNT and full-covariate quantitative analysis.
+
+### 7.4 Targeted HCAU ordinal phenotypes
+
+The Healthcare Access & Utilization survey is included through explicit live question-concept
+bindings for the six new highest-N ordinal patient-experience/access items below. These bindings map the
+live HCAU concept IDs to the canonical `ord_<item_concept>` IDs from
+`metadata/survey_question_manifest.tsv`, so they do not fall back to `ord_live_q*` or `ord_xgb_q*`
+IDs. Don't Know / Skip remain missing and the standard ordinal quantitative pipeline applies.
+
+| Phenotype ID | Question concept | Coding direction |
+| --- | ---: | --- |
+| `ord_cantaffordcare_worriedaboutpaying` | 43530557 | higher = more worried about paying medical bills |
+| `ord_healthadvice_respectedbyprovider` | 43530439 | higher = more often treated with respect |
+| `ord_healthadvice_askedforopinion` | 43530437 | higher = more shared decision-making |
+| `ord_healthadvice_easeofunderstanding` | 43530438 | higher = easier-to-understand provider communication |
+| `ord_insurance_healthcarecoverage` | 43530559 | signed change: worse = -1, same = 0, better = +1 |
+| `ord_healthadvice_spokentoprofessional` | 43530595 | higher = more recent contact with a health care provider |
+
+Three other requested ordinals are intentionally not emitted because the same constructions already
+completed under their legacy IDs: `ord_live_q43529901` (importance of provider similarity),
+`ord_live_q43529902` (frequency of seeing a similar provider), and `ord_live_q43529899` (care
+delayed or avoided because the provider was different). Their existing response-category binaries
+remain part of the general survey output.
+
+### 7.5 Completed HCAU binaries excluded from reruns
+
+The targeted rerun does not re-emit 21 HCAU Yes-vs-No phenotypes that already have completed
+parquet outputs under legacy `bin_xgb_q<concept_id>__yes` IDs. These comprise the ten requested
+delayed-care/affordability barriers (question concepts 43530594, 43529905, 43530411, 43530410,
+43528663, 43528662, 43530408, 43528664, 43530412, and 43530409) and the eleven provider-contact
+screeners used by the population-referenced visit phenotypes below. The screener responses remain
+available as inputs; only their redundant binary GWAS emission is suppressed.
+
+### 7.6 Targeted HCAU provider-visitation phenotypes
+
+Eleven HCAU provider categories each produce one new population-referenced quantitative visit-count
+GWAS. A valid screener No response is 0 visits; a valid screener Yes response uses the gated visit band's
+midpoint: 1, 2.5, 4.5, 6.5, 8.5, 11, 14, or 16. The `16 or more` band is top-coded at 16. Don't
+Know / Skip screeners and screener-Yes responses without a valid visit band remain missing. The
+quantitative values are IRNT'd and use the standard full-covariate model.
+
+| Provider | Population-referenced visit phenotype |
+| --- | --- |
+| General doctor | `num_healthadvice_generaldoctorvisits_pop` |
+| Nurse practitioner, PA, or midwife | `num_healthadvice_nursepractitionervisits_pop` |
+| OB/GYN | `num_healthadvice_obgynvisits_pop` |
+| Mental health professional | `num_healthadvice_mentalhealthprofessionalvisits_pop` |
+| Eye doctor | `num_healthadvice_eyedoctorvisits_pop` |
+| Podiatrist | `num_healthadvice_podiatristvisits_pop` |
+| Chiropractor | `num_healthadvice_chiropractorvisits_pop` |
+| PT/ST/RT/OT or audiologist | `num_healthadvice_physicaltherapistvisits_pop` |
+| Dentist or orthodontist | `num_healthadvice_dentistvisits_pop` |
+| Medical specialist | `num_healthadvice_medicalspecialistvisits_pop` |
+| Traditional healer | `num_healthadvice_traditionalhealervisits_pop` |
+
+These are exactly 11 additional outputs. The corresponding provider-contact Yes-vs-No GWAS are
+not re-emitted because all 11 already completed under their legacy `bin_xgb_q<concept_id>__yes`
+IDs. The gated follow-up questions also do not emit endorser-only ordinal or per-band binary GWAS.
+The OB/GYN visit-count phenotype uses the all-sex sample; no separate female-only variant is
+generated. Each phenotype uses the latest valid response independently for its screener and visit
+question, and no COPE merge applies.
 
 ---
 
@@ -644,7 +711,7 @@ items. The output `pheno_id` is unchanged, but the manifest records `sex_filter=
 
 ## 11c. Validated composite score definitions
 
-Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring valid answers for more than half of items. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. Items are matched to survey responses by question text and merged across survey administrations. PHQ-9 and GAD-7 pool EHHWB and COPE administrations with EHHWB priority and a `from_cope` covariate; PSS-10 pools SDOH and COPE administrations with SDOH priority and the same source covariate. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
+Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring valid answers for more than half of items. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. Generic composites match items to survey responses using curated item aliases. PHQ-9 and GAD-7 pool EHHWB and COPE administrations with EHHWB priority and a `from_cope` covariate; PSS-10 and MOS-SS pool explicit SDOH/COPE question-concept pairs with SDOH priority and the same source covariate. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
 
 The cross-item scale GWAS are therefore **continuous quantitative summary phenotypes**, not ordinal
 summary phenotypes. The individual Likert-style questions still receive ordinal GWAS when they have
@@ -807,16 +874,17 @@ question-level phenotypes. The summary-score coverage for the named survey instr
 
 ### MOS Social Support (RAND) + Tangible subscale
 
-- **Items:** 9
+- **Items:** 8 unique questions; the tangible subscale uses items 1-4
 - **Per-item scoring:** None of the time = 1, A little of the time = 2, Some of the time = 3, Most of the time = 4, All of the time = 5
-- **Total score:** prorated sum of 9 items; no reverse-keyed items
-- **Auto-built:** yes (comp_social_support)
+- **Total score:** prorated sum of 8 items; no reverse-keyed items
+- **Auto-built:** yes (`comp_social_support` and `comp_social_support_tangible`)
+- **Pooling:** eight fixed SDOH/COPE qid pairs are joined by item number, with SDOH priority and COPE fill-in. The GWAS residualization includes `from_cope`.
+- **Item GWAS:** `ord_sdoh_mos_ss_1` through `ord_sdoh_mos_ss_8` use the pooled 0..4 scale; standalone COPE copies for items 1-8 are superseded. COPE-only items 13 and 17 remain standalone.
 - **Questions:**
     - Someone to help you if you were confined to bed
-    - Someone to take you to the doctor if you needed it
+    - Someone to take you to the doctor if you need/needed it
     - Someone to prepare your meals if you were unable to do it yourself
     - Someone to help with daily chores if you were sick
-    - Someone to take you to the doctor if you need it
     - Someone to have a good time with
     - Someone to turn to for suggestions about how to deal with a personal problem
     - Someone who understands your problems
@@ -935,6 +1003,11 @@ psych_sitbi_suicidality_count       prorated count of ss_1/ss_2/ss_3 Yes endorse
 psych_probable_gad_lifetime         worryanxiety Yes AND (cidi5_8 OR cidi5_9 present) AND >=3/5 associated symptoms
 psych_cidi_gad_symptom_sum          prorated sum of cidi5_6..14 (0..4 each); worryanxiety No = 0
 mhq_trauma_exposure_count           prorated count of mhqukb_34..42 lifetime trauma categories; >=5/9 valid items
+ord_social_shy_chronicity           0=cidi5_27 No; 1=cidi5_27 Yes + cidi5_29 No; 2=cidi5_27 Yes + cidi5_29 Yes
+ord_social_judgment_chronicity      0=pmi_3 No; 1=pmi_3 Yes + cidi5_29 No; 2=pmi_3 Yes + cidi5_29 Yes
+ord_agoraphobia_chronicity          0=cidi5_30 No; 1=cidi5_30 Yes + cidi5_32 No; 2=cidi5_30 Yes + cidi5_32 Yes
+bin_mania_euphoric__*               mhqukb_43 Yes plus one mhqukb_45 symptom; mhqukb_43 No included as controls
+bin_mania_irritable__*              mhqukb_44 Yes plus one mhqukb_45 symptom; mhqukb_44 No included as controls
 psych_mania_episode_screen          (ever high/hyper OR irritable) AND >=3 manic symptoms (mhqukb_43/44/45)
 psych_probable_bipolar              mania screen AND >=4-day duration (mhqukb_46) AND impairment (mhqukb_47)
 psych_lifetime_depressed_episode    ever a >=2-week low-mood / anhedonia period (mhqukb_5/6)
@@ -958,6 +1031,22 @@ The MHQ trauma count scores mhqukb_34..42 as ever exposed (either "within the la
 "but not in the last 12 months") vs never exposed, then prorates to a 0..9 count when at least
 five of nine items have valid responses. It is the lifetime/adult analogue of the ACE childhood
 adversity score, not a replacement for it.
+
+The social anxiety / agoraphobia chronicity phenotypes are 3-level ordinal traits. A valid screener
+No response is the floor (0). A valid screener Yes response requires the paired chronicity follow-up:
+follow-up No = 1 and follow-up Yes = 2. Skip / prefer-not-to-answer / don't-know on the screener or
+on a required follow-up is missing. `ord_social_shy_chronicity` and
+`ord_social_judgment_chronicity` intentionally share cidi5_29 as the ">6 months" follow-up because
+that BHP follow-up is gated on either social-anxiety screener; each phenotype is still keyed to its
+own screener independently.
+
+The `bin_mania_euphoric__*` and `bin_mania_irritable__*` phenotypes are BHP-specific
+population-control symptom GWAS. For each of the eight mhqukb_45 mania-symptom checklist
+answers, the euphoric version uses mhqukb_43 as the denominator and the irritable version uses
+mhqukb_44 as the denominator. Cases answered Yes to that screener and endorsed the symptom;
+controls are everyone else with a valid Yes/No answer to that same screener, including screener-No
+participants. Skip / prefer-not-to-answer / don't-know screener responses are missing. The other
+mania screener is ignored, so dual-screen-positive respondents can contribute to both families.
 
 The depression and bipolar derivations follow the UKB Smith et al. 2013 logic at the item level; they
 are not the full CIDI symptom-count diagnoses, so they read as "probable"/"screen". Controls are
