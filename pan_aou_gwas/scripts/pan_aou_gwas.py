@@ -353,6 +353,9 @@ CROSS_SURVEY_COMPOSITE_SOURCE_QIDS = {
     for qid in spec[2:4]
     if qid
 }
+CROSS_SURVEY_PRIMARY_QIDS = {
+    spec[2] for spec in (*UCLA_POOLED_ITEMS, *EDS_POOLED_ITEMS) if spec[2]
+}
 CROSS_SURVEY_COMPOSITE_SLUGS = {"ucla_loneliness", "everyday_discrimination"}
 
 AUDITC_POOLED_CONSTRUCTION_ID = "auditc_lifestyle_cope_pooled_v1"
@@ -836,9 +839,15 @@ REBUILD_EXISTING_PHENO_IDS = (
 # the requested canonical ordinal companion; do not rerun duplicate binaries
 # under the newly repaired codebook item names.  Family-history awareness had no
 # previous binary phenotypes, so it is ordinal-only without a legacy emitter.
-TARGETED_LEGACY_XGB_BINARY_QIDS = set(TARGETED_SDOH_ORDINAL_QID_TO_ITEM) | {"1585698"}
-TARGETED_ORDINAL_ONLY_QIDS = set(TARGETED_ADDITIONAL_ORDINAL_QID_TO_ITEM) | set(
-    TARGETED_SDOH_ORDINAL_QID_TO_ITEM
+TARGETED_LEGACY_XGB_BINARY_QIDS = (
+    set(TARGETED_SDOH_ORDINAL_QID_TO_ITEM)
+    | CROSS_SURVEY_PRIMARY_QIDS
+    | {"1585698"}
+)
+TARGETED_ORDINAL_ONLY_QIDS = (
+    set(TARGETED_ADDITIONAL_ORDINAL_QID_TO_ITEM)
+    | set(TARGETED_SDOH_ORDINAL_QID_TO_ITEM)
+    | CROSS_SURVEY_PRIMARY_QIDS
 )
 
 TARGETED_COMPOSITE_QID_TO_ITEM = {
