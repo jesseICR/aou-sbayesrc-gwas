@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from pan_aou_gwas import gwas_params_path, output_complete, write_batch_pheno
@@ -49,35 +50,43 @@ def pheno_name_from_file(path: Path) -> str:
     return header[2]
 
 
-def pending_jobs(rows: list[dict[str, str]], force: bool) -> list[dict[str, object]]:
-    jobs: list[dict[str, object]] = []
-    for row in rows:
-        pheno_id = row["pheno_id"]
-        pheno_path = Path(row["pheno_path"])
-        if not pheno_path.exists() or pheno_path.stat().st_size == 0:
-            raise FileNotFoundError(f"missing phenotype file for {pheno_id}: {pheno_path}")
-        pheno_name = row.get("pheno_name") or pheno_name_from_file(pheno_path)
-        glm = Path(row["glm"])
-        sumstats = Path(row["sumstats"])
-        if not force and output_complete(row):
-            continue
-        jobs.append({
-            "pheno_id": pheno_id,
-            "pheno_name": pheno_name,
-            "pheno_path": pheno_path,
-            "glm": glm,
-            "sumstats": sumstats,
-            "gwas_params": gwas_params_path(row),
-            "trait_type": row.get("trait_type", ""),
-            "kind": row.get("kind", ""),
-            "n": row.get("n", ""),
-            "n_cases": row.get("n_cases", ""),
-            "n_controls": row.get("n_controls", ""),
-            "covar_mode": row.get("covar_mode", "full"),
-            "sex_filter": row.get("sex_filter", "all"),
-            "extra_covariates": row.get("extra_covariates", ""),
-            "construction_id": row.get("construction_id", ""),
-        })
+def pending_job(row: dict[str, str], force: bool) -> dict[str, object] | None:
+    """Return one pending job, or None when its durable outputs are complete."""
+    pheno_id = row["pheno_id"]
+    pheno_path = Path(row["pheno_path"])
+    if not pheno_path.exists() or pheno_path.stat().st_size == 0:
+        raise FileNotFoundError(f"missing phenotype file for {pheno_id}: {pheno_path}")
+    pheno_name = row.get("pheno_name") or pheno_name_from_file(pheno_path)
+    if not force and output_complete(row):
+        return None
+    return {
+        "pheno_id": pheno_id,
+        "pheno_name": pheno_name,
+        "pheno_path": pheno_path,
+        "glm": Path(row["glm"]),
+        "sumstats": Path(row["sumstats"]),
+        "gwas_params": gwas_params_path(row),
+        "trait_type": row.get("trait_type", ""),
+        "kind": row.get("kind", ""),
+        "n": row.get("n", ""),
+        "n_cases": row.get("n_cases", ""),
+        "n_controls": row.get("n_controls", ""),
+        "covar_mode": row.get("covar_mode", "full"),
+        "sex_filter": row.get("sex_filter", "all"),
+        "extra_covariates": row.get("extra_covariates", ""),
+        "construction_id": row.get("construction_id", ""),
+    }
+
+
+def pending_jobs(
+    rows: list[dict[str, str]], force: bool, check_workers: int
+) -> list[dict[str, object]]:
+    # The durable output tree is a mounted object store, where serial stat calls
+    # dominate batch preparation. Preserve manifest order while overlapping
+    # independent read-only completeness checks.
+    with ThreadPoolExecutor(max_workers=check_workers) as executor:
+        checked = executor.map(lambda row: pending_job(row, force), rows)
+        jobs = [job for job in checked if job is not None]
     return jobs
 
 
@@ -128,15 +137,18 @@ def main() -> None:
     ap.add_argument("--manifest", type=Path, required=True)
     ap.add_argument("--workdir", type=Path, required=True)
     ap.add_argument("--batch-size", type=int, default=64)
+    ap.add_argument("--check-workers", type=int, default=16)
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
     if args.batch_size < 1:
         raise SystemExit("--batch-size must be >= 1")
+    if args.check_workers < 1:
+        raise SystemExit("--check-workers must be >= 1")
 
     manifest_rows = read_manifest(args.manifest)
     rows, duplicate_rows = dedupe_manifest_rows(manifest_rows)
-    jobs = pending_jobs(rows, args.force)
+    jobs = pending_jobs(rows, args.force, args.check_workers)
     args.workdir.mkdir(parents=True, exist_ok=True)
     write_duplicate_manifest(args.workdir / "duplicate_manifest_rows.tsv", duplicate_rows)
 
