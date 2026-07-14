@@ -1,6 +1,16 @@
 ## 11c. Validated composite score definitions
 
-Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring valid answers for more than half of items. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. Items are matched to survey responses by question text and merged across survey administrations. PHQ-9 and GAD-7 pool EHHWB and COPE administrations with EHHWB priority and a `from_cope` covariate; PSS-10 pools SDOH and COPE administrations with SDOH priority and the same source covariate. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
+Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring valid answers for more than half of items. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. The seven multi-survey composites use explicit question-concept pairs: PHQ-9 and GAD-7 use EHHWB priority with COPE fill-in; PSS-10, UCLA ULS-8, Everyday Discrimination, and both MOS Social Support composites use SDOH priority with COPE fill-in. Their boolean `from_cope` covariate is 1 when any retained item came from COPE. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
+
+### UCLA Loneliness and Everyday Discrimination
+
+- **Auto-built:** yes (`comp_ucla_loneliness`, `comp_everyday_discrimination`)
+- **Pooling:** explicit SDOH/COPE concept-ID pairs with SDOH priority and COPE fill-in
+- **Source adjustment:** `from_cope=1` when any retained response came from COPE
+- **UCLA:** eight canonical items; the outgoing-person and companionship items are reverse-keyed
+- **Discrimination:** nine canonical items normalized to a common 0..3 past-month frequency scale;
+  SDOH's two annual-frequency levels collapse to the 0 floor
+- **Construction IDs:** `ucla_sdoh_cope_pooled_v1`, `eds_sdoh_cope_harmonized_4level_v1`
 
 ### GAD-7 — Generalized Anxiety Disorder scale (anxiety)
 
@@ -119,7 +129,7 @@ Each composite is a **prorated sum**: mean(available item scores) × n_items, re
 ### Everyday Discrimination Scale
 
 - **Items:** 9
-- **Per-item scoring:** Almost everyday = 6, At least once a week = 5, A few times a month = 4, A few times a year = 3, Less than once a year = 2, Never = 1
+- **Pooled scoring:** Never = 0, A few times a month = 1, At least once a week = 2, Almost everyday = 3; SDOH annual-frequency levels collapse to 0
 - **Total score:** prorated sum of 9 items; no reverse-keyed items
 - **Auto-built:** yes (comp_everyday_discrimination)
 - **Questions:**
@@ -132,6 +142,15 @@ Each composite is a **prorated sum**: mean(available item scores) × n_items, re
     - You are threatened or harassed.
     - People act as if they think you are not smart.
     - People act as if they think you are dishonest.
+
+### AUDIT-C — Alcohol use
+
+- **Items:** 3, each scored 0..4
+- **Total score:** prorated sum requiring at least 2 valid items
+- **Auto-built:** yes (`comp_auditc_alcohol` and `comp_auditc_alcohol_pop`)
+- **Pooling:** explicit Lifestyle/COPE qid pairs with Lifestyle priority; any COPE fill-in sets `from_cope=1`
+- **Population score:** Lifestyle lifetime abstainers and COPE-only Q1=`Never` respondents are 0
+- **Reference period:** Lifestyle uses the past year and COPE the past month; no period rescaling is applied
 
 ### MOS Social Support (RAND) + Tangible subscale
 

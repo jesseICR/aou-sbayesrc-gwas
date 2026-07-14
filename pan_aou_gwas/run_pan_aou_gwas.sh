@@ -700,6 +700,7 @@ export PAN_AOU_COG_DIR="${PAN_AOU_COG_DIR:-${PAN_AOU_ETM_COG_DIR}}"
 # the worker uses the survey work-address state.
 [[ -n "${PAN_AOU_STATE_CSV:-}" && -s "${PAN_AOU_STATE_CSV}" ]] && PY_ARGS+=(--state-csv "${PAN_AOU_STATE_CSV}")
 [[ "${FORCE}" == 1 ]] && PY_ARGS+=(--force)
+[[ "${PAN_AOU_REUSE_EXISTING_PHENOTYPES:-0}" == 1 ]] && PY_ARGS+=(--reuse-existing-phenotypes)
 if [[ "${SETUP_ONLY}" == 1 || "${PAN_AOU_GWAS_BACKEND}" == "none" || "${PAN_AOU_GWAS_BACKEND}" == "dsub" ]]; then
   PY_ARGS+=(--skip-gwas)
 fi

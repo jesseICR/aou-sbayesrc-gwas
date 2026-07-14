@@ -47,7 +47,10 @@ bfile was built in the AoU environment.
    spiritual experience, health literacy, the BFI-2 Big Five domains, and the neighborhood social
    cohesion / disorder / walkability and Hunger Vital Sign composites (§11c), as prorated sums with
    per-scale reverse-keying (opposite-valence items flipped). PHQ-9 and GAD-7 are pooled across
-   EHHWB and COPE with EHHWB priority; PSS-10 is pooled across SDOH and COPE with SDOH priority.
+   EHHWB and COPE with EHHWB priority; PSS-10, MOS-SS, UCLA Loneliness, and Everyday
+   Discrimination pool SDOH and COPE with SDOH priority; AUDIT-C pools Lifestyle and COPE with
+   Lifestyle priority; subjective well-being pools EHHWB and COPE with EHHWB priority. ACE live
+   question IDs are explicitly bound to the 11 canonical ACE items.
 12. **Wearable (Fitbit) phenotypes** — mean daily steps, sedentary/active minutes, sleep duration,
    efficiency, and a chronotype (sleep-onset) proxy (§10b), on the Fitbit subcohort.
 13. **Derived psychiatric phenotypes** (§11d) from the UKB-MHQ/CIDI/PCL/SITBI items — probable MDD
@@ -214,8 +217,12 @@ For pooled PHQ-9/GAD-7 phenotypes, `from_cope` is 1 when COPE supplied the respo
 supplied it. For pooled PSS-10 and MOS-SS phenotypes, `from_cope` is 1 when COPE supplied the response
 and 0 when SDOH supplied it. Baseline+COPE duplicate items use the same indicator with Basics or
 Overall Health as the primary source. In every pooled item phenotype, age is taken from the selected
-source response. For pooled sumscores, `from_cope` is 1 only for participants with no contributing
-primary-survey items for that scale.
+source response. For every pooled sumscore, `from_cope=1` when any retained item came from COPE
+fill-in and 0 only when all retained items came from the primary survey. UCLA Loneliness and Everyday
+Discrimination use the same itemwise SDOH-priority rule. Pooled AUDIT-C uses Lifestyle as primary;
+Lifestyle lifetime-abstainer zeros use `from_cope=0`. Subjective well-being uses EHHWB as primary
+and COPE as fill-in. Before all of these selections, nonresponses are discarded and the latest valid
+response is retained independently within each source question.
 
 ---
 
@@ -354,6 +361,36 @@ proficiency, religious-service frequency, symptom-onset month, likelihood, worry
 housing density, ovary-removal count, and the mhqukb duration/appetite/weight/experience items — all
 enumerated with explicit per-answer values in `metadata/ordinal_mapping_manifest.tsv`.
 
+#### Targeted SDOH ordinal recovery
+
+Live v9 question IDs are bound explicitly to the canonical codebook items for four Social Cohesion
+Neighborhood Scale questions (`scns_1..4`; `agree_neutral_1_5`), two Hunger Vital Sign questions
+(`hvs_1..2`; `food_insecurity_0_2`), and six BMMRS/Daily Spiritual Experience questions
+(`bmmrs_1..6`; `spiritual_frequency_0_5`). This prevents the SES-EA supplemental one-hot metadata
+from shadowing the curated ordinal rules and enables `ord_scns_1..4`, `ord_hvs_1..2`, and
+`ord_bmmrs_1..6`, along with their validated composites. Their already-completed one-vs-rest
+phenotypes retain the original `bin_xgb_q<question_concept_id>__<answer>` IDs; the recovery does not
+create duplicate binaries under the canonical item names.
+
+The same recovery binds Lifestyle prescription-opioid frequency question `1585698` to the corrected
+canonical item code `past3monthusefrequency_prescriptionopioid3monthuse` and its 0..4 substance-use
+frequency rule while preserving its existing `bin_xgb_q1585698__*` IDs. PFHH question `43528652` is
+treated as a whole-cohort family-medical-history awareness
+trait (`None at all=0`, `Some=1`, `A lot=2`) rather than a relative disease-status phenotype. No
+condition-specific PFHH/PMH age-of-onset ordinal phenotypes are added.
+
+The eight SDOH MOS-SS questions are handled by the stronger pooled construction described in
+§11c: `ord_sdoh_mos_ss_1..8` use SDOH priority, COPE fill-in, and a `from_cope` residualization
+covariate. They are not also emitted as SDOH-only ordinals. The integer SDOH move count is retained
+as `num_urs_8c` and also emitted under the requested ordered-level ID `ord_urs_8c` (0..15); because
+all quantitative phenotypes are IRNT'd, those two GWAS are expected to be numerically identical.
+
+AUDIT-C, UCLA ULS-8, Everyday Discrimination, and subjective well-being also replace their former
+primary-survey-only item ordinals with explicitly paired pooled item phenotypes. Stable existing IDs
+are retained: the three Lifestyle AUDIT-C ordinal IDs, the eight SDOH UCLA ordinal IDs, the nine SDOH
+Everyday Discrimination ordinal IDs, and `ord_mhqukb_57/58`. Each manifest row records both source
+question IDs, the pooled construction ID, and `from_cope` as an extra residualization covariate.
+
 ### 7.3 Education and income anchors (ea_proxy.md)
 
 These reproduce the exact `EA_MAPPING` / `INCOME_MAPPING` in the repo's
@@ -460,7 +497,7 @@ num_smoking_pack_years_pop                    (cigarettes/day / 20) * years smok
 ord_alcohol_drinkfrequencypastyear_pop        lifetime alcohol No=0; Yes uses past-year AUDIT-C frequency
 ord_alcohol_averagedailydrinkcount_pop        lifetime alcohol No=0; Yes uses drinks-per-occasion midpoints
 ord_alcohol_6ormoredrinksoccurence_pop        lifetime alcohol No=0; Yes uses past-year 6+ drink frequency
-comp_auditc_alcohol_pop                       lifetime alcohol No=0; drinkers use prorated 3-item AUDIT-C score
+comp_auditc_alcohol_pop                       Lifestyle+COPE pooled; lifetime alcohol No=0; COPE-only Q1 Never=0
 ord_past3monthusefrequency_marijuana3monthuse_pop
                                                lifetime marijuana/cannabis non-use=0; users use 0..4 frequency
 ord_tsu_ds5_13_xx3_pop                        COPE no cannabis selected=0; users use shifted 1..4 frequency
@@ -792,6 +829,18 @@ question-level phenotypes. The summary-score coverage for the named survey instr
     - In the last month, how often have you been angered because of things that were outside of your control?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
     - In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
 
+### AUDIT-C — Alcohol Use Disorders Identification Test, concise
+
+- **Items:** 3 (drinking frequency, typical quantity, and 6+ drink frequency), each scored 0..4
+- **Total score:** prorated 3-item sum requiring at least 2 valid items
+- **Auto-built:** yes (`comp_auditc_alcohol` and `comp_auditc_alcohol_pop`)
+- **Pooling:** fixed Lifestyle/COPE qid pairs with Lifestyle priority and COPE fill-in. Any COPE-filled item sets `from_cope=1`.
+- **Population score:** Lifestyle lifetime abstainers are 0. COPE-only respondents with Q1=`Never` are also 0; other participants require at least 2 valid pooled items.
+- **Reference period:** Lifestyle asks about the past year and COPE about the past month. Values are not rescaled; source is adjusted using `from_cope`.
+- **Construction IDs:** `auditc_lifestyle_cope_pooled_v1` and `auditc_population_zero_pooled_v1`
+- **Item GWAS:** the three existing Lifestyle ordinal IDs are rebuilt from their explicit
+  Lifestyle/COPE pairs with the same source priority and `from_cope` adjustment
+
 ### ACE — Adverse Childhood Experiences
 
 - **Items:** 11
@@ -845,6 +894,10 @@ question-level phenotypes. The summary-score coverage for the named survey instr
 - **Per-item scoring:** 2 answer scales across items (shown per item below)
 - **Total score:** prorated sum of 8 items; 2 reverse-keyed
 - **Auto-built:** yes (comp_ucla_loneliness)
+- **Pooling:** all eight explicit SDOH/COPE qid pairs, SDOH priority and COPE fill-in; any COPE-filled
+  retained item sets the sumscore's `from_cope` covariate to 1
+- **Item GWAS:** the eight existing SDOH ordinal IDs are rebuilt from these pooled pairs; positive
+  companionship/outgoing items are reverse-keyed only in the composite, not in their item GWAS
 - **Questions:**
     - I lack companionship  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
     - There is no one I can turn to  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
@@ -858,9 +911,14 @@ question-level phenotypes. The summary-score coverage for the named survey instr
 ### Everyday Discrimination Scale
 
 - **Items:** 9
-- **Per-item scoring:** Almost everyday = 6, At least once a week = 5, A few times a month = 4, A few times a year = 3, Less than once a year = 2, Never = 1
+- **Pooled scoring:** COPE's four past-month levels define the common 0..3 scale: Never=0, A few
+  times a month=1, At least once a week=2, Almost everyday=3. SDOH's Less than once a year and A few
+  times a year levels collapse to the no-past-month-occurrence floor (0).
 - **Total score:** prorated sum of 9 items; no reverse-keyed items
 - **Auto-built:** yes (comp_everyday_discrimination)
+- **Pooling:** all nine explicit SDOH/COPE qid pairs, SDOH priority and COPE fill-in; any COPE-filled
+  retained item sets the sumscore's `from_cope` covariate to 1
+- **Item GWAS:** the nine existing SDOH ordinal IDs are rebuilt on the harmonized pooled 0..3 scale
 - **Questions:**
     - You are treated with less courtesy than other people are.
     - You are treated with less respect than other people are.
@@ -984,6 +1042,9 @@ Built directly from the survey items (reusing their ordinal scores), because the
 
 - Subjective well-being (happiness + life meaning, UKB-style); higher = greater well-being.
 - **Items:** 2; **reverse-keyed:** 0; prorated sum
+- **Pooling:** explicit EHHWB/COPE pairs with EHHWB priority, COPE fill-in, and `from_cope`
+- **Item GWAS:** `ord_mhqukb_57` and `ord_mhqukb_58` are rebuilt from the pooled responses
+- **Construction ID:** `subjective_wellbeing_ehw_cope_pooled_v1`
 - **Questions:**
     - In general, how happy are you?
     - To what extent do you feel your life to be meaningful?
@@ -1026,6 +1087,9 @@ AoU has five of the associated GAD symptoms available here (restless/on edge, co
 irritability, muscle tension, sleep), so the diagnosis proxy requires ≥3 of 5. Participants with
 `worryanxiety = No` are controls and get symptom-sum score 0; `worryanxiety = Yes` respondents
 with enough symptom data get a prorated 0..36 severity sum from cidi5_6..14.
+The live BHP question IDs for `cidi5_6..14` are explicitly bound to their codebook items because
+their extracted prompts add a "During those 6 months" prefix that does not match the shorter
+codebook labels. This binding also supplies the nine population-referenced item phenotypes.
 
 The MHQ trauma count scores mhqukb_34..42 as ever exposed (either "within the last 12 months" or
 "but not in the last 12 months") vs never exposed, then prorates to a 0..9 count when at least

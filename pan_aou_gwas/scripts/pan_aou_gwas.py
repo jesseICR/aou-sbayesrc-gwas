@@ -278,6 +278,160 @@ MOS_SS_SOURCE_QIDS = {
 }
 MOS_SS_COMPOSITE_SLUGS = {"social_support", "social_support_tangible"}
 
+UCLA_CONSTRUCTION_ID = "ucla_sdoh_cope_pooled_v1"
+UCLA_ANSWER_VALUES = {
+    "never": 0.0,
+    "rarely": 1.0,
+    "sometime": 2.0,
+    "sometimes": 2.0,
+    "often": 3.0,
+}
+UCLA_POOLED_ITEMS = [
+    ("ucla_ls8_2", "lack companionship", "40192507", "1333216", False),
+    ("ucla_ls8_3", "no one to turn to", "40192397", "1333186", False),
+    ("ucla_ls8_9", "outgoing person", "40192504", "1333221", True),
+    ("ucla_ls8_11", "feel left out", "40192398", "1333182", False),
+    ("ucla_ls8_14", "feel isolated", "40192501", "1333183", False),
+    ("ucla_ls8_15", "find companionship", "40192516", "1333164", True),
+    ("ucla_ls8_17", "unhappy being withdrawn", "40192390", "1333120", False),
+    ("ucla_ls8_18", "people around but not with me", "40192494", "1333166", False),
+]
+UCLA_POOLED_ITEM_PHENO_IDS = {
+    "ucla_ls8_2": "ord_xgb_q40192507",
+    "ucla_ls8_3": "ord_xgb_q40192397",
+    "ucla_ls8_9": "ord_xgb_q40192504",
+    "ucla_ls8_11": "ord_xgb_q40192398",
+    "ucla_ls8_14": "ord_xgb_q40192501",
+    "ucla_ls8_15": "ord_sdoh_ucla_ls8_15",
+    "ucla_ls8_17": "ord_xgb_q40192390",
+    "ucla_ls8_18": "ord_xgb_q40192494",
+}
+
+# COPE has four past-month levels. Collapse SDOH's two annual-frequency levels
+# into the no-past-month-occurrence floor before pooling so the sources share a
+# genuine 0..3 scale instead of mixing incompatible 0..5 and 0..3 scores.
+EDS_CONSTRUCTION_ID = "eds_sdoh_cope_harmonized_4level_v1"
+EDS_ANSWER_VALUES = {
+    "never": 0.0,
+    "less than once a year": 0.0,
+    "a few times a year": 0.0,
+    "a few times a month": 1.0,
+    "at least once a week": 2.0,
+    "almost every day": 3.0,
+    "almost everyday": 3.0,
+}
+EDS_POOLED_ITEMS = [
+    ("eds_1", "treated with less courtesy", "40192466", "1333328"),
+    ("eds_2", "treated with less respect", "40192489", "1333311"),
+    ("eds_3", "receive poorer service", "40192416", "1333312"),
+    ("eds_4", "people think you are not smart", "40192490", "1333313"),
+    ("eds_5", "people are afraid of you", "40192380", "1333314"),
+    ("eds_6", "people think you are dishonest", "40192395", "1332935"),
+    ("eds_7", "people think they are better than you", "40192496", "1332937"),
+    ("eds_8", "called names or insulted", "40192519", "1333298"),
+    ("eds_9", "threatened or harassed", "40192451", "1333293"),
+]
+EDS_POOLED_ITEM_PHENO_IDS = {
+    "eds_1": "ord_live_q40192466",
+    "eds_2": "ord_live_q40192489",
+    "eds_3": "ord_live_q40192416",
+    "eds_4": "ord_live_q40192490",
+    "eds_5": "ord_live_q40192380",
+    "eds_6": "ord_live_q40192395",
+    "eds_7": "ord_live_q40192496",
+    "eds_8": "ord_live_q40192519",
+    "eds_9": "ord_live_q40192451",
+}
+CROSS_SURVEY_POOLED_ITEM_PHENO_IDS = {
+    **UCLA_POOLED_ITEM_PHENO_IDS,
+    **EDS_POOLED_ITEM_PHENO_IDS,
+}
+
+CROSS_SURVEY_COMPOSITE_SOURCE_QIDS = {
+    qid
+    for spec in (*UCLA_POOLED_ITEMS, *EDS_POOLED_ITEMS)
+    for qid in spec[2:4]
+    if qid
+}
+CROSS_SURVEY_COMPOSITE_SLUGS = {"ucla_loneliness", "everyday_discrimination"}
+
+AUDITC_POOLED_CONSTRUCTION_ID = "auditc_lifestyle_cope_pooled_v1"
+AUDITC_POP_CONSTRUCTION_ID = "auditc_population_zero_pooled_v1"
+AUDITC_LIFETIME_GATE_QID = "1586198"
+AUDITC_POOLED_ITEMS = [
+    (
+        "auditc_frequency",
+        "AUDIT-C item 1: drinking frequency",
+        "1586201",
+        "1332876",
+        "audit_freq_0_4",
+    ),
+    (
+        "auditc_quantity",
+        "AUDIT-C item 2: drinks on a typical drinking day",
+        "1586207",
+        "1332793",
+        "drink_count_band_midpoint",
+    ),
+    (
+        "auditc_binge",
+        "AUDIT-C item 3: frequency of six or more drinks",
+        "1586213",
+        "1332853",
+        "binge_freq_0_4",
+    ),
+]
+AUDITC_POOLED_ITEM_PHENO_IDS = {
+    "auditc_frequency": "ord_alcohol_drinkfrequencypastyear",
+    "auditc_quantity": "ord_alcohol_averagedailydrinkcount",
+    "auditc_binge": "ord_xgb_q1586213",
+}
+AUDITC_SOURCE_QIDS = {
+    qid
+    for _item_code, _label, lifestyle_qid, cope_qid, _rule in AUDITC_POOLED_ITEMS
+    for qid in (lifestyle_qid, cope_qid)
+} | {AUDITC_LIFETIME_GATE_QID}
+AUDITC_COMPOSITE_SLUGS = {"auditc_alcohol"}
+
+WELLBEING_CONSTRUCTION_ID = "subjective_wellbeing_ehw_cope_pooled_v1"
+WELLBEING_POOLED_ITEMS = [
+    (
+        "mhqukb_57",
+        "general happiness",
+        "1703980",
+        "1332749",
+        "happiness_0_5",
+        "ord_mhqukb_57",
+    ),
+    (
+        "mhqukb_58",
+        "life meaning",
+        "1704001",
+        "1332750",
+        "amount_0_4",
+        "ord_mhqukb_58",
+    ),
+]
+WELLBEING_SOURCE_QIDS = {
+    qid
+    for _item_code, _label, primary_qid, cope_qid, _rule, _pheno_id in WELLBEING_POOLED_ITEMS
+    for qid in (primary_qid, cope_qid)
+}
+WELLBEING_POOLED_ITEM_PHENO_IDS = {
+    pheno_id for *_rest, pheno_id in WELLBEING_POOLED_ITEMS
+}
+WELLBEING_COMPOSITE_SLUGS = {"subjective_wellbeing"}
+
+POOLED_ITEM_ORDINAL_SOURCE_QIDS = (
+    CROSS_SURVEY_COMPOSITE_SOURCE_QIDS
+    | {
+        qid
+        for _item_code, _label, primary_qid, cope_qid, _rule in AUDITC_POOLED_ITEMS
+        for qid in (primary_qid, cope_qid)
+    }
+    | WELLBEING_SOURCE_QIDS
+)
+
 BASELINE_COPE_CONSTRUCTION_ID = "baseline_cope_pooled_v1"
 BASELINE_COPE_POOLED_ITEMS = [
     (
@@ -432,12 +586,14 @@ def load_keep(path: Path) -> list[str]:
     return out
 
 
-def load_sex(path: Path) -> dict[str, int]:
+def load_sex(path: Path, keep: set[str] | None = None) -> dict[str, int]:
     out = {}
     with open(path, newline="") as f:
         r = csv.DictReader(f, delimiter="\t")
         for row in r:
             iid = row["IID"].strip()
+            if keep is not None and iid not in keep:
+                continue
             try:
                 out[iid] = int(row["sex_01"])
             except (KeyError, ValueError):
@@ -445,7 +601,7 @@ def load_sex(path: Path) -> dict[str, int]:
     return out
 
 
-def load_pcs(path: Path) -> dict[str, list[float]]:
+def load_pcs(path: Path, keep: set[str] | None = None) -> dict[str, list[float]]:
     out = {}
     with open(path) as f:
         header = f.readline().rstrip("\n").split("\t")
@@ -458,18 +614,21 @@ def load_pcs(path: Path) -> dict[str, list[float]]:
         for line in f:
             fld = line.rstrip("\n").split("\t")
             try:
-                out[fld[idx["IID"]]] = [float(fld[idx[h]]) for h in PC_COLUMNS]
+                iid = fld[idx["IID"]]
+                if keep is not None and iid not in keep:
+                    continue
+                out[iid] = [float(fld[idx[h]]) for h in PC_COLUMNS]
             except (IndexError, ValueError):
                 continue
     return out
 
 
-def load_fam_fids(path: Path) -> dict[str, str]:
+def load_fam_fids(path: Path, keep: set[str] | None = None) -> dict[str, str]:
     out = {}
     with open(path) as f:
         for line in f:
             p = line.split()
-            if len(p) >= 2:
+            if len(p) >= 2 and (keep is None or p[1] in keep):
                 out[p[1]] = p[0]
     return out
 
@@ -602,6 +761,108 @@ TARGETED_HCAU_LIVE_QID_TO_ITEM = {
     "43530595": "healthadvice_spokentoprofessional",
 }
 
+# These SDOH questions already have curated ordinal metadata, but their live
+# v9 prompts do not round-trip reliably through the text crosswalk.  Bind the
+# live concept IDs to the canonical codebook items so the ordinal GWAS and the
+# composites that consume these items cannot silently fall back to one-hot
+# xgb_q phenotypes.
+TARGETED_SDOH_ORDINAL_QID_TO_ITEM = {
+    "40192463": "scns_1",
+    "40192411": "scns_2",
+    "40192499": "scns_3",
+    "40192417": "scns_4",
+    "40192517": "hvs_1",
+    "40192426": "hvs_2",
+    "40192498": "bmmrs_1",
+    "40192475": "bmmrs_2",
+    "40192401": "bmmrs_3",
+    "40192443": "bmmrs_4",
+    "40192471": "bmmrs_5",
+    "40192415": "bmmrs_6",
+}
+
+# Additional live questions whose curated ordinal metadata is otherwise missed:
+# the Lifestyle item had a historical item-code typo, while the family-history
+# awareness item was incorrectly swept into the disease-history exclusion.
+TARGETED_ADDITIONAL_ORDINAL_QID_TO_ITEM = {
+    "1585698": "past3monthusefrequency_prescriptionopioid3monthuse",
+    "43528652": "familyhistory_familymedicalhistoryaware",
+}
+
+# The BHP extract uses live prompts prefixed with "During those 6 months",
+# while the codebook stores the shorter CIDI item labels.  Bind these qids
+# explicitly so population-referenced GAD items and derived GAD scores retain
+# the screen-positive follow-up responses instead of collapsing to all zeroes.
+BHP_CIDI_GAD_LIVE_QID_TO_ITEM = {
+    "1704052": "cidi5_6",
+    "1704006": "cidi5_7",
+    "1703979": "cidi5_8",
+    "1703982": "cidi5_9",
+    "1704050": "cidi5_10",
+    "1704032": "cidi5_11",
+    "1704053": "cidi5_12",
+    "1704043": "cidi5_13",
+    "1704040": "cidi5_14",
+}
+
+# A setup-only rebuild may reuse complete phenotype matrices for definitions
+# that did not change. These IDs must always be reconstructed because their
+# source pooling, covariate, or live-question binding changed in this release.
+REBUILD_EXISTING_PHENO_IDS = (
+    set(CROSS_SURVEY_POOLED_ITEM_PHENO_IDS.values())
+    | set(AUDITC_POOLED_ITEM_PHENO_IDS.values())
+    | WELLBEING_POOLED_ITEM_PHENO_IDS
+    | {
+        "comp_phq9_depression",
+        "comp_gad7_anxiety",
+        "comp_pss_perceived_stress",
+        "comp_auditc_alcohol",
+        "comp_auditc_alcohol_pop",
+        "comp_subjective_wellbeing",
+        "psych_probable_gad_lifetime",
+        "psych_cidi_gad_symptom_sum",
+        "ord_sdoh_cpss_6",
+        "bin_sdoh_cpss_6__never",
+        "bin_sdoh_cpss_6__almost_never",
+        "bin_sdoh_cpss_6__sometimes",
+        "bin_sdoh_cpss_6__fairly_often",
+        "bin_sdoh_cpss_6__very_often",
+    }
+    | {f"ord_cidi5_{item}_pop" for item in range(6, 15)}
+)
+
+# These questions already have completed one-vs-rest GWAS under stable
+# bin_xgb_q<qid> IDs.  Keep those IDs in the rebuilt manifest while adding only
+# the requested canonical ordinal companion; do not rerun duplicate binaries
+# under the newly repaired codebook item names.  Family-history awareness had no
+# previous binary phenotypes, so it is ordinal-only without a legacy emitter.
+TARGETED_LEGACY_XGB_BINARY_QIDS = set(TARGETED_SDOH_ORDINAL_QID_TO_ITEM) | {"1585698"}
+TARGETED_ORDINAL_ONLY_QIDS = set(TARGETED_ADDITIONAL_ORDINAL_QID_TO_ITEM) | set(
+    TARGETED_SDOH_ORDINAL_QID_TO_ITEM
+)
+
+TARGETED_COMPOSITE_QID_TO_ITEM = {
+    "1332946": "ace_1",
+    "1332947": "ace_2",
+    "1332948": "ace_3",
+    "1332950": "ace_4",
+    "1333208": "ace_5",
+    "1332857": "ace_6",
+    "1333210": "ace_7",
+    "1333212": "ace_8",
+    "1332951": "ace_9",
+    "1333202": "ace_10",
+    "1333203": "ace_11",
+}
+
+EXPLICIT_LIVE_QID_TO_ITEM = {
+    **TARGETED_HCAU_LIVE_QID_TO_ITEM,
+    **TARGETED_SDOH_ORDINAL_QID_TO_ITEM,
+    **TARGETED_ADDITIONAL_ORDINAL_QID_TO_ITEM,
+    **BHP_CIDI_GAD_LIVE_QID_TO_ITEM,
+    **TARGETED_COMPOSITE_QID_TO_ITEM,
+}
+
 
 def load_live_question_crosswalk(path: Path | None, manifest_rows: list[dict], by_text: dict[str, dict]):
     """Map live AoU question_concept_id and item_concept to manifest rows.
@@ -631,7 +892,7 @@ def load_live_question_crosswalk(path: Path | None, manifest_rows: list[dict], b
                 continue
             live_text = live.get("question", "")
             live_norm = norm_q(live_text)
-            target_item = TARGETED_HCAU_LIVE_QID_TO_ITEM.get(qid)
+            target_item = EXPLICIT_LIVE_QID_TO_ITEM.get(qid)
             man = rows_by_item.get(compact_key(target_item or "")) if target_item else None
             if man is None:
                 man = by_text.get(live_norm)
@@ -1490,7 +1751,7 @@ def build_pooled_phq_gad_phenotypes(questions):
             if not finite_ages:
                 continue
             values[pid] = (sum(got) / len(got) * n_items, sum(finite_ages) / len(finite_ages))
-            from_cope[pid] = 1.0 if source_flags and all(flag == 1.0 for flag in source_flags) else 0.0
+            from_cope[pid] = 1.0 if any(flag == 1.0 for flag in source_flags) else 0.0
         yield pheno_id, "composite", "quant", values, {
             "question_concept_id": "|".join(
                 qid
@@ -1594,7 +1855,7 @@ def build_pooled_pss_phenotypes(questions):
         if not finite_ages:
             continue
         values[pid] = (sum(got) / len(got) * n_items, sum(finite_ages) / len(finite_ages))
-        from_cope[pid] = 1.0 if source_flags and all(flag == 1.0 for flag in source_flags) else 0.0
+        from_cope[pid] = 1.0 if any(flag == 1.0 for flag in source_flags) else 0.0
     yield "comp_pss_perceived_stress", "composite", "quant", values, {
         "question_concept_id": "|".join(
             qid
@@ -1732,7 +1993,7 @@ def build_pooled_mos_ss_phenotypes(questions):
             if not finite_ages:
                 continue
             values[pid] = (sum(got) / len(got) * n_items, sum(finite_ages) / len(finite_ages))
-            from_cope[pid] = 1.0 if source_flags and all(flag == 1.0 for flag in source_flags) else 0.0
+            from_cope[pid] = 1.0 if any(flag == 1.0 for flag in source_flags) else 0.0
         yield pheno_id, "composite", "quant", values, {
             "question_concept_id": "|".join(
                 qid for item_code in item_codes for qid in qids_by_item[item_code]
@@ -1761,6 +2022,416 @@ def valid_single_answer_response(questions: dict, qid: str, pid: str):
     if len(non_missing) != 1:
         return None
     return non_missing[0], age
+
+
+def valid_single_scaled_response(questions, qid, pid, answer_values):
+    """Return a canonical numeric score for one latest-valid response."""
+    if not qid:
+        return None
+    got = valid_single_answer_response(questions, qid, pid)
+    if got is None:
+        return None
+    answer, age = got
+    value = answer_values.get(answer_norm(answer))
+    if value is None:
+        return None
+    return value, age
+
+
+def valid_single_rule_response(questions, qid, pid, rule):
+    """Return one ordinal-rule score from a question's latest valid response."""
+    got = valid_single_answer_response(questions, qid, pid)
+    if got is None:
+        return None
+    answer, age = got
+    value = ordinal_value_from_rule(rule, answer)
+    if value is None:
+        return None
+    return value, age
+
+
+def pooled_rule_item_values(questions, item_specs):
+    """Pool explicit primary/COPE pairs scored by their shared ordinal rule."""
+    pooled = {}
+    for item_code, _label, primary_qid, cope_qid, rule, *_rest in item_specs:
+        values = {}
+        pids = set()
+        for qid in (primary_qid, cope_qid):
+            if qid in questions:
+                pids.update(questions[qid]["responses"].keys())
+        for pid in pids:
+            primary = valid_single_rule_response(questions, primary_qid, pid, rule)
+            if primary is not None:
+                values[pid] = (primary[0], primary[1], 0.0)
+                continue
+            cope = valid_single_rule_response(questions, cope_qid, pid, rule)
+            if cope is not None:
+                values[pid] = (cope[0], cope[1], 1.0)
+        pooled[item_code] = values
+    return pooled
+
+
+def pooled_explicit_item_values(questions, item_specs, answer_values):
+    """Pool explicit SDOH/COPE item pairs with SDOH priority and COPE fill-in."""
+    pooled = {}
+    for item_code, _label, sdoh_qid, cope_qid, *_rest in item_specs:
+        values = {}
+        pids = set()
+        for qid in (sdoh_qid, cope_qid):
+            if qid and qid in questions:
+                pids.update(questions[qid]["responses"].keys())
+        for pid in pids:
+            sdoh = valid_single_scaled_response(questions, sdoh_qid, pid, answer_values)
+            if sdoh is not None:
+                values[pid] = (sdoh[0], sdoh[1], 0.0)
+                continue
+            cope = valid_single_scaled_response(questions, cope_qid, pid, answer_values)
+            if cope is not None:
+                values[pid] = (cope[0], cope[1], 1.0)
+        pooled[item_code] = values
+    return pooled
+
+
+def build_cross_survey_composite_phenotypes(questions):
+    """Yield pooled SDOH/COPE UCLA and discrimination items and scores."""
+    specs = [
+        (
+            "comp_ucla_loneliness",
+            "ucla_loneliness",
+            "UCLA ULS-8 loneliness, pooled SDOH/COPE prorated sum",
+            UCLA_CONSTRUCTION_ID,
+            UCLA_POOLED_ITEMS,
+            UCLA_ANSWER_VALUES,
+        ),
+        (
+            "comp_everyday_discrimination",
+            "everyday_discrimination",
+            "Everyday Discrimination Scale, pooled SDOH/COPE prorated sum",
+            EDS_CONSTRUCTION_ID,
+            EDS_POOLED_ITEMS,
+            EDS_ANSWER_VALUES,
+        ),
+    ]
+    for pheno_id, item_concept, label, construction_id, item_specs, answer_values in specs:
+        pooled = pooled_explicit_item_values(questions, item_specs, answer_values)
+        item_pheno_ids = (
+            UCLA_POOLED_ITEM_PHENO_IDS
+            if construction_id == UCLA_CONSTRUCTION_ID
+            else EDS_POOLED_ITEM_PHENO_IDS
+        )
+        item_rule = (
+            "freq_never_often_0_3_pooled"
+            if construction_id == UCLA_CONSTRUCTION_ID
+            else "freq_event_harmonized_0_3"
+        )
+        for item_code, item_label, sdoh_qid, cope_qid, *_rest in item_specs:
+            item_values = pooled.get(item_code, {})
+            from_cope = {pid: value[2] for pid, value in item_values.items()}
+            values = {
+                pid: (score, age)
+                for pid, (score, age, _source) in item_values.items()
+            }
+            yield item_pheno_ids[item_code], "ordinal", "quant", values, {
+                "question_concept_id": f"{sdoh_qid}|{cope_qid}",
+                "item_concept": item_code,
+                "question": f"Pooled SDOH/COPE {item_label}",
+                "answer": "",
+                "ordinal_rule": item_rule,
+                "covar_mode": "full",
+                "extra_covariates": {"from_cope": from_cope},
+                "extra_covariates_label": "from_cope",
+                "construction_id": construction_id,
+            }
+        n_items = len(item_specs)
+        need = n_items // 2 + 1
+        reverse_by_item = {
+            item_code: bool(rest[0]) if rest else False
+            for item_code, _label, _sdoh_qid, _cope_qid, *rest in item_specs
+        }
+        max_score = max(answer_values.values())
+        pids = set()
+        for item_code, *_rest in item_specs:
+            pids.update(pooled.get(item_code, {}).keys())
+        values = {}
+        from_cope = {}
+        for pid in pids:
+            scores = []
+            ages = []
+            source_flags = []
+            for item_code, *_rest in item_specs:
+                item = pooled.get(item_code, {}).get(pid)
+                if item is None:
+                    continue
+                score, age, source_flag = item
+                if reverse_by_item[item_code]:
+                    score = max_score - score
+                scores.append(score)
+                ages.append(age)
+                source_flags.append(source_flag)
+            if len(scores) < need:
+                continue
+            finite_ages = [age for age in ages if age is not None and not math.isnan(age)]
+            if not finite_ages:
+                continue
+            values[pid] = (
+                sum(scores) / len(scores) * n_items,
+                sum(finite_ages) / len(finite_ages),
+            )
+            from_cope[pid] = 1.0 if any(flag == 1.0 for flag in source_flags) else 0.0
+        qids = [
+            qid
+            for _item_code, _label, sdoh_qid, cope_qid, *_rest in item_specs
+            for qid in (sdoh_qid, cope_qid)
+            if qid
+        ]
+        yield pheno_id, "composite", "quant", values, {
+            "question_concept_id": "|".join(qids),
+            "item_concept": item_concept,
+            "question": label,
+            "answer": f"{n_items}-item prorated sum; requires at least {need} valid items",
+            "ordinal_rule": "composite",
+            "covar_mode": "full",
+            "extra_covariates": {"from_cope": from_cope},
+            "extra_covariates_label": "from_cope",
+            "construction_id": construction_id,
+        }
+
+
+def auditc_score_from_answer(answer: str, rule: str) -> float | None:
+    """Return the standard 0..4 AUDIT-C item score for a response."""
+    value = ordinal_value_from_rule(rule, answer)
+    if value is None:
+        return None
+    if rule == "drink_count_band_midpoint":
+        return {
+            1.5: 0.0,
+            3.5: 1.0,
+            5.5: 2.0,
+            8.0: 3.0,
+            10.0: 4.0,
+        }.get(value)
+    return value
+
+
+def valid_single_auditc_response(questions: dict, qid: str, pid: str, rule: str):
+    """Return (AUDIT-C score, age) for one latest-valid survey response."""
+    got = valid_single_answer_response(questions, qid, pid)
+    if got is None:
+        return None
+    answer, age = got
+    value = auditc_score_from_answer(answer, rule)
+    if value is None:
+        return None
+    return value, age
+
+
+def valid_yes_no_response(questions: dict, qid: str, pid: str):
+    """Return (0/1, age) for an unambiguous latest-valid Yes/No response."""
+    got = valid_single_answer_response(questions, qid, pid)
+    if got is None:
+        return None
+    answer, age = got
+    candidates = {answer_norm(answer), answer_norm(answer_tail(answer))}
+    if "yes" in candidates:
+        return 1.0, age
+    if "no" in candidates:
+        return 0.0, age
+    return None
+
+
+def pooled_auditc_item_values(questions: dict) -> dict[str, dict[str, tuple[float, float, float]]]:
+    """Build explicit Lifestyle-priority, COPE-fill-in AUDIT-C item scores."""
+    pooled = {}
+    for item_code, _label, lifestyle_qid, cope_qid, rule in AUDITC_POOLED_ITEMS:
+        values = {}
+        pids = set()
+        for qid in (lifestyle_qid, cope_qid):
+            if qid in questions:
+                pids.update(questions[qid]["responses"].keys())
+        for pid in pids:
+            lifestyle = valid_single_auditc_response(questions, lifestyle_qid, pid, rule)
+            if lifestyle is not None:
+                values[pid] = (lifestyle[0], lifestyle[1], 0.0)
+                continue
+            cope = valid_single_auditc_response(questions, cope_qid, pid, rule)
+            if cope is not None:
+                values[pid] = (cope[0], cope[1], 1.0)
+        pooled[item_code] = values
+    return pooled
+
+
+def build_pooled_auditc_phenotypes(questions):
+    """Yield pooled AUDIT-C items plus standard and population scores."""
+    ordinal_pooled = pooled_rule_item_values(questions, AUDITC_POOLED_ITEMS)
+    for item_code, label, lifestyle_qid, cope_qid, rule in AUDITC_POOLED_ITEMS:
+        item_values = ordinal_pooled.get(item_code, {})
+        from_cope = {pid: value[2] for pid, value in item_values.items()}
+        values = {
+            pid: (score, age)
+            for pid, (score, age, _source) in item_values.items()
+        }
+        yield AUDITC_POOLED_ITEM_PHENO_IDS[item_code], "ordinal", "quant", values, {
+            "question_concept_id": f"{lifestyle_qid}|{cope_qid}",
+            "item_concept": item_code,
+            "question": f"Pooled Lifestyle/COPE {label}",
+            "answer": "",
+            "ordinal_rule": rule,
+            "covar_mode": "full",
+            "extra_covariates": {"from_cope": from_cope},
+            "extra_covariates_label": "from_cope",
+            "construction_id": AUDITC_POOLED_CONSTRUCTION_ID,
+        }
+
+    pooled = pooled_auditc_item_values(questions)
+    item_codes = [item_code for item_code, *_ in AUDITC_POOLED_ITEMS]
+    pids = set()
+    for item_code in item_codes:
+        pids.update(pooled.get(item_code, {}).keys())
+    gate_q = questions.get(AUDITC_LIFETIME_GATE_QID)
+    if gate_q:
+        pids.update(gate_q["responses"].keys())
+
+    def participant_score(pid: str):
+        scores = []
+        ages = []
+        source_flags = []
+        for item_code in item_codes:
+            item = pooled.get(item_code, {}).get(pid)
+            if item is None:
+                continue
+            score, age, source_flag = item
+            scores.append(score)
+            ages.append(age)
+            source_flags.append(source_flag)
+        if len(scores) < 2:
+            return None
+        finite_ages = [age for age in ages if age is not None and not math.isnan(age)]
+        if not finite_ages:
+            return None
+        score = sum(scores) / len(scores) * len(item_codes)
+        age = sum(finite_ages) / len(finite_ages)
+        from_cope = 1.0 if any(flag == 1.0 for flag in source_flags) else 0.0
+        return score, age, from_cope
+
+    standard_values = {}
+    standard_from_cope = {}
+    population_values = {}
+    population_from_cope = {}
+    frequency_item = pooled["auditc_frequency"]
+    for pid in pids:
+        gate = valid_yes_no_response(questions, AUDITC_LIFETIME_GATE_QID, pid)
+        scored = participant_score(pid)
+
+        # The standard score remains drinkers-only: explicit lifetime No and
+        # COPE "Never" respondents without two answered items are excluded.
+        if (gate is None or gate[0] != 0.0) and scored is not None:
+            standard_values[pid] = (scored[0], scored[1])
+            standard_from_cope[pid] = scored[2]
+
+        if gate is not None and gate[0] == 0.0:
+            if gate[1] is not None and not math.isnan(gate[1]):
+                population_values[pid] = (0.0, gate[1])
+                population_from_cope[pid] = 0.0
+            continue
+        if scored is not None:
+            population_values[pid] = (scored[0], scored[1])
+            population_from_cope[pid] = scored[2]
+            continue
+
+        # COPE did not field the Lifestyle lifetime gate. A COPE-only Q1=Never
+        # is therefore the available evidence for a population score of zero.
+        frequency = frequency_item.get(pid)
+        if gate is None and frequency is not None and frequency[0] == 0.0 and frequency[2] == 1.0:
+            if frequency[1] is not None and not math.isnan(frequency[1]):
+                population_values[pid] = (0.0, frequency[1])
+                population_from_cope[pid] = 1.0
+
+    paired_qids = [
+        qid
+        for _item_code, _label, lifestyle_qid, cope_qid, _rule in AUDITC_POOLED_ITEMS
+        for qid in (lifestyle_qid, cope_qid)
+    ]
+    base_meta = {
+        "question_concept_id": "|".join(paired_qids),
+        "item_concept": "auditc_alcohol",
+        "question": "AUDIT-C alcohol score, pooled Lifestyle/COPE",
+        "answer": "3-item prorated sum; requires at least 2 valid items",
+        "ordinal_rule": "auditc_prorated_0_12",
+        "covar_mode": "full",
+        "extra_covariates": {"from_cope": standard_from_cope},
+        "extra_covariates_label": "from_cope",
+        "construction_id": AUDITC_POOLED_CONSTRUCTION_ID,
+    }
+    yield "comp_auditc_alcohol", "composite", "quant", standard_values, base_meta
+    yield "comp_auditc_alcohol_pop", "derived_population", "quant", population_values, {
+        **base_meta,
+        "question_concept_id": "|".join([AUDITC_LIFETIME_GATE_QID, *paired_qids]),
+        "question": "Population-referenced AUDIT-C alcohol score, pooled Lifestyle/COPE",
+        "answer": (
+            "Lifestyle lifetime abstainers=0; COPE-only Q1 Never=0; otherwise "
+            "3-item prorated sum requiring at least 2 valid items"
+        ),
+        "ordinal_rule": "auditc_population_zero",
+        "extra_covariates": {"from_cope": population_from_cope},
+        "construction_id": AUDITC_POP_CONSTRUCTION_ID,
+    }
+
+
+def build_pooled_wellbeing_phenotypes(questions):
+    """Yield EHHWB-priority/COPE-fill-in well-being items and their sum."""
+    pooled = pooled_rule_item_values(questions, WELLBEING_POOLED_ITEMS)
+    for item_code, label, ehhwb_qid, cope_qid, rule, pheno_id in WELLBEING_POOLED_ITEMS:
+        item_values = pooled.get(item_code, {})
+        from_cope = {pid: value[2] for pid, value in item_values.items()}
+        values = {
+            pid: (score, age)
+            for pid, (score, age, _source) in item_values.items()
+        }
+        yield pheno_id, "ordinal", "quant", values, {
+            "question_concept_id": f"{ehhwb_qid}|{cope_qid}",
+            "item_concept": item_code,
+            "question": f"Pooled EHHWB/COPE {label}",
+            "answer": "",
+            "ordinal_rule": rule,
+            "covar_mode": "full",
+            "extra_covariates": {"from_cope": from_cope},
+            "extra_covariates_label": "from_cope",
+            "construction_id": WELLBEING_CONSTRUCTION_ID,
+        }
+
+    item_codes = [item_code for item_code, *_rest in WELLBEING_POOLED_ITEMS]
+    pids = set()
+    for item_code in item_codes:
+        pids.update(pooled.get(item_code, {}).keys())
+    values = {}
+    from_cope = {}
+    for pid in pids:
+        items = [pooled[item_code].get(pid) for item_code in item_codes]
+        if any(item is None for item in items):
+            continue
+        scores = [item[0] for item in items]
+        ages = [item[1] for item in items if item[1] is not None and not math.isnan(item[1])]
+        if len(ages) != len(items):
+            continue
+        values[pid] = (sum(scores), sum(ages) / len(ages))
+        from_cope[pid] = 1.0 if any(item[2] == 1.0 for item in items) else 0.0
+
+    yield "comp_subjective_wellbeing", "composite", "quant", values, {
+        "question_concept_id": "|".join(
+            qid
+            for _item_code, _label, ehhwb_qid, cope_qid, _rule, _pheno_id
+            in WELLBEING_POOLED_ITEMS
+            for qid in (ehhwb_qid, cope_qid)
+        ),
+        "item_concept": "subjective_wellbeing",
+        "question": "Subjective well-being, pooled EHHWB/COPE two-item sum",
+        "answer": "Happiness plus life-meaning scores; both valid items required",
+        "ordinal_rule": "composite",
+        "covar_mode": "full",
+        "extra_covariates": {"from_cope": from_cope},
+        "extra_covariates_label": "from_cope",
+        "construction_id": WELLBEING_CONSTRUCTION_ID,
+    }
 
 
 def numeric_range_from_manifest(man: dict) -> tuple[float | None, float | None]:
@@ -1911,11 +2582,13 @@ def build_survey_phenotypes(
     sex_specific_items=None,
     skip_qids=None,
     skip_ordinal_qids=None,
+    skip_binary_qids=None,
 ):
     """Yield (pheno_id, trait_type, kind, {iid: (y, age)}, meta)."""
     sex_specific_items = sex_specific_items or {}
     skip_qids = skip_qids or set()
     skip_ordinal_qids = skip_ordinal_qids or set()
+    skip_binary_qids = skip_binary_qids or set()
     for qid, q in questions.items():
         if qid in skip_qids:
             continue
@@ -1945,7 +2618,10 @@ def build_survey_phenotypes(
         is_multi = man["phenotype_class"] == "multi_select"
         item_id = manifest_item_id(man, qid)
         # ---- binary one-vs-rest per observed valid answer ------------------
-        if disp in ("ordinal_and_binary", "binary_only", "nominal_binary", "flagged_review"):
+        if (
+            qid not in skip_binary_qids
+            and disp in ("ordinal_and_binary", "binary_only", "nominal_binary", "flagged_review")
+        ):
             # collect the valid (non-missing) answer universe for this question
             valid_answers = set()
             for _, (_, answers) in responses.items():
@@ -2026,6 +2702,35 @@ def build_survey_phenotypes(
             yield f"ord_{item_id}", "ordinal", "quant", values, apply_sex_specific_item_rule(meta, sex_specific_items)
 
 
+def build_legacy_xgb_binary_phenotypes(questions, qids):
+    """Preserve existing one-hot IDs for questions gaining canonical ordinals."""
+    for qid in sorted(qids):
+        q = questions.get(qid)
+        if not q:
+            continue
+        responses = q["responses"]
+        valid_answers = {
+            answer
+            for _age, answers in responses.values()
+            for answer in answers
+            if not is_missing_answer(answer)
+        }
+        for answer in sorted(valid_answers):
+            values = {}
+            for pid, (age, answers) in responses.items():
+                non_missing = {a for a in answers if not is_missing_answer(a)}
+                if not non_missing:
+                    continue
+                values[pid] = (1.0 if answer in non_missing else 0.0, age)
+            yield f"bin_xgb_q{qid}__{answer_slug(answer)}", "binary", "binary", values, {
+                "question_concept_id": qid,
+                "item_concept": f"xgb_q{qid}",
+                "question": q["question"],
+                "answer": answer,
+                "ordinal_rule": "",
+            }
+
+
 def build_numeric_phenotypes(questions, qman, sex_specific_items=None, skip_qids=None):
     sex_specific_items = sex_specific_items or {}
     skip_qids = skip_qids or set()
@@ -2059,6 +2764,33 @@ def build_numeric_phenotypes(questions, qman, sex_specific_items=None, skip_qids
             "ordinal_rule": "",
         }
         yield f"num_{item_id}", "numeric", "quant", values, apply_sex_specific_item_rule(meta, sex_specific_items)
+
+
+def build_sdoh_move_count_ordinal(questions):
+    """Emit the requested ordered-level companion to numeric SDOH move count."""
+    qid = "40192441"
+    q = questions.get(qid)
+    if not q:
+        return
+    values = {}
+    for pid, (age, answers) in q["responses"].items():
+        if len(answers) != 1:
+            continue
+        try:
+            value = float(answers[0])
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(value) or value < 0.0 or value > 15.0 or not value.is_integer():
+            continue
+        values[pid] = (value, age)
+    yield "ord_urs_8c", "ordinal", "quant", values, {
+        "question_concept_id": qid,
+        "item_concept": "urs_8c",
+        "question": q["question"],
+        "answer": "integer move count treated as ordered levels 0-15",
+        "ordinal_rule": "integer_count_0_15",
+        "construction_id": "sdoh_move_count_ordinal_v1",
+    }
 
 
 def build_population_gated_phenotypes(questions, item_labels, qid_by_item=None):
@@ -2131,18 +2863,6 @@ def build_population_gated_phenotypes(questions, item_labels, qid_by_item=None):
 
     def ordinal_value(pid, r, rule):
         vals = [ordinal_value_from_rule(rule, a) for a in nonmiss(pid, r)]
-        vals = [v for v in vals if v is not None]
-        return vals[0] if len(vals) == 1 else None
-
-    def audit_drinks_per_occasion_score(pid, r):
-        score = {
-            "1 or 2": 0.0,
-            "3 or 4": 1.0,
-            "5 or 6": 2.0,
-            "7 to 9": 3.0,
-            "10 or more": 4.0,
-        }
-        vals = [score.get(answer_norm(a)) for a in nonmiss(pid, r)]
         vals = [v for v in vals if v is not None]
         return vals[0] if len(vals) == 1 else None
 
@@ -2284,7 +3004,6 @@ def build_population_gated_phenotypes(questions, item_labels, qid_by_item=None):
             "binge_freq_0_4_population_zero",
         ),
     ]
-    audit_item_values = {}
     for pheno_id, code, rule, question, answer, ordinal_rule in alcohol_specs:
         r = resp_item(code)
         values = {}
@@ -2300,54 +3019,12 @@ def build_population_gated_phenotypes(questions, item_labels, qid_by_item=None):
                 a = age_of(pid, r, alcohol_gate)
                 if a is not None:
                     values[pid] = (v, a)
-        audit_item_values[code] = values
         yield (pheno_id, "ordinal", "quant", values,
                source_meta([qid_for_item("alcohol_alcoholparticipant"), qid_for_item(code)],
                            f"alcohol_alcoholparticipant|{code}",
                            question, answer,
                            "alcohol_population_zero_v1",
                            ordinal_rule=ordinal_rule))
-
-    audit_freq = resp_item("alcohol_drinkfrequencypastyear")
-    audit_qty = resp_item("alcohol_averagedailydrinkcount")
-    audit_binge = resp_item("alcohol_6ormoredrinksoccurence")
-    audit_values = {}
-    audit_pids = set(alcohol_gate) | set(audit_freq) | set(audit_qty) | set(audit_binge)
-    for pid in audit_pids:
-        stem = single_yes_no(pid, alcohol_gate)
-        if stem == 0.0:
-            a = age_of(pid, alcohol_gate)
-            if a is not None:
-                audit_values[pid] = (0.0, a)
-            continue
-        scores = [
-            ordinal_value(pid, audit_freq, "audit_freq_0_4"),
-            audit_drinks_per_occasion_score(pid, audit_qty),
-            ordinal_value(pid, audit_binge, "binge_freq_0_4"),
-        ]
-        scores = [v for v in scores if v is not None]
-        if len(scores) < 2:
-            continue
-        a = age_of(pid, audit_freq, audit_qty, audit_binge, alcohol_gate)
-        if a is not None:
-            audit_values[pid] = (sum(scores) / len(scores) * 3.0, a)
-    yield ("comp_auditc_alcohol_pop", "derived_population", "quant", audit_values,
-           source_meta(
-               [
-                   qid_for_item("alcohol_alcoholparticipant"),
-                   qid_for_item("alcohol_drinkfrequencypastyear"),
-                   qid_for_item("alcohol_averagedailydrinkcount"),
-                   qid_for_item("alcohol_6ormoredrinksoccurence"),
-               ],
-               (
-                   "alcohol_alcoholparticipant|alcohol_drinkfrequencypastyear|"
-                   "alcohol_averagedailydrinkcount|alcohol_6ormoredrinksoccurence"
-               ),
-               "Population-referenced AUDIT-C alcohol score",
-               "lifetime alcohol No=0; drinkers use prorated 3-item AUDIT-C score requiring at least 2 valid items",
-               "auditc_population_zero_v1",
-               ordinal_rule="auditc_population_zero",
-           ))
 
     # ---- marijuana/cannabis frequency: non-users at zero ---------------------
     drug_gate = resp_item("recreationaldruguse_whichdrugsused")
@@ -4155,6 +4832,57 @@ def prepare_and_write(
     }
 
 
+def load_reusable_phenotype_rows(outdir: Path) -> dict[str, dict[str, str]]:
+    """Load the prior runnable manifest for explicit matrix reuse."""
+    path = outdir / "metadata" / "phenotype_manifest.tsv"
+    if not path.exists() or path.stat().st_size == 0:
+        return {}
+    with open(path, newline="") as handle:
+        return {
+            row["pheno_id"]: row
+            for row in csv.DictReader(handle, delimiter="\t")
+            if row.get("pheno_id")
+        }
+
+
+def reusable_preparation(
+    pheno_id: str,
+    kind: str,
+    old_row: dict[str, str] | None,
+    outdir: Path,
+) -> dict[str, object] | None:
+    """Return prior preparation metadata when all matrix files are complete."""
+    if not old_row or old_row.get("kind") != kind:
+        return None
+    raw_path = Path(old_row.get("raw_pheno_path", ""))
+    pheno_path = Path(old_row.get("pheno_path", ""))
+    keep_path = outdir / "phenotypes" / f"{pheno_id}.keep.tsv"
+    paths = (raw_path, pheno_path, keep_path)
+    if any(not path.is_file() or path.stat().st_size == 0 for path in paths):
+        return None
+    pheno_name = old_row.get("pheno_name", "")
+    if not pheno_name:
+        return None
+    try:
+        with open(raw_path) as handle:
+            if handle.readline().rstrip("\n") != f"FID\tIID\t{pheno_id}_raw":
+                return None
+        with open(pheno_path) as handle:
+            if handle.readline().rstrip("\n") != f"FID\tIID\t{pheno_name}":
+                return None
+        return {
+            "raw_path": raw_path,
+            "pheno_path": pheno_path,
+            "keep_path": keep_path,
+            "pheno_name": pheno_name,
+            "n": int(old_row.get("n", "0")),
+            "n_cases": int(old_row.get("n_cases") or "0"),
+            "n_controls": int(old_row.get("n_controls") or "0"),
+        }
+    except (OSError, ValueError):
+        return None
+
+
 def final_gwas_paths(outdir: Path, pheno_id: str, pheno_name: str) -> tuple[Path, Path, Path]:
     pdir = outdir / "gwas" / pheno_id
     prefix = pdir / pheno_id
@@ -4402,22 +5130,50 @@ def main() -> None:
     ap.add_argument("--plink2-bin", default=shutil.which("plink2") or "plink2")
     ap.add_argument("--skip-gwas", action="store_true")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument(
+        "--reuse-existing-phenotypes",
+        action="store_true",
+        help=(
+            "Reuse complete prior raw/residual/keep matrices for unchanged IDs; "
+            "definition-changed IDs are always rebuilt."
+        ),
+    )
     args = ap.parse_args()
     if args.gwas_batch_size < 1:
         raise SystemExit("--gwas-batch-size must be >= 1")
     if args.gwas_workdir is None:
         args.gwas_workdir = args.outdir / "work" / "gwas"
 
+    reusable_rows = (
+        load_reusable_phenotype_rows(args.outdir)
+        if args.reuse_existing_phenotypes
+        else {}
+    )
+    if reusable_rows:
+        log(
+            f"eligible prior phenotype matrices={len(reusable_rows)}; "
+            f"forced rebuild IDs={len(REBUILD_EXISTING_PHENO_IDS)}"
+        )
+
     keep = set(load_keep(args.keep))
-    sex = load_sex(args.sex)
-    pcs = load_pcs(args.pcs)
-    fid_by_iid = load_fam_fids(Path(f"{args.bfile}.fam"))
+    sex = load_sex(args.sex, keep)
+    pcs = load_pcs(args.pcs, keep)
+    fid_by_iid = load_fam_fids(Path(f"{args.bfile}.fam"), keep)
     log(f"keep={len(keep)}  sex={len(sex)}  pcs={len(pcs)}  fam={len(fid_by_iid)}")
 
     qman, qman_by_item, qman_rows = load_question_manifest(args.question_manifest)
     qman_by_qid, qid_by_item = load_live_question_crosswalk(
         args.aou_question_concepts, qman_rows, qman
     )
+    explicit_qid_bindings = 0
+    for qid, item in EXPLICIT_LIVE_QID_TO_ITEM.items():
+        row = qman_by_item.get(compact_key(item))
+        if row is None:
+            raise RuntimeError(f"Explicit live-qid item is absent from question manifest: {qid} -> {item}")
+        qman_by_qid[qid] = row
+        qid_by_item[item] = qid
+        qid_by_item[compact_key(item)] = qid
+        explicit_qid_bindings += 1
     qman.update(qman_by_qid)
     ea_proxy_rows = load_ea_proxy_feature_sources(args.ea_proxy_feature_manifest, qman)
     qman_rows.extend(ea_proxy_rows)
@@ -4442,6 +5198,7 @@ def main() -> None:
     sex_specific_items = load_sex_specific_items(args.sex_specific_items)
     log(
         f"manifest questions={len(qman_rows)}  live qid links={len(qman_by_qid)}  "
+        f"explicit qid bindings={explicit_qid_bindings}  "
         f"ea_proxy_supplemental={len(ea_proxy_rows)}  "
         f"live_qid_overrides={len(live_override_rows)}  "
         f"ordinal answer maps={len(ord_lookup)}  item labels={len(item_labels)}  "
@@ -4463,6 +5220,10 @@ def main() -> None:
     allowed_qids.update(PHQ_GAD_SOURCE_QIDS)
     allowed_qids.update(PSS_SOURCE_QIDS)
     allowed_qids.update(MOS_SS_SOURCE_QIDS)
+    allowed_qids.update(CROSS_SURVEY_COMPOSITE_SOURCE_QIDS)
+    allowed_qids.update(AUDITC_SOURCE_QIDS)
+    allowed_qids.update(WELLBEING_SOURCE_QIDS)
+    allowed_qids.update(TARGETED_SDOH_ORDINAL_QID_TO_ITEM)
     allowed_qids.update(BASELINE_COPE_SOURCE_QIDS)
     allowed_qids.update(POP_GATED_SOURCE_QIDS)
     allowed_question_texts = {
@@ -4500,6 +5261,27 @@ def main() -> None:
         exact=MOS_SS_COMPOSITE_SLUGS | {"comp_social_support", "comp_social_support_tangible"},
     ):
         builders.append(build_pooled_mos_ss_phenotypes(questions))
+    if wants_phenotype_source(
+        only,
+        exact=CROSS_SURVEY_COMPOSITE_SLUGS
+        | set(CROSS_SURVEY_POOLED_ITEM_PHENO_IDS.values())
+        | {"comp_ucla_loneliness", "comp_everyday_discrimination"},
+    ):
+        builders.append(build_cross_survey_composite_phenotypes(questions))
+    if wants_phenotype_source(
+        only,
+        exact=AUDITC_COMPOSITE_SLUGS
+        | set(AUDITC_POOLED_ITEM_PHENO_IDS.values())
+        | {"comp_auditc_alcohol", "comp_auditc_alcohol_pop"},
+    ):
+        builders.append(build_pooled_auditc_phenotypes(questions))
+    if wants_phenotype_source(
+        only,
+        exact=WELLBEING_COMPOSITE_SLUGS
+        | WELLBEING_POOLED_ITEM_PHENO_IDS
+        | {"comp_subjective_wellbeing"},
+    ):
+        builders.append(build_pooled_wellbeing_phenotypes(questions))
     if wants_phenotype_source(only, prefixes=BASELINE_COPE_PHENO_PREFIXES):
         builders.append(build_pooled_baseline_cope_phenotypes(
             questions, qman, ord_lookup, sex_specific_items
@@ -4514,7 +5296,13 @@ def main() -> None:
     )
     pooled_composite_slugs = (
         PHQ_GAD_COMPOSITE_SLUGS | PSS_COMPOSITE_SLUGS | MOS_SS_COMPOSITE_SLUGS
+        | CROSS_SURVEY_COMPOSITE_SLUGS | AUDITC_COMPOSITE_SLUGS
+        | WELLBEING_COMPOSITE_SLUGS
     )
+    if wants_phenotype_source(only, prefixes=("bin_xgb_q",)):
+        builders.append(build_legacy_xgb_binary_phenotypes(
+            questions, TARGETED_LEGACY_XGB_BINARY_QIDS
+        ))
     if wants_phenotype_source(only, prefixes=("bin_", "ord_")):
         builders.append(build_survey_phenotypes(
             questions,
@@ -4522,8 +5310,13 @@ def main() -> None:
             ord_lookup,
             sex_specific_items,
             skip_qids=generic_survey_skip_qids,
-            skip_ordinal_qids=HCAU_ALREADY_COMPLETED_ORDINAL_QIDS,
+            skip_ordinal_qids=(
+                HCAU_ALREADY_COMPLETED_ORDINAL_QIDS | POOLED_ITEM_ORDINAL_SOURCE_QIDS
+            ),
+            skip_binary_qids=TARGETED_ORDINAL_ONLY_QIDS,
         ))
+    if wants_phenotype_source(only, exact=("ord_urs_8c",)):
+        builders.append(build_sdoh_move_count_ordinal(questions))
     if wants_phenotype_source(only, prefixes=("num_",)):
         builders.append(build_numeric_phenotypes(
             questions, qman, sex_specific_items, skip_qids=generic_survey_skip_qids
@@ -4581,6 +5374,7 @@ def main() -> None:
     skipped_rows = []
     gwas_jobs = []
     seen_pheno_ids = set()
+    reused_phenotype_files = 0
     metadir = args.outdir / "metadata"
     metadir.mkdir(parents=True, exist_ok=True)
 
@@ -4633,18 +5427,29 @@ def main() -> None:
                 })
                 continue
             extra_covariates = meta.get("extra_covariates", {})
-            prep = prepare_and_write(
-                pheno_id,
-                kind,
-                values,
-                sex,
-                pcs,
-                fid_by_iid,
-                args.outdir,
-                meta.get("covar_mode", "full"),
-                meta.get("sex_filter", "all"),
-                extra_covariates,
-            )
+            prep = None
+            if pheno_id not in REBUILD_EXISTING_PHENO_IDS:
+                prep = reusable_preparation(
+                    pheno_id,
+                    kind,
+                    reusable_rows.get(pheno_id),
+                    args.outdir,
+                )
+            if prep is not None:
+                reused_phenotype_files += 1
+            else:
+                prep = prepare_and_write(
+                    pheno_id,
+                    kind,
+                    values,
+                    sex,
+                    pcs,
+                    fid_by_iid,
+                    args.outdir,
+                    meta.get("covar_mode", "full"),
+                    meta.get("sex_filter", "all"),
+                    extra_covariates,
+                )
             if "skip_reason" in prep:
                 skipped_rows.append({
                     "pheno_id": pheno_id,
@@ -4762,10 +5567,14 @@ def main() -> None:
                 "keep": str(args.keep),
                 "covariates": ["age_c", "sex_c", "age_c_sex_c_inter", *PC_COLUMNS],
                 "covariate_notes": {
-                    "latest_survey_response": "latest valid response per participant/question; latest missing response only if no valid response exists",
+                    "latest_survey_response": "missing responses discarded before selecting the latest valid response per participant/question",
                     "pooled_phq_gad": f"{PHQ_GAD_CONSTRUCTION_ID}; adds centered from_cope covariate",
                     "pooled_pss": f"{PSS_CONSTRUCTION_ID}; adds centered from_cope covariate",
                     "pooled_mos_ss": f"{MOS_SS_CONSTRUCTION_ID}; adds centered from_cope covariate",
+                    "pooled_ucla": f"{UCLA_CONSTRUCTION_ID}; adds centered from_cope covariate",
+                    "pooled_discrimination": f"{EDS_CONSTRUCTION_ID}; adds centered from_cope covariate",
+                    "pooled_auditc": f"{AUDITC_POP_CONSTRUCTION_ID}; adds centered from_cope covariate",
+                    "pooled_subjective_wellbeing": f"{WELLBEING_CONSTRUCTION_ID}; adds centered from_cope covariate",
                     "pooled_baseline_cope": f"{BASELINE_COPE_CONSTRUCTION_ID}; adds centered from_cope covariate",
                     "sexpc": "external scores use sex_c + PC1..PC10",
                     "agepc": "sex-specific phenotypes use age_c + PC1..PC10",
@@ -4775,6 +5584,7 @@ def main() -> None:
                 "min_quant_n": MIN_QUANT_N,
                 "n_phenotypes_passing_qc": len(manifest_rows),
                 "n_phenotypes_skipped_qc": len(skipped_rows),
+                "n_phenotype_matrices_reused": reused_phenotype_files,
                 "skip_gwas": bool(args.skip_gwas),
             },
             indent=2,

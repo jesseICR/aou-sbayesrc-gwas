@@ -290,6 +290,10 @@ TEMPLATES: dict[str, dict] = {
         },
         "Amount Not at all..An extreme amount; higher = more.",
     ),
+    "family_history_awareness_0_2": _t(
+        {"none at all": 0, "some": 1, "a lot": 2},
+        "Knowledge of family medical history None..A lot; higher = more awareness.",
+    ),
     "distress_0_4": _t(
         {
             "not distressing at all. it was a positive experience": 0,

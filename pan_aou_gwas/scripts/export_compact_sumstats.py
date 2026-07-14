@@ -37,6 +37,41 @@ SURVEY_ABBREVIATIONS = {
     "The Basics": "Basics",
 }
 
+POOLED_SOURCE_DESCRIPTORS = {
+    "phq_gad_ehhwb_cope_pooled_v1": (
+        "EHW+COPE",
+        "Emotional Health History and Well-Being + COVID-19 Participant Experience (COPE)",
+    ),
+    "pss_sdoh_cope_pooled_v1": (
+        "SDOH+COPE",
+        "Social Determinants of Health + COVID-19 Participant Experience (COPE)",
+    ),
+    "mos_ss_sdoh_cope_pooled_v1": (
+        "SDOH+COPE",
+        "Social Determinants of Health + COVID-19 Participant Experience (COPE)",
+    ),
+    "ucla_sdoh_cope_pooled_v1": (
+        "SDOH+COPE",
+        "Social Determinants of Health + COVID-19 Participant Experience (COPE)",
+    ),
+    "eds_sdoh_cope_harmonized_4level_v1": (
+        "SDOH+COPE",
+        "Social Determinants of Health + COVID-19 Participant Experience (COPE)",
+    ),
+    "auditc_lifestyle_cope_pooled_v1": (
+        "Lifestyle+COPE",
+        "Lifestyle + COVID-19 Participant Experience (COPE)",
+    ),
+    "auditc_population_zero_pooled_v1": (
+        "Lifestyle+COPE",
+        "Lifestyle + COVID-19 Participant Experience (COPE)",
+    ),
+    "subjective_wellbeing_ehw_cope_pooled_v1": (
+        "EHW+COPE",
+        "Emotional Health History and Well-Being + COVID-19 Participant Experience (COPE)",
+    ),
+}
+
 
 def read_tsv(path: Path, **kwargs) -> pd.DataFrame:
     return pd.read_csv(path, sep="\t", **kwargs)
@@ -324,9 +359,14 @@ def build_metadata(
         valid_options = [label for _, label in opts]
         method = construction_method(row, qrow)
         semantics = selection_semantics(row, qrow)
+        construction_id = clean_cell(row.get("construction_id", ""))
+        pooled_source = POOLED_SOURCE_DESCRIPTORS.get(str(construction_id))
         survey_name = qrow.get("survey", "") if qrow else invrow.get("survey", "")
         pheno_id = str(row["pheno_id"])
-        source = source_abbrev(survey_name, pheno_id)
+        if pooled_source:
+            source, survey_name = pooled_source
+        else:
+            source = source_abbrev(survey_name, pheno_id)
         catalog_rows.append({
             "pheno_id": pheno_id,
             "trait_label": row.get("question", "") or pheno_id,
@@ -337,7 +377,7 @@ def build_metadata(
             "n_controls": row.get("n_controls", ""),
             "sex_filter": row.get("sex_filter", "all") or "all",
             "extra_covariates": row.get("extra_covariates", ""),
-            "construction_id": row.get("construction_id", ""),
+            "construction_id": construction_id,
             "source_abbrev": source,
             "source_name": survey_name,
             "item_concept": item,
@@ -435,6 +475,10 @@ def build_metadata(
         {"source_abbrev": "PhysicalMeasurements", "source_name": "AoU physical measurement table"},
         {"source_abbrev": "Composite", "source_name": "Derived multi-item survey composite"},
     ])
+    source_rows.extend(
+        {"source_abbrev": abbrev, "source_name": name}
+        for abbrev, name in sorted(set(POOLED_SOURCE_DESCRIPTORS.values()))
+    )
     seen_sources = {(r["source_abbrev"], r["source_name"]) for r in source_rows}
     for name in sorted(survey_names):
         row = {"source_abbrev": source_abbrev(name), "source_name": name}
