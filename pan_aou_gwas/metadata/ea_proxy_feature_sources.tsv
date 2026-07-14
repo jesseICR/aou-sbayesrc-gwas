@@ -22,7 +22,7 @@ question_concept_id	survey	item_name	encoding	include_exclude	external_analog	no
 1585680	Lifestyle	Past 3 Month Use Frequency: Sedative 3 Month Use	one_hot	include		primary_full feature
 1585686	Lifestyle	Past 3 Month Use Frequency: Hallucinogen 3 Month Use	one_hot	include		primary_full feature
 1585692	Lifestyle	Past 3 Month Use Frequency: Street Opioid 3 Month Use	one_hot	include		primary_full feature
-1585698	Lifestyle	Past 3 Month Use Frequency: Prescription Opioid 3 Month Use	one_hot	include		primary_full feature
+1585698	Lifestyle	Past 3 Month Use Frequency: Prescription Opioid 3 Month Use	ordinal	include		primary_full feature; curated subuse_lifestyle_0_4 scale
 1585704	Lifestyle	Past 3 Month Use Frequency: Other 3 Month Use	one_hot	include		primary_full feature
 1585711	Overall Health	Overall Health: General Health	ordinal	include		primary_full feature
 1585717	Overall Health	Overall Health: General Quality	ordinal	include		primary_full feature
