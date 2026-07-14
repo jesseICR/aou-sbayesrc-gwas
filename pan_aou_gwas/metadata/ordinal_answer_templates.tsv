@@ -158,6 +158,9 @@ subuse_lifestyle_0_4	once or twice	1	high	Substance-use frequency Never..Daily o
 subuse_lifestyle_0_4	monthly	2	high	Substance-use frequency Never..Daily or almost daily; higher = more frequent.
 subuse_lifestyle_0_4	weekly	3	high	Substance-use frequency Never..Daily or almost daily; higher = more frequent.
 subuse_lifestyle_0_4	daily or almost daily	4	high	Substance-use frequency Never..Daily or almost daily; higher = more frequent.
+family_history_awareness_0_2	none at all	0	high	Knowledge of family medical history None..A lot; higher = more awareness.
+family_history_awareness_0_2	some	1	high	Knowledge of family medical history None..A lot; higher = more awareness.
+family_history_awareness_0_2	a lot	2	high	Knowledge of family medical history None..A lot; higher = more awareness.
 smoke_freq_0_2	not at all	0	high	Current smoking/use frequency Not at all..Every day; higher = more frequent.
 smoke_freq_0_2	some days	1	high	Current smoking/use frequency Not at all..Every day; higher = more frequent.
 smoke_freq_0_2	every day	2	high	Current smoking/use frequency Not at all..Every day; higher = more frequent.
