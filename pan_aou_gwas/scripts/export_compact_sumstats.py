@@ -10,6 +10,7 @@ import math
 import os
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from numbers import Integral, Real
 
@@ -823,39 +824,55 @@ def select_manifest_rows(manifest: pd.DataFrame, pheno_ids: list[str], max_pheno
     return selected.reset_index(drop=True)
 
 
-def export_gwas_files(args: argparse.Namespace, manifest: pd.DataFrame, reference: pd.DataFrame) -> list[dict[str, object]]:
-    qc_rows: list[dict[str, object]] = []
-    gwas_dir = args.out_dir / "gwas"
-    total = len(manifest)
-    for i, row in manifest.iterrows():
-        pheno_id = str(row["pheno_id"])
-        out_path = gwas_dir / f"{pheno_id}.parquet"
-        source = source_path(row)
-        if not args.force and parquet_complete(out_path, len(reference)):
-            metrics = parquet_stored_metrics(out_path)
-            qc_rows.append({
-                "pheno_id": pheno_id,
-                "status": "skipped_existing",
-                "source": str(source),
-                "export_parquet": str(out_path),
-                **metrics,
-                "elapsed_sec": 0,
-            })
-            continue
-        start = time.time()
-        df = read_source_sumstats(source)
-        metrics = write_gwas_parquet(df, reference, out_path)
-        elapsed = time.time() - start
-        qc_rows.append({
+def export_gwas_file(
+    args: argparse.Namespace,
+    row: pd.Series,
+    reference: pd.DataFrame,
+    gwas_dir: Path,
+) -> dict[str, object]:
+    pheno_id = str(row["pheno_id"])
+    out_path = gwas_dir / f"{pheno_id}.parquet"
+    source = source_path(row)
+    if not args.force and parquet_complete(out_path, len(reference)):
+        metrics = parquet_stored_metrics(out_path)
+        return {
             "pheno_id": pheno_id,
-            "status": "exported",
+            "status": "skipped_existing",
             "source": str(source),
             "export_parquet": str(out_path),
             **metrics,
-            "elapsed_sec": round(elapsed, 3),
-        })
-        if (i + 1) % args.progress_every == 0 or i + 1 == total:
-            print(f"exported {i + 1}/{total}: {pheno_id} ({elapsed:.1f}s, flips={metrics['n_flipped_beta_rows']})", flush=True)
+            "elapsed_sec": 0,
+        }
+    start = time.time()
+    df = read_source_sumstats(source)
+    metrics = write_gwas_parquet(df, reference, out_path)
+    return {
+        "pheno_id": pheno_id,
+        "status": "exported",
+        "source": str(source),
+        "export_parquet": str(out_path),
+        **metrics,
+        "elapsed_sec": round(time.time() - start, 3),
+    }
+
+
+def export_gwas_files(args: argparse.Namespace, manifest: pd.DataFrame, reference: pd.DataFrame) -> list[dict[str, object]]:
+    gwas_dir = args.out_dir / "gwas"
+    total = len(manifest)
+    rows = [row for _, row in manifest.iterrows()]
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        qc_rows = list(
+            executor.map(
+                lambda row: export_gwas_file(args, row, reference, gwas_dir),
+                rows,
+            )
+        )
+    exported = sum(row["status"] == "exported" for row in qc_rows)
+    print(
+        f"processed {total}/{total}: exported={exported} "
+        f"skipped_existing={total - exported} workers={args.workers}",
+        flush=True,
+    )
     return qc_rows
 
 
@@ -898,11 +915,14 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--force-freq", action="store_true")
     ap.add_argument("--metadata-only", action="store_true")
     ap.add_argument("--progress-every", type=int, default=25)
+    ap.add_argument("--workers", type=int, default=1, help="Parallel per-phenotype parquet conversions.")
     args = ap.parse_args()
     if args.max_phenotypes is not None and args.max_phenotypes < 1:
         raise SystemExit("--max-phenotypes must be >= 1")
     if args.progress_every < 1:
         raise SystemExit("--progress-every must be >= 1")
+    if args.workers < 1:
+        raise SystemExit("--workers must be >= 1")
     if args.skipped is None:
         args.skipped = args.manifest.parent / "skipped_phenotypes.tsv"
     return args
