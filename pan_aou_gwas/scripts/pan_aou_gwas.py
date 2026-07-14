@@ -834,6 +834,62 @@ REBUILD_EXISTING_PHENO_IDS = (
     | {f"ord_cidi5_{item}_pop" for item in range(6, 15)}
 )
 
+# Preserve the already-completed one-vs-rest binary IDs when a repaired
+# codebook binding adds a canonical ordinal for the same live question.  These
+# prefixes are output identity, not scoring logic: case/control assignments are
+# unchanged and are checked during migration against the prior manifest.
+LEGACY_BINARY_ITEM_ID_BY_QID = {
+    "1703979": "live_q1703979",
+    "1703982": "live_q1703982",
+    "1704006": "live_q1704006",
+    "1704032": "live_q1704032",
+    "1704040": "live_q1704040",
+    "1704043": "live_q1704043",
+    "1704050": "live_q1704050",
+    "1704052": "live_q1704052",
+    "1704053": "live_q1704053",
+    "40192380": "live_q40192380",
+    "40192383": "live_q40192383",
+    "40192384": "xgb_q40192384",
+    "40192386": "xgb_q40192386",
+    "40192390": "xgb_q40192390",
+    "40192394": "live_q40192394",
+    "40192395": "live_q40192395",
+    "40192397": "xgb_q40192397",
+    "40192398": "xgb_q40192398",
+    "40192400": "xgb_q40192400",
+    "40192404": "xgb_q40192404",
+    "40192412": "xgb_q40192412",
+    "40192416": "live_q40192416",
+    "40192420": "xgb_q40192420",
+    "40192423": "live_q40192423",
+    "40192428": "live_q40192428",
+    "40192451": "live_q40192451",
+    "40192456": "xgb_q40192456",
+    "40192457": "xgb_q40192457",
+    "40192469": "xgb_q40192469",
+    "40192476": "xgb_q40192476",
+    "40192490": "live_q40192490",
+    "40192493": "xgb_q40192493",
+    "40192494": "xgb_q40192494",
+    "40192496": "live_q40192496",
+    "40192500": "xgb_q40192500",
+    "40192501": "xgb_q40192501",
+    "40192503": "live_q40192503",
+    "40192504": "xgb_q40192504",
+    "40192505": "live_q40192505",
+    "40192507": "xgb_q40192507",
+    "40192516": "sdoh_ucla_ls8_15",
+    "40192519": "live_q40192519",
+    "40192522": "xgb_q40192522",
+    "43530437": "xgb_q43530437",
+    "43530438": "xgb_q43530438",
+    "43530439": "xgb_q43530439",
+    "43530557": "xgb_q43530557",
+    "43530559": "xgb_q43530559",
+    "43530595": "xgb_q43530595",
+}
+
 # These questions already have completed one-vs-rest GWAS under stable
 # bin_xgb_q<qid> IDs.  Keep those IDs in the rebuilt manifest while adding only
 # the requested canonical ordinal companion; do not rerun duplicate binaries
@@ -842,12 +898,14 @@ REBUILD_EXISTING_PHENO_IDS = (
 TARGETED_LEGACY_XGB_BINARY_QIDS = (
     set(TARGETED_SDOH_ORDINAL_QID_TO_ITEM)
     | CROSS_SURVEY_PRIMARY_QIDS
+    | set(LEGACY_BINARY_ITEM_ID_BY_QID)
     | {"1585698"}
 )
 TARGETED_ORDINAL_ONLY_QIDS = (
     set(TARGETED_ADDITIONAL_ORDINAL_QID_TO_ITEM)
     | set(TARGETED_SDOH_ORDINAL_QID_TO_ITEM)
     | CROSS_SURVEY_PRIMARY_QIDS
+    | set(LEGACY_BINARY_ITEM_ID_BY_QID)
 )
 
 TARGETED_COMPOSITE_QID_TO_ITEM = {
@@ -2731,9 +2789,10 @@ def build_legacy_xgb_binary_phenotypes(questions, qids):
                 if not non_missing:
                     continue
                 values[pid] = (1.0 if answer in non_missing else 0.0, age)
-            yield f"bin_xgb_q{qid}__{answer_slug(answer)}", "binary", "binary", values, {
+            item_id = LEGACY_BINARY_ITEM_ID_BY_QID.get(qid, f"xgb_q{qid}")
+            yield f"bin_{item_id}__{answer_slug(answer)}", "binary", "binary", values, {
                 "question_concept_id": qid,
-                "item_concept": f"xgb_q{qid}",
+                "item_concept": item_id,
                 "question": q["question"],
                 "answer": answer,
                 "ordinal_rule": "",

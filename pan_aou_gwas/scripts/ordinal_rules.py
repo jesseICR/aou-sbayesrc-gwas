@@ -642,9 +642,13 @@ ITEM_OVERRIDES: dict[str, dict] = {
         {
             "never": 0,
             "more than 5 years ago": 1,
+            "2 to 5 years ago": 2,
             "more than 2 years, but not more than 5 years ago": 2,
+            "1 to 2 years ago": 3,
             "more than 1 year, but not more than 2 years ago": 3,
+            "6 mo to 1 year ago": 4,
             "more than 6 months, but not more than 1 year ago": 4,
+            "6mo or less": 5,
             "6 months or less": 5,
         },
         "Recency of last professional contact; higher = more recent; never = 0.",
