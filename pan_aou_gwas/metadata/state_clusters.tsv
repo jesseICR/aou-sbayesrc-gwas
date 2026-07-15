@@ -1,0 +1,13 @@
+cluster	group	n_states	states
+census_northeast	census_region	9	Maine|New Hampshire|Vermont|Massachusetts|Rhode Island|Connecticut|New York|New Jersey|Pennsylvania
+census_midwest	census_region	12	Ohio|Michigan|Indiana|Illinois|Wisconsin|Minnesota|Iowa|Missouri|North Dakota|South Dakota|Nebraska|Kansas
+census_south	census_region	16	Delaware|Maryland|Virginia|West Virginia|North Carolina|South Carolina|Georgia|Florida|Kentucky|Tennessee|Alabama|Mississippi|Arkansas|Louisiana|Oklahoma|Texas
+census_west	census_region	11	Montana|Idaho|Wyoming|Colorado|Utah|Nevada|Arizona|New Mexico|Washington|Oregon|California
+new_england	subregion	6	Maine|New Hampshire|Vermont|Massachusetts|Rhode Island|Connecticut
+great_lakes	subregion	8	Minnesota|Wisconsin|Illinois|Indiana|Michigan|Ohio|Pennsylvania|New York
+rocky_mountain	subregion	5	Montana|Idaho|Wyoming|Colorado|Utah
+sunbelt	subregion	11	Florida|Georgia|South Carolina|Alabama|Mississippi|Louisiana|Texas|New Mexico|Arizona|Nevada|California
+swing_battleground	political	7	Arizona|Georgia|Michigan|Nevada|North Carolina|Pennsylvania|Wisconsin
+solid_blue	political	14	California|Oregon|Washington|Colorado|New Mexico|Illinois|New York|New Jersey|Connecticut|Rhode Island|Massachusetts|Vermont|Maryland|Delaware
+lean_blue	political	4	Maine|Minnesota|New Hampshire|Virginia
+solid_red	political	23	Texas|Oklahoma|Kansas|Nebraska|South Dakota|North Dakota|Montana|Wyoming|Idaho|Utah|Missouri|Arkansas|Louisiana|Mississippi|Alabama|Tennessee|Kentucky|West Virginia|South Carolina|Florida|Ohio|Iowa|Indiana

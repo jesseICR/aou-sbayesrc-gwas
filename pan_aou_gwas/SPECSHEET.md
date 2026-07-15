@@ -1,0 +1,1355 @@
+# Specsheet: Pan-UKB-style All of Us survey + physical-measurement GWAS (HapMap3, residualize-first PLINK2)
+
+**Project:** `aou_panallofus_hapmap3_residualized_gwas`
+**Date:** 2026-07-06
+**Dataset:** All of Us Controlled Tier, cdr v9 (`C2025Q4R6` by default)
+**Ancestry stratum:** classified European-ancestry WGS participants, unrelated (KING < 0.0441941)
+**SNP panel:** HapMap3 HQ bfile already built on-platform (see §2)
+**Association engine:** PLINK2 `--glm` **linear** GWAS on **pre-residualized** phenotypes, **no covariates in PLINK2**
+**Downstream use:** LDSC-ready per-phenotype summary statistics for later h²/rg scans
+**Deliverable of *this* run:** the GWAS summary-statistic files only. Downstream LDSC/rg (old §21) is deferred.
+
+This file supersedes `../../draft_specsheet.md` for the current run. It bakes in the decisions made
+after the covariate experiment (`~/projects/ukgwas/covariate_experiment`) and after the HapMap3 HQ
+bfile was built in the AoU environment.
+
+---
+
+## 0. What changed from the draft specsheet
+
+1. **HapMap3 HQ bfile is already built** in the workspace bucket; this pipeline consumes it directly
+   (§2). No variant QC step is run here.
+2. **Residualize-first is the method for *every* phenotype**, binary and continuous alike. Covariates
+   are regressed out of the phenotype *before* PLINK2; PLINK2 then runs a covariate-free linear GWAS.
+   The covariate experiment showed this is genetically identical to logistic/linear-with-covariates
+   and ~30× faster (§4, §5).
+3. **Covariates are `age_c`, `sex_c`, `age_c:sex_c`, and `PC1–PC10`** (dropped `age_c^2`, its
+   interaction, and PC11–PC20 from the draft).
+4. **No variant-level filters in PLINK2.** No `--mac`, no `--geno`, no `--hwe`. The bfile's variants
+   already passed a MAF floor, a missingness ceiling, and a frequency-concordance check when it was
+   built (§2). The `--threads` flag is dropped (the AoU box caps at 4 cores; PLINK2 autodetects).
+5. **Minimum sample sizes:** binary phenotypes require **≥ 200 cases AND ≥ 200 controls**; ordinal /
+   numeric phenotypes require **N ≥ 500** and ≥ 3 observed levels.
+6. **Comprehensive ordinal coverage.** Every survey question in the v9 codebooks that can *arguably*
+   be put on an ordinal scale is mapped. The mappings are machine-readable data files (§6, §7).
+   Sensitive and stretched/uncertain questions are flagged, never silently dropped (§9).
+7. **Downstream LDSC/rg (draft §21) is out of scope for this run.** We stop at summary statistics.
+8. **PFHH conditions also get a genetic-relatedness-weighted family-burden sumscore** (self = 1,
+   first-degree = 0.5, grandparent = 0.25, summed) as a quantitative liability-proxy phenotype
+   alongside the binary `self_has_<condition>` (§11.2).
+9. **EA/income use the exact repo conversions** (`setup_ea_gwas.py`/`setup_income_gwas.py`) and the
+   same **age ≥ 26** restriction (§7.3).
+10. **Cognitive + EA-proxy scores are GWASed** as external quantitative traits — the 4 ETM task
+   scores plus teacher_z, SES-EA proxy, fine-tuned proxies, direct-XGBoost proxy, and the final
+   g-EA proxy (§11b), residualized on sex + PCs.
+11. **Validated composite scores are built** from the codebook Scoring sheets — GAD-7, PHQ-9, PSS,
+   ACE, IES, ASRS, AUDIT-C, Everyday Discrimination, loneliness, social support, PROMIS, resilience,
+   spiritual experience, health literacy, the BFI-2 Big Five domains, and the neighborhood social
+   cohesion / disorder / walkability and Hunger Vital Sign composites (§11c), as prorated sums with
+   per-scale reverse-keying (opposite-valence items flipped). PHQ-9 and GAD-7 are pooled across
+   EHHWB and COPE with EHHWB priority; PSS-10, MOS-SS, UCLA Loneliness, and Everyday
+   Discrimination pool SDOH and COPE with SDOH priority; AUDIT-C pools Lifestyle and COPE with
+   Lifestyle priority; subjective well-being pools EHHWB and COPE with EHHWB priority. ACE live
+   question IDs are explicitly bound to the 11 canonical ACE items.
+12. **Wearable (Fitbit) phenotypes** — mean daily steps, sedentary/active minutes, sleep duration,
+   efficiency, and a chronotype (sleep-onset) proxy (§10b), on the Fitbit subcohort.
+13. **Derived psychiatric phenotypes** (§11d) from the UKB-MHQ/CIDI/PCL/SITBI items — probable MDD
+   (incl. recurrent), probable bipolar/mania, lifetime probable GAD, psychotic experiences,
+   PCL-PTSD, lifetime trauma/depression symptom counts, and lifetime suicidal ideation / attempt /
+   count burden (all sensitive).
+14. **Acculturation index** (§11e) — US-born + English-at-home + English proficiency.
+15. **Geographic / political state-cluster membership** (§11f) — 12 binary Census-region / subregion /
+   political-grouping phenotypes (primarily capture residual geographic structure).
+
+---
+
+## 1. Interpretation
+
+This is a Pan-UKB-*style* phenotype-wide GWAS factory, not a SAIGE replication. It follows Pan-UKB
+design principles (one GWAS per phenotype; all eligible survey-derived phenotypes; PHESANT-like
+binary/ordinal/continuous handling; inverse-rank-normal transform for quantitative traits;
+per-phenotype summary statistics) but the engine is PLINK2 fixed-effect linear regression in an
+unrelated European sample. Because PLINK2 does not model relatedness, the unrelated-sample
+restriction is mandatory.
+
+---
+
+## 2. Genotypes: the pre-built HapMap3 HQ bfile
+
+Already built in the AoU workspace bucket by `make_hapmap3_bfile_hq.sh`:
+
+```text
+gs://<workspace-bucket>/sbayesrc_genotypes/hapmap3_bfile_hq/hapmap3_bfile_hq.{bed,bim,fam}
+```
+
+Verified contents:
+
+```text
+variants:  1,140,557   (autosomes 1–22, biallelic HapMap3 SNPs)
+samples:     303,903   (all classified-European WGS participants)
+requested HapMap3 rsids:      1,154,522
+present in WGS metrics:       1,154,381
+final HQ SNPs:                1,140,557
+```
+
+Variant filters **already applied** when the bfile was built (so **no** PLINK2 variant filters here):
+
+```text
+MAF                 >= 0.007   computed in the unrelated-EUR PCA-fit sample (fit_pca_iids)
+variant missingness <= 0.01    computed in the classified-European sample
+freq concordance    |fit-PCA ALT freq  -  SBayesRC snp.info ALT freq| <= 0.03
+```
+
+No MAC threshold, no separate `--geno`, no HWE filter is needed or applied.
+
+---
+
+## 3. Sample set (GWAS keep-list)
+
+The GWAS analysis sample is the **unrelated European** subset, reusing the main pipeline's outputs:
+
+```text
+classified European ancestry            sbayesrc_genotypes/europeans/classified_european_iids.txt
+AND pan-AoU binary sex covariate         data/pan_aou_gwas_work/sample_qc/pan_aou_sex_covar.txt
+AND not in identical-component excl.    sbayesrc_genotypes/sample_qc/exclude_identical_component_size_ge3_iids.txt
+AND unrelated at KING < 0.0441941       sbayesrc_genotypes/pca_eur/fit_pca_iids.txt    (PCA-fit unrelated set)
+```
+
+`pan_aou_sex_covar.txt` is built by `scripts/build_pan_aou_sex_covar.py`. It starts from the main
+pipeline's strict `genetic_sex/sex_covar.txt` and then adds the following pre-specified rows from
+`genetic_sex/sex_ploidy_qc.tsv`: assigned sex at birth Male with DRAGEN `X0`/`XO` is coded male,
+and skipped/prefer-not-to-answer sex-at-birth rows with DRAGEN `XX`/`XY` are coded from the DRAGEN
+binary ploidy. All other nonbinary, missing, discordant, or noncanonical sex/ploidy combinations
+remain excluded from the pan-AoU GWAS sample.
+
+`fit_pca_iids.txt` is the third-degree-unrelated European set used to fit PCA (≈ 252,774 samples). It
+is the primary keep-list. PLINK2 `--glm` is a fixed-effect model and cannot absorb kinship, so
+close relatives must be removed up front; PCs and covariates handle residual structure.
+
+Per-phenotype, the analysis sample is further intersected with participants who have a codeable
+response / valid measurement and complete covariates (§5).
+
+The derived `dragen_x0_xo_male` phenotype uses the same unrelated-European keep-list but is
+restricted to pan-AoU male-coded samples with DRAGEN `XY`, `X0`, or `XO` in
+`genetic_sex/sex_ploidy_qc.tsv`.
+
+Item-level rules in `metadata/sex_specific_items.tsv` additionally restrict female reproductive
+and anatomy phenotypes to pan-AoU female-coded samples before QC, residualization, and GWAS.
+
+---
+
+## 4. Method: residualize-first, covariate-free PLINK2
+
+The covariate experiment (`~/projects/ukgwas/covariate_experiment`) established that, for downstream
+h²/rg, running PLINK2 with covariates and running a covariate-free PLINK2 on a phenotype that was
+pre-residualized on the same covariates are **genetically interchangeable**:
+
+- continuous traits: `rg(with-covar, resid-first) = 1.0000` across 7 traits; all Δh² ≈ 0 (p ≈ 0.98–1.0).
+- binary traits: `rg(logistic, LPM) = 1.00` for common traits; only the rare large-effect trait
+  (red hair, 4.5% cases) drifts to 0.983 — the regime where you would switch to Firth/SAIGE anyway.
+- speed: residualize-first, covariate-free PLINK2 was **~30× faster** for continuous traits and up to
+  **~200×** faster for binary traits (median ~158×), because covariate-free linear regression is cheap.
+
+So every phenotype here is reduced to a single pre-residualized quantitative vector and run through
+one covariate-free PLINK2 linear pass.
+
+### 4.1 Continuous / ordinal / numeric phenotypes
+
+```text
+1. raw       = mapped ordinal value (§6) OR parsed numeric value (§8) OR measurement (§10)
+2. rint_raw  = inverse-rank-normal-transform(raw)          # rankdata(avg) -> norm.ppf((r-0.5)/n)
+3. resid     = residual( rint_raw ~ 1 + age_c + sex_c + age_c:sex_c + PC1..PC10 )   # OLS
+4. PLINK2 linear GWAS of `resid`, no covariates.
+```
+
+### 4.2 Binary phenotypes (linear probability model)
+
+```text
+1. y01    = 1 for the "case" answer, 0 for the eligible "control" answer(s), else missing (§6.1)
+2. resid  = residual( y01 ~ 1 + age_c + sex_c + age_c:sex_c + PC1..PC10 )           # OLS, LPM
+3. PLINK2 linear GWAS of `resid`, no covariates.                                    # NOT logistic
+```
+
+Binary phenotypes are **not** inverse-normal-transformed (they are LPM residuals); continuous/ordinal
+phenotypes **are** INT'd before residualizing. This matches the covariate-experiment arms exactly
+(`binary_resid_nocovar`, `rint_raw_resid_nocovar`).
+
+Sex-stratified phenotypes, including female-only reproductive/anatomy items and the male-only
+`dragen_x0_xo_male` binary phenotype, are residualized on `age_c + PC1..PC10` only, because sex is
+constant by construction.
+
+Pooled COPE-fill-in phenotypes add a centered `from_cope` indicator to the residualization
+model. This includes PHQ-9/GAD-7, PSS-10, and the small set of baseline survey items
+duplicated in COPE.
+
+### 4.3 IRNT and residualization definitions
+
+```text
+IRNT(x):  ranks = scipy.stats.rankdata(x, method="average")
+          z     = scipy.stats.norm.ppf((ranks - 0.5) / len(x))
+residual: beta  = lstsq([1, covars], y);  resid = y - [1, covars] @ beta
+```
+
+Both the raw and the residualized phenotype vectors are written to disk for auditability.
+
+---
+
+## 5. Covariates
+
+```text
+age_c              = age_at_event - mean(age_at_event within this phenotype's analysis sample)
+sex_c              = sex_01 - 0.5                         # pan-AoU binary sex covariate, 0/1
+age_c_sex_c_inter  = age_c * sex_c
+PC1_AVG ... PC10_AVG                                       # from pca_eur/aou_projected.sscore
+```
+
+`age_at_event` is age at the selected survey response date (survey phenotypes) or the measurement
+date (physical measurements). Derived non-survey phenotypes without their own event date use
+`person_age.csv`, currently extracted as age at `PAN_AOU_PERSON_AGE_REFERENCE_DATE`
+(default `2026-07-01`). Covariates are centered within each phenotype's own complete-case analysis
+sample. A phenotype's analysis sample = GWAS keep-list ∩ codeable response ∩ non-missing `age`,
+`sex_01`, `PC1..PC10`.
+
+For sex-specific phenotypes, the analysis sample is further restricted by `sex_01` from the pan-AoU
+binary sex covariate before QC counts are computed.
+
+For pooled PHQ-9/GAD-7 phenotypes, `from_cope` is 1 when COPE supplied the response and 0 when EHHWB
+supplied it. For pooled PSS-10 and MOS-SS phenotypes, `from_cope` is 1 when COPE supplied the response
+and 0 when SDOH supplied it. Baseline+COPE duplicate items use the same indicator with Basics or
+Overall Health as the primary source. In every pooled item phenotype, age is taken from the selected
+source response. For every pooled sumscore, `from_cope=1` when any retained item came from COPE
+fill-in and 0 only when all retained items came from the primary survey. UCLA Loneliness and Everyday
+Discrimination use the same itemwise SDOH-priority rule. Pooled AUDIT-C uses Lifestyle as primary;
+Lifestyle lifetime-abstainer zeros use `from_cope=0`. Subjective well-being uses EHHWB as primary
+and COPE as fill-in. Before all of these selections, nonresponses are discarded and the latest valid
+response is retained independently within each source question.
+
+---
+
+## 6. Survey phenotype construction
+
+Every codeable closed-ended survey item yields **binary one-vs-rest** phenotypes; every arguably
+ordinal single-select item *additionally* yields an **ordinal linear** phenotype. For single-select
+questions with exactly two observed valid answers, the two one-vs-rest binaries are exact complements,
+so only one is run; the omitted side is recorded in `skipped_phenotypes.tsv` as
+`redundant_binary_complement`.
+
+When a participant has multiple responses to the same question, the pipeline uses the latest response
+event with at least one valid non-missing answer. A later skip/prefer-not-to-answer event does not
+mask an earlier valid response. If a participant never has a valid response for that question, the
+latest missing response is retained so downstream missingness handling remains explicit.
+
+### 6.1 Binary response GWAS
+
+```text
+single-select question:  one binary phenotype per valid answer option
+    case    = participant chose this option
+    control = participant answered the question and chose another valid option
+checkbox question:       one binary phenotype per option
+    case    = option selected
+    control = question answered (checkbox shown) and this option not selected
+missing (never control): Skip, Prefer Not To Answer, Don't Know, Not sure, branch-not-asked,
+                         invalid concept 2000000010, free-text-only, suppressed, conflicting dup
+```
+
+Exact complements (Yes vs No, 1 vs 2, etc.) are collapsed to one GWAS. The retained side prefers a
+case-like answer (`Yes`, `Too many to count`, `Needed treatment/problems`, `Other`, `Attempt`) and
+otherwise keeps the higher ordinal/numeric value when available.
+
+Two structurally gated The Basics follow-up families use expanded, parent-informed controls while
+retaining their existing phenotype IDs:
+
+| Follow-up | Case | Additional controls | Construction ID |
+| --- | --- | --- | --- |
+| Sexuality closer description, qid `1585357` | Each selected closer-description option (multi-select events retain every selected case) | Different substantive follow-up options plus parent sexual-orientation qid `1585899` responses Straight, Bisexual, Gay, or Lesbian | `sexuality_closer_description_expanded_parent_controls_v3` |
+| Current living subtype, qid `1585402` | Selected current-living option | Different substantive follow-up options plus parent home-own qid `1585370` responses Own or Rent | `current_living_expanded_parent_controls_v2` |
+
+The parent gate responses (Sexual Orientation None; Other Arrangement) are not controls when their
+follow-up is missing, because the participant's subtype is unknown. Skip, PNA, and DK remain missing.
+All binaries in both answer-dependent ID families are forced to rebuild. The versioned construction
+IDs also invalidate stale GWAS parameter sidecars, so the next full run overwrites the old
+follow-up-only-denominator association outputs rather than reusing them.
+
+Five same-survey reused REDCap item codes are deliberately disambiguated by live
+`question_concept_id` in the output phenotype ID: `mhqukb_50`,
+`mhqukb_25_number`, `mhqukb_26_age`, `ipaq_1_cope_a_24`, and
+`copect_50_xx19_cope_a_152`. These are distinct follow-up questions that share
+generic labels such as "Enter number of times"; they must not be merged. For
+example, `mhqukb_50` produces IDs such as
+`bin_mhqukb_50_q1703883__too_many_to_count`.
+
+### 6.2 Ordinal linear GWAS
+
+For every single-select question with a defensible ordered scale (§7): map answer → numeric value,
+set non-responses to missing, then run the §4.1 continuous pipeline. Both `<pheno>_raw` and the
+residualized vector are written. Ordinal phenotypes with fewer than 3 observed levels in the analysis
+sample fall back to binary-only.
+
+### 6.3 Numeric survey GWAS
+
+Free-numeric survey entries (counts, ages, durations, minutes): parse `value_as_number`, range-check
+against the codebook min/max, drop impossible values, then run the §4.1 continuous pipeline (§8).
+
+Selected gated follow-up fields also emit separate population-referenced derived phenotypes. These
+keep the original endorser-only item GWAS but add explicit screener-negative respondents as true
+zeros when the follow-up is structurally absent because the participant is at the floor. Missing,
+DK, and PNA screeners remain missing. Age-at-onset/event fields are never zero-imputed.
+
+### 6.4 Eight additional quantitative survey GWAS
+
+The following are reserved, versioned additions. All retain their raw score, then use the standard
+quantitative IRNT and full-covariate residualization path. Except for pain, a valid negative
+screener/battery is coded `-1`, strictly below the follow-up's genuine zero or minimum level.
+Ambiguous/incomplete screeners and missing required follow-ups remain missing. Existing endorser-only
+and item-level GWAS remain in place.
+
+| Phenotype ID | Construction ID | Raw construction |
+| --- | --- | --- |
+| `num_overallhealth_averagepain7days` | `overallhealth_pain_slider_numeric_v1` | Overall Health qid `1585747`; integer slider 0..10; no screener floor |
+| `ord_mania_symptom_count_pop` | `mania_symptom_count_population_zero_v1` | Both `mhqukb_43/44` No = -1; either Yes requires `mhqukb_45`, then count 8 distinct symptoms (0..8) |
+| `mhq_pcl_symptom_sum_pop` | `pcl_symptom_sum_population_zero_v1` | All 11 lifetime-trauma items valid Never = -1; any trauma requires complete `pcl_1..5`, summed 0..20 |
+| `ord_mhqukb_22_pop` | `mhq_depression_followup_population_zero_v1` | Both `mhqukb_5/6` No = -1; either Yes uses impairment 0..3. Older `ord_mhqukb_21_pop`/`24_pop` remain unchanged |
+| `ord_mhqukb_46_pop` | `mania_followup_population_zero_v1` | Both mania screeners No = -1; endorser duration midpoint is 0.5, 2.5, 5.5, or 10 |
+| `ord_mhqukb_54_pop` | `psychosis_distress_population_zero_v1` | All four visual/auditory/sign/persecutory screeners No = -1; any Yes uses distress 0..4 |
+| `ord_sdoh_eds_discrimination_breadth_pop` | `eds_attribution_breadth_population_zero_v1` | All nine SDOH EDS items Never = -1; reporters count 1..10 recognized attribution grounds; Other is unscored |
+| `dim_hypomania` | `dim_hypomania_severity_hurdle_v1` | Both mania screeners No = -1; complete-case endorsers get the shifted equal-weight sum of endorser-standardized symptom-count, duration, and impairment components |
+
+The eight IDs are collision-checked against prior runnable and skipped manifests and must match the
+listed construction IDs. Their phenotype matrices are always rebuilt, and internal construction QC
+records codebook fingerprints, pipeline Git state, raw moments/histograms, and final filtered N.
+The mania, PTSD, depression, psychosis, and hypomania traits use the sensitive mental-health release
+tier; the discrimination breadth trait retains its discrimination-sensitive provenance.
+
+### 6.5 Twelve sex-stratified survey GWAS
+
+Twelve additional IDs are reserved for genetic-sex-stratified analyses. The builder constructs the
+response phenotype first, then restricts to `sex_01=1` for `_male` and `sex_01=0` for `_female`
+before QC. Within each stratum, residualization uses `age_c + PC1..PC10` (`covar_mode=agepc`);
+the invariant sex term and age-by-sex interaction are omitted. Missing, Skip, PNA, DK, invalid, and
+unrecognized responses remain missing rather than becoming controls.
+
+| Phenotype ID | Cases / raw value | Controls | Construction ID |
+| --- | --- | --- | --- |
+| `bin_gender_transgender_expanded_male` | Generic Transgender or Trans woman/Transgender Woman/MTF | Other substantive gender/closer-gender responders within males | `gender_transgender_or_trans_woman_male_v1` |
+| `bin_gender_transgender_expanded_female` | Generic Transgender or Trans man/Transgender Man/FTM | Other substantive gender/closer-gender responders within females | `gender_transgender_or_trans_man_female_v1` |
+| `bin_thebasics_sexualorientation__gay_male` | Gay | Other substantive sexual-orientation responders within males | `sexual_orientation_gay_male_v1` |
+| `bin_thebasics_sexualorientation__gay_or_lesbian_female` | Gay or Lesbian | Other substantive sexual-orientation responders within females | `sexual_orientation_gay_or_lesbian_female_v1` |
+| `bin_activeduty_activedutyservestatus__yes_male` | Yes | No within males | `active_duty_yes_male_v1` |
+| `bin_activeduty_activedutyservestatus__yes_female` | Yes | No within females | `active_duty_yes_female_v1` |
+| `num_livingsituation_peopleunder18_male` | Integer 1..20 | quantitative | `people_under_18_basics_cope_pooled_male_v1` |
+| `num_livingsituation_peopleunder18_female` | Integer 1..20 | quantitative | `people_under_18_basics_cope_pooled_female_v1` |
+| `bin_maritalstatus_currentmaritalstatus__divorced_male` | Divorced | Other substantive marital statuses within males | `marital_status_divorced_basics_cope_pooled_male_v1` |
+| `bin_maritalstatus_currentmaritalstatus__divorced_female` | Divorced | Other substantive marital statuses within females | `marital_status_divorced_basics_cope_pooled_female_v1` |
+| `bin_maritalstatus_currentmaritalstatus__never_married_male` | Never married | Other substantive marital statuses within males | `marital_status_never_married_basics_cope_pooled_male_v1` |
+| `bin_maritalstatus_currentmaritalstatus__never_married_female` | Never married | Other substantive marital statuses within females | `marital_status_never_married_basics_cope_pooled_female_v1` |
+
+Marital status and the under-18 household count preserve the standard Basics-primary, COPE-fill-in
+construction and include centered `from_cope` as an extra covariate. All 12 IDs are collision-checked
+against prior runnable and skipped manifests, force their phenotype matrices to rebuild, retain their
+raw vectors, and write internal construction QC with raw distributions and final sex-filtered N.
+
+---
+
+## 7. Ordinal mappings (machine-readable)
+
+All ordinal mappings live in three generated data files under `metadata/` so the pipeline needs no
+hand-editing on the AoU box. They are **answer-text driven**: an OMOP answer concept's name tail
+matches the codebook answer label, so mapping on the normalized label works without a REDCap↔OMOP
+crosswalk (this is how `setup_ses_ea_proxy_gwas.py::ordinal_value_from_answer` already works).
+
+```text
+metadata/ordinal_answer_templates.tsv   the shared answer-phrase rule library (rule -> label -> value)
+metadata/ordinal_mapping_manifest.tsv   per (question, answer) -> ordinal value, one row each
+metadata/survey_question_manifest.tsv   every question: its disposition, rule, sensitivity, counts
+```
+
+These are regenerated from the v9 codebook by `scripts/parse_codebooks.py` + `scripts/build_manifests.py`
+(the rule knowledge base is `scripts/ordinal_rules.py`).
+
+### 7.1 Mapping philosophy
+
+```text
+- Use the codebook scoring sheet / conventional scale direction.
+- Higher value = more symptoms (GAD/PHQ/PSS/ACE), stronger agreement, more frequent behavior,
+  better self-rated health/quality, or more of the named construct.
+- Signed change scales: negative = less/decrease/loss, 0 = same/no change, positive = more/increase.
+- Count/duration bands -> midpoints; open top bins -> lower bound or a documented top code.
+- Genuinely nominal categories are NOT forced onto a scale -> one-vs-rest binary only.
+- IRNT is applied after mapping and after sample/covariate filtering (§4.1).
+- Education years and household income use the ea_proxy.md anchors.
+```
+
+### 7.2 Ordinal rule library (from `ea_proxy.md`, made explicit)
+
+These are the shared answer-phrase templates. Each row family is a normalized `answer label → value`
+table in `metadata/ordinal_answer_templates.tsv`; the count is how many v9 questions use it.
+
+| Rule (template) | Scale | Direction | Example item |
+| --- | --- | --- | --- |
+| `phq_gad_0_3` | Not at all → Nearly every day | higher = more days | PHQ/GAD items |
+| `freq_never_veryoften_0_4` | Never → Very often | higher = more frequent | ASRS/BFI frequency |
+| `freq_pss_0_4` | Never → Very often (PSS) | higher = more frequent | PSS items |
+| `freq_never_always5_0_4` | Never → Always | higher = more frequent | emotional-problem 7 days |
+| `freq_never_always_0_4` | Never → Always (w/ Most of the time) | higher = more frequent | SDOH frequency |
+| `freq_never_often_0_3` | Never → Often | higher = more frequent | loneliness items |
+| `freq_event_0_5` | Never → Almost every day | higher = more frequent | discrimination |
+| `freq_event_0_3` | Never → Almost every day (4-lvl) | higher = more frequent | discrimination (short) |
+| `freq_covid_contact_0_3` | Only a few times → Daily | higher = more frequent | COPE contact |
+| `time_none_all_0_4` | None → All of the time | higher = more of the time | MOS social support |
+| `time_all_none_0_4` | All → None of the time | higher = more of the time | SF-style items |
+| `days_last5_midpoint` | 0 / 1-2 / 3-4 / every day | days (midpoints) | MSDS |
+| `agree_bfi_1_5` | Disagree strongly → Agree strongly | higher = more agreement | BFI-2-XS |
+| `agree_1_4` | Strongly disagree → Strongly agree (no mid) | higher = more agreement | SDOH agreement |
+| `agree_1_5` / `agree_neutral_1_5` | Strongly disagree → Strongly agree | higher = more agreement | SCNS/SDOH |
+| `agree_somewhat_1_4` | Strongly disagree → Strongly agree (somewhat) | higher = more agreement | SDOH neighborhood |
+| `agree_lotr_1_5` | LOT-R optimism | higher = more agreement | LOT-R |
+| `intensity_0_4` | Not at all → Extremely | higher = more intense | IES-R / COVID impact |
+| `amount_0_4` | Not at all → An extreme amount | higher = more | COPE impact |
+| `distress_0_4` | Positive → Very distressing | higher = more distress | psychosis-experience distress |
+| `health_1_5` | Poor → Excellent | higher = better | PROMIS global health |
+| `confidence_1_5` | Not at all → Extremely confident | higher = more confident | medical-form confidence |
+| `ability_extent_0_4` | Not at all → Completely | higher = more able | everyday activities |
+| `severity_0_4` | None → Very severe | higher = worse | fatigue |
+| `difficulty_0_4` | Unable to do → Without any difficulty | higher = more able | PROMIS |
+| `audit_freq_0_4` | AUDIT-C drinking frequency | higher = more frequent | alcohol |
+| `binge_freq_0_4` | 6+ drinks frequency | higher = more frequent | alcohol |
+| `subuse_lifestyle_0_4` | Never → Daily or almost daily | higher = more frequent | substance use |
+| `smoke_freq_0_2` | Not at all / Some days / Every day | higher = more frequent | smoking |
+| `current_use_0_3` | No never → Yes every day | higher = more current use | smoking status |
+| `change_lessmore_signed` | Less / Same / More | signed | COPE behavior change |
+| `change_muchmore_signed` | Much less → Much more | signed | COPE change |
+| `recency_lifetime_0_2` | Never / not-recent / recent | higher = more recent | partner-violence recency |
+| `spiritual_frequency_0_5` | BMMRS Never → Many times a day | higher = more frequent | BMMRS |
+| `happiness_0_5` | Extremely unhappy → Extremely happy | higher = happier | well-being |
+| `count_band_midpoint`, `drink_count_band_midpoint`, `visit_count_band_midpoint` | count bands | midpoints | panic attacks, drinks, visits |
+
+Plus per-question overrides for scales no template captures — education years, income $k, English
+proficiency, religious-service frequency, symptom-onset month, likelihood, worry, importance,
+housing density, ovary-removal count, and the mhqukb duration/appetite/weight/experience items — all
+enumerated with explicit per-answer values in `metadata/ordinal_mapping_manifest.tsv`.
+
+#### Targeted SDOH ordinal recovery
+
+Live v9 question IDs are bound explicitly to the canonical codebook items for four Social Cohesion
+Neighborhood Scale questions (`scns_1..4`; `agree_neutral_1_5`), two Hunger Vital Sign questions
+(`hvs_1..2`; `food_insecurity_0_2`), and six BMMRS/Daily Spiritual Experience questions
+(`bmmrs_1..6`; `spiritual_frequency_0_5`). This prevents the SES-EA supplemental one-hot metadata
+from shadowing the curated ordinal rules and enables `ord_scns_1..4`, `ord_hvs_1..2`, and
+`ord_bmmrs_1..6`, along with their validated composites. Their already-completed one-vs-rest
+phenotypes retain the original `bin_xgb_q<question_concept_id>__<answer>` IDs; the recovery does not
+create duplicate binaries under the canonical item names.
+
+The same recovery binds Lifestyle prescription-opioid frequency question `1585698` to the corrected
+canonical item code `past3monthusefrequency_prescriptionopioid3monthuse` and its 0..4 substance-use
+frequency rule while preserving its existing `bin_xgb_q1585698__*` IDs. PFHH question `43528652` is
+treated as a whole-cohort family-medical-history awareness
+trait (`None at all=0`, `Some=1`, `A lot=2`) rather than a relative disease-status phenotype. No
+condition-specific PFHH/PMH age-of-onset ordinal phenotypes are added.
+
+The eight SDOH MOS-SS questions are handled by the stronger pooled construction described in
+§11c: `ord_sdoh_mos_ss_1..8` use SDOH priority, COPE fill-in, and a `from_cope` residualization
+covariate. They are not also emitted as SDOH-only ordinals. The integer SDOH move count is retained
+as `num_urs_8c` and also emitted under the requested ordered-level ID `ord_urs_8c` (0..15); because
+all quantitative phenotypes are IRNT'd, those two GWAS are expected to be numerically identical.
+
+AUDIT-C, UCLA ULS-8, Everyday Discrimination, and subjective well-being also replace their former
+primary-survey-only item ordinals with explicitly paired pooled item phenotypes. Stable existing IDs
+are retained: the three Lifestyle AUDIT-C ordinal IDs, the eight SDOH UCLA ordinal IDs, the nine SDOH
+Everyday Discrimination ordinal IDs, and `ord_mhqukb_57/58`. Each manifest row records both source
+question IDs, the pooled construction ID, and `from_cope` as an extra residualization covariate.
+
+### 7.3 Education and income anchors (ea_proxy.md)
+
+These reproduce the exact `EA_MAPPING` / `INCOME_MAPPING` in the repo's
+`setup_ea_gwas.py` and `setup_income_gwas.py` (values verified identical).
+
+```text
+Education (question "highest grade", -> years):
+  never attended / grades 1-4 / grades 5-8 = 9;  grades 9-11 = 10;  grade 12 or GED = 13;
+  1-3 yrs after HS = 15;  college graduate = 18;  advanced degree = 20
+Income (annual household, -> $k midpoints, top-coded 250):
+  <10k=5, 10-25k=17.5, 25-35k=30, 35-50k=42.5, 50-75k=62.5, 75-100k=87.5,
+  100-150k=125, 150-200k=175, >200k=250
+```
+
+Also matching those scripts: **every education and income phenotype (ordinal and
+each binary one-vs-rest) restricts to respondents aged ≥ 26 at the survey response**
+(`--min-age-at-survey 26`), so people who may not have finished education / are
+early-career are excluded.
+
+The Basics item `ord_livingsituation_howmanylivingyears` scores the six live response bands as
+approximate years at the current address: less than 1 year = 0.5, 1-2 = 1.5, 3-5 = 4, 6-10 = 8,
+11-20 = 15, and more than 20 = 25. The top band is right-censored at 25. Live v9 answer labels use
+abbreviated tails such as `less 1`, `1 to 2`, and `more 20`; these are mapped explicitly before the
+standard IRNT and full-covariate quantitative analysis.
+
+### 7.4 Targeted HCAU ordinal phenotypes
+
+The Healthcare Access & Utilization survey is included through explicit live question-concept
+bindings for the six new highest-N ordinal patient-experience/access items below. These bindings map the
+live HCAU concept IDs to the canonical `ord_<item_concept>` IDs from
+`metadata/survey_question_manifest.tsv`, so they do not fall back to `ord_live_q*` or `ord_xgb_q*`
+IDs. Don't Know / Skip remain missing and the standard ordinal quantitative pipeline applies.
+
+| Phenotype ID | Question concept | Coding direction |
+| --- | ---: | --- |
+| `ord_cantaffordcare_worriedaboutpaying` | 43530557 | higher = more worried about paying medical bills |
+| `ord_healthadvice_respectedbyprovider` | 43530439 | higher = more often treated with respect |
+| `ord_healthadvice_askedforopinion` | 43530437 | higher = more shared decision-making |
+| `ord_healthadvice_easeofunderstanding` | 43530438 | higher = easier-to-understand provider communication |
+| `ord_insurance_healthcarecoverage` | 43530559 | signed change: worse = -1, same = 0, better = +1 |
+| `ord_healthadvice_spokentoprofessional` | 43530595 | higher = more recent contact with a health care provider |
+
+Three other requested ordinals are intentionally not emitted because the same constructions already
+completed under their legacy IDs: `ord_live_q43529901` (importance of provider similarity),
+`ord_live_q43529902` (frequency of seeing a similar provider), and `ord_live_q43529899` (care
+delayed or avoided because the provider was different). Their existing response-category binaries
+remain part of the general survey output.
+
+### 7.5 Completed HCAU binaries excluded from reruns
+
+The targeted rerun does not re-emit 21 HCAU Yes-vs-No phenotypes that already have completed
+parquet outputs under legacy `bin_xgb_q<concept_id>__yes` IDs. These comprise the ten requested
+delayed-care/affordability barriers (question concepts 43530594, 43529905, 43530411, 43530410,
+43528663, 43528662, 43530408, 43528664, 43530412, and 43530409) and the eleven provider-contact
+screeners used by the population-referenced visit phenotypes below. The screener responses remain
+available as inputs; only their redundant binary GWAS emission is suppressed.
+
+### 7.6 Targeted HCAU provider-visitation phenotypes
+
+Eleven HCAU provider categories each produce one new population-referenced quantitative visit-count
+GWAS. A valid screener No response is 0 visits; a valid screener Yes response uses the gated visit band's
+midpoint: 1, 2.5, 4.5, 6.5, 8.5, 11, 14, or 16. The `16 or more` band is top-coded at 16. Don't
+Know / Skip screeners and screener-Yes responses without a valid visit band remain missing. The
+quantitative values are IRNT'd and use the standard full-covariate model.
+
+| Provider | Population-referenced visit phenotype |
+| --- | --- |
+| General doctor | `num_healthadvice_generaldoctorvisits_pop` |
+| Nurse practitioner, PA, or midwife | `num_healthadvice_nursepractitionervisits_pop` |
+| OB/GYN | `num_healthadvice_obgynvisits_pop` |
+| Mental health professional | `num_healthadvice_mentalhealthprofessionalvisits_pop` |
+| Eye doctor | `num_healthadvice_eyedoctorvisits_pop` |
+| Podiatrist | `num_healthadvice_podiatristvisits_pop` |
+| Chiropractor | `num_healthadvice_chiropractorvisits_pop` |
+| PT/ST/RT/OT or audiologist | `num_healthadvice_physicaltherapistvisits_pop` |
+| Dentist or orthodontist | `num_healthadvice_dentistvisits_pop` |
+| Medical specialist | `num_healthadvice_medicalspecialistvisits_pop` |
+| Traditional healer | `num_healthadvice_traditionalhealervisits_pop` |
+
+These are exactly 11 additional outputs. The corresponding provider-contact Yes-vs-No GWAS are
+not re-emitted because all 11 already completed under their legacy `bin_xgb_q<concept_id>__yes`
+IDs. The gated follow-up questions also do not emit endorser-only ordinal or per-band binary GWAS.
+The OB/GYN visit-count phenotype uses the all-sex sample; no separate female-only variant is
+generated. Each phenotype uses the latest valid response independently for its screener and visit
+question, and no COPE merge applies.
+
+---
+
+## 8. Numeric survey phenotypes
+
+53 free-numeric survey entries across the included surveys (household size, cigarettes/day, years
+smoked, ages at first/last episode, episode/attempt counts, IPAQ minutes/hours/days, COVID test
+counts, etc.) are parsed as numbers, range-checked against the codebook min/max, impossible values
+dropped, then INT'd and residualized (§4.1). Companion "too many to count / one episode ran into the
+next" categorical top-codes are treated as missing for the numeric phenotype (they remain valid
+one-vs-rest binary answers). SSN, phone, address, and other PII numeric fields are excluded.
+
+Additional population-referenced gated phenotypes are emitted with `_pop` or `current0` suffixes:
+
+```text
+num_smoking_averagedailycigarettenumber_pop   100-cig lifetime No=0; Yes uses lifetime cigarettes/day
+num_smoking_numberofyears_pop                 100-cig lifetime No=0; Yes uses years smoked
+num_smoking_pack_years_pop                    (cigarettes/day / 20) * years smoked; never-smokers=0
+ord_alcohol_drinkfrequencypastyear_pop        lifetime alcohol No=0; Yes uses past-year AUDIT-C frequency
+ord_alcohol_averagedailydrinkcount_pop        lifetime alcohol No=0; Yes uses drinks-per-occasion midpoints
+ord_alcohol_6ormoredrinksoccurence_pop        lifetime alcohol No=0; Yes uses past-year 6+ drink frequency
+comp_auditc_alcohol_pop                       Lifestyle+COPE pooled; lifetime alcohol No=0; COPE-only Q1 Never=0
+ord_past3monthusefrequency_marijuana3monthuse_pop
+                                               lifetime marijuana/cannabis non-use=0; users use 0..4 frequency
+ord_tsu_ds5_13_xx3_pop                        COPE no cannabis selected=0; users use shifted 1..4 frequency
+num_ipaq_{vigorous,moderate,walking}_days_per_week_pop
+num_ipaq_{vigorous,moderate,walking}_minutes_per_day_pop
+num_ipaq_total_met_minutes_week_pop           8.0 vigorous + 4.0 moderate + 3.3 walking MET-min/week
+num_ipaq_sitting_minutes_weekday              sitting hours/minutes converted to minutes; no zero-imputation
+ord_cidi5_6_pop ... ord_cidi5_14_pop          worryanxiety No=0; Yes uses each 0..4 GAD symptom item
+ord_cidi5_19_pop                              no lifetime panic attack=0; Yes uses count-band midpoint
+num_ss_3_number_pop                           no lifetime suicide attempt=0; Yes uses attempt count
+ord_mhqukb_21_pop                             no lifetime depression/anhedonia episode=0; Yes uses duration midpoints
+ord_mhqukb_24_pop                             no lifetime depression/anhedonia episode=0; Yes uses one/several count band
+num_mhqukb_25_number_pop                      no lifetime depression/anhedonia episode=0; Yes uses numeric episode count
+num_cope_months_since_last_smoked_current0    current tobacco/nicotine use=0; past use converted to months
+num_cope_months_since_last_enicotine_current0 current e-nicotine use=0; past use converted to months
+```
+
+---
+
+## 9. Flagged questions (for your consideration — nothing dropped silently)
+
+`metadata/flagged_questions.tsv` lists every question that needs human review before release. Reasons:
+
+```text
+sensitive                    272   sensitive topic (still analyzed; flag = release-review tier)
+medium_confidence_ordinal     39   ordinal mapping is defensible but a stretch (bands, signed,
+                                    religiosity, recency, housing density, symptom-onset month, ...)
+uncertain_ordinal              1   >=3 options, no confident scale -> binary only + review
+                                    (`cu_covid`, "what type of household", partially ordered by size)
+```
+
+Sensitive topics tagged (analyzed, `sensitive_release=true`): sexual orientation, gender identity,
+suicidality/self-harm, sexual behavior/trauma, trauma/violence, substance use, alcohol,
+reproductive/menstrual, mental health, COVID-related, financial hardship, justice involvement,
+immigration/origin, religion, disability.
+
+### 9.1 Deliberate exclusions to reconsider
+
+The draft spec (and this run) exclude these blocks by design. They are **available** if you want them
+— call them out explicitly rather than assume:
+
+```text
+Personal Medical History  (453 single-select, self medical-history follow-ups: still-seeing-doctor,
+                           age-at-diagnosis band, currently-on-meds per condition) -> excluded as
+                           draft §11.1 do-not-run items. The "age when first told" life-stage bands
+                           (Child 0-11 / Adolescent 12-17 / Adult 18-64 / Older adult 65-74) ARE
+                           ordinal if you decide to include them.
+Family Health History     (relative-specific "who in your family has X") -> excluded (not a clean
+                           participant phenotype).
+Personal & Family Health  broad family-history items -> excluded EXCEPT the 33 self-history
+  History                 phenotypes in metadata/pfhh_self_allowlist.tsv (neuro/mental/substance +
+                           fibromyalgia + recent fracture), run as binary self_has_<condition> (§11).
+race / ethnicity / PII    excluded (12 items): not GWAS phenotypes in an EUR-stratified analysis.
+free-text / date-only     excluded (237 free-text, 33 date-only): no derived phenotype here.
+```
+
+If you want any of these included, they are already parsed in `metadata/survey_item_inventory.tsv`;
+flip the disposition rule in `scripts/build_manifests.py`.
+
+### 9.2 SES-EA XGBoost feature-source supplement
+
+The primary survey metadata is codebook-derived, then linked back to live AoU
+question IDs at runtime. The SES-EA and direct GradCPT/Flanker XGBoost models
+were trained from live v9 question IDs, and some of those IDs do not round-trip
+through the codebook text matcher. `metadata/ea_proxy_feature_sources.tsv`
+therefore acts as a supplemental include-list for source questions used by those
+models. It only fills question IDs missing from the normal manifest; codebook
+metadata remains authoritative wherever both sources exist.
+
+The supplemental source covers the same survey questions used by the XGBoost
+feature contract. Ordinal supplemental rows use the same answer-text parser as
+the SES-EA setup code; one-hot source questions are emitted as one-vs-rest binary
+phenotypes; numeric source questions are emitted as continuous phenotypes when
+the response text parses as a number. Technical XGBoost columns such as
+survey-taken flags, age-at-survey columns, genetic sex, and curated nonresponse
+indicators are not treated as participant traits unless explicitly added as such.
+
+---
+
+## 10. Physical measurements
+
+Extracted from OMOP `measurement`, unit-converted, impossible values dropped, same-date multiples
+averaged after outlier removal, closest-to-baseline record used for the primary phenotype. All run
+through the §4.1 continuous pipeline.
+
+```text
+height_cm                          100–250
+bmi_kg_m2                          12–80    exclude records where pregnant at measurement date
+systolic_bp_mmhg                   70–260
+diastolic_bp_mmhg                  40–160   require SBP & DBP from same visit; drop SBP<=DBP
+pulse_pressure_mmhg  = SBP - DBP   15–150
+mean_arterial_pressure = DBP + (SBP-DBP)/3   50–180
+heart_rate_or_pulse_bpm            30–220
+```
+
+BMI pregnancy exclusion is per-record (exclude only the affected BMI measurement, not the
+participant), using a visit-level pregnancy flag or same-day pregnancy-status observation.
+
+---
+
+## 10b. Wearable (Fitbit) phenotypes
+
+Per-person averages over the participant's Fitbit wear, requiring ≥ 10 valid days, run through the
+§4.1 continuous pipeline (residualized on the full covariate set; age at wear is known):
+
+```text
+fitbit_mean_daily_steps     mean daily step count (days with steps > 0)
+fitbit_sedentary_minutes    mean daily sedentary minutes
+fitbit_active_minutes       mean daily fairly+very active minutes
+fitbit_sleep_minutes        mean nightly minutes asleep (main sleep)
+fitbit_sleep_efficiency     mean minute_asleep / minute_in_bed
+fitbit_chronotype_sleep_onset  mean main-sleep onset clock hour (chronotype proxy;
+                            onset before noon wrapped to [24,36), higher = later/evening)
+```
+
+Chronotype uses the `sleep_level` start times (earliest main-sleep segment per night); confirm that
+table's schema on-platform.
+
+Sourced from the AoU `activity_summary` and `sleep_daily_summary` Fitbit tables (a smaller wearable
+subcohort). The orchestrator extracts them and skips gracefully if the tables are absent
+(`PAN_AOU_SKIP_FITBIT=1` to disable). Confirm the table/column names on-platform.
+
+## 11. PFHH self-history allowlist
+
+`metadata/pfhh_self_allowlist.tsv` — 33 allowlisted conditions (neuro/nervous-system,
+mental-health/substance-use, fibromyalgia, recent fracture). Each condition yields **two**
+phenotypes.
+
+### 11.1 `pfhh_self_has_<condition>` — binary (self-only)
+
+```text
+case    = participant selected "Self" on "Including yourself, who in your family has had <condition>?"
+control = completed the relevant PFHH category screen and did not self-report that condition
+missing = did not complete the section / refused / denominator unrecoverable
+```
+
+### 11.2 `pfhh_burden_<condition>` — quantitative genetic-relatedness-weighted family burden
+
+An aggregate genetic-liability proxy: the sum, over the relations the participant selected for that
+condition, of each relation's coefficient of relationship to the participant.
+
+```text
+weight(Self)                                   = 1.00
+weight(first-degree: parent/sibling/son/daughter) = 0.50   each
+weight(second-degree: grandparent, half-sibling)  = 0.25   each
+score  = sum of selected relations' weights          e.g. Self + Mother + Grandparent = 1.75
+       = 0 for participants who completed the category screen but reported no one (or were not
+         shown the condition question because no family member has it)
+missing = answered only PMI (Skip/Prefer not/Don't know), or did not complete the screen
+```
+
+The score is then INT'd and residualized like any quantitative trait (§4.1). It is a within-family
+liability aggregate for the proband, **not** a phenotype about any individual relative — no
+mother/father/sibling GWAS is run on its own. Applied to all 33 allowlisted conditions (the same set
+as §11.1); trivially extends to the full PFHH condition list if the diagnosis restriction is lifted.
+The `pfhh_burden_*` phenotypes are heavily zero-inflated; IRNT handles the ties, and the ≥ 3 observed
+levels rule (§12) drops any condition too rare to score.
+
+---
+
+## 11b. External cognitive / EA-proxy score GWAS
+
+The ea_proxy workflow produces pre-computed continuous scores that are GWASed here
+as external quantitative traits. Because they are already age/sex-normalized
+upstream, they are INT'd and residualized on **sex_c + PC1..PC10 only** (no age
+term) — matching the repo's final g-EA proxy GWAS covariates. The registry is
+`metadata/external_scores.tsv` (score file paths + column names; missing files are
+skipped with a warning). Phenotype ids are prefixed `cog_`.
+
+ETM cognitive task scores (recommended per-task summary score, `*_z_age_sex`):
+
+```text
+dd_patience_z_age_sex     Delay Discounting patience = -lnk (negative log mean discount rate k);
+                          higher = more patient / less delay discounting.
+gradcpt_perf_z_age_sex    GradCPT sustained attention = PC1 of d-prime, -log(RT CV), -log(median RT);
+                          higher = better sustained attention.
+flanker_efficiency_z_age_sex  Flanker inhibitory control = official AoU Flanker rate-correct score (0-100);
+                          higher = better attentional control.
+emorecog_perf_z_age_sex   Emotional Recognition = PC1 of accuracy, -log(RT CV), -log(median RT);
+                          higher = better emotion recognition.
+```
+
+EA / SES / cognitive proxy scores:
+
+```text
+teacher_z                  EA years residualized on yob, sex, yob:sex, z-scored (the EA teacher label).
+ses_ea_proxy_z             cross-fit XGBoost survey/area-SES -> EA-years proxy (no genotypes).
+gradcpt_flanker_finetuned_ea_proxy_z   SES-EA boosters fine-tuned toward the GradCPT+Flanker mean.
+gradcpt_flanker_direct_xgb_proxy_z     scratch XGBoost survey -> GradCPT+Flanker proxy (not fine-tuned).
+g4_finetuned_ea_proxy_z    SES-EA boosters fine-tuned toward the 4-domain ETM-g factor.
+gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z   the final selected g-EA proxy (headline).
+```
+
+## 11b.1 ZIP3 socioeconomic context GWAS
+
+AoU `ds_zip_code_socioeconomic` provides the latest ZIP3-level socioeconomic
+context row per participant. The pipeline treats the seven numeric fields as
+quantitative contextual phenotypes, then applies the standard continuous-trait
+pipeline (§4.1): inverse-rank-normal transform followed by residualization on
+age at observation, sex, age×sex, and PC1..PC10. Raw ZIP3 and ACS vintage are
+kept in the local extract for auditability but are not GWASed.
+
+Phenotype ids:
+
+```text
+zip3_deprivation_index
+zip3_median_income
+zip3_fraction_poverty
+zip3_fraction_assisted_income
+zip3_fraction_no_health_ins
+zip3_fraction_vacant_housing
+zip3_fraction_high_school_edu
+```
+
+## 11b.2 Male-only DRAGEN X0/XO candidate mLOY GWAS
+
+`dragen_x0_xo_male` is a derived binary phenotype from `genetic_sex/sex_ploidy_qc.tsv`:
+
+```text
+analysis sample = unrelated European keep-list ∩ pan-AoU male-coded sex covariate ∩ non-missing age/PCs
+case            = DRAGEN sex ploidy X0 or XO
+control         = DRAGEN sex ploidy XY
+missing         = other / missing DRAGEN sex ploidy
+covariates      = age_c + PC1..PC10
+```
+
+This is intended as a candidate mosaic loss-of-Y phenotype. It is deliberately male-only and does
+not include other noncanonical sex-ploidy calls as controls.
+
+## 11b.3 Female-only reproductive/anatomy GWAS
+
+The following Overall Health item concepts are restricted to pan-AoU female-coded samples by
+`metadata/sex_specific_items.tsv`:
+
+```text
+pregnancy_1pregnancystatus
+overallhealth_ovaryremovalhistory
+overallhealthovaryremovalhistoryage
+overallhealth_hysterectomyhistory
+overallhealth_hysterectomyhistoryage
+overallhealth_menstrualstopped
+yesnone_menstrualstoppedreason
+```
+
+This restriction applies to every binary, ordinal, and numeric phenotype generated from those
+items. The output `pheno_id` is unchanged, but the manifest records `sex_filter=female` and
+`covar_mode=agepc`.
+
+## 11c. Validated composite score definitions
+
+Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring valid answers for more than half of items. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. Generic composites match items to survey responses using curated item aliases. PHQ-9 and GAD-7 pool EHHWB and COPE administrations with EHHWB priority and a `from_cope` covariate; PSS-10 and MOS-SS pool explicit SDOH/COPE question-concept pairs with SDOH priority and the same source covariate. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
+
+The five approved pan-AoU-derived composites listed below are explicit **complete-case exceptions**
+to that generic prorating rule. They preserve raw integer sums/counts, resolve known answer concepts
+before checked text aliases, and then use the same quantitative IRNT/full-covariate path. Missing,
+non-substantive, unknown, or contradictory required responses are never converted to zero.
+
+The cross-item scale GWAS are therefore **continuous quantitative summary phenotypes**, not ordinal
+summary phenotypes. The individual Likert-style questions still receive ordinal GWAS when they have
+a defensible ordered response scale (§6.2), plus binary one-vs-rest GWAS where applicable (§6.1).
+No cross-item scale below is emitted as an ordinal GWAS; "ordinal" refers to the component
+question-level phenotypes. The summary-score coverage for the named survey instruments is:
+
+| Instrument / construct | Summary phenotype(s) | Summary type | Item-level GWAS |
+| --- | --- | --- | --- |
+| GAD-7, Generalized Anxiety Disorder scale | `comp_gad7_anxiety` | 7-item prorated continuous symptom sum, pooled EHHWB+COPE | PHQ/GAD items also have ordinal and binary item-level GWAS |
+| PHQ-9, Patient Health Questionnaire depression scale | `comp_phq9_depression` | 9-item prorated continuous symptom sum, pooled EHHWB+COPE | PHQ/GAD items also have ordinal and binary item-level GWAS |
+| PSS / CPSS, Perceived Stress Scale | `comp_pss_perceived_stress` | 10-item prorated continuous stress sum, pooled SDOH+COPE, positive-valence items reverse-keyed | Pooled PSS items also have ordinal and binary item-level GWAS |
+| UCLA Loneliness Scale / ULS-8 | `comp_ucla_loneliness` | Prorated continuous loneliness sum, reverse-keyed companionship/outgoing items | UCLA items also have ordinal and binary item-level GWAS |
+| Everyday Discrimination Scale (EDS) | `comp_everyday_discrimination` | Prorated continuous discrimination-frequency sum | EDS items also have ordinal and binary item-level GWAS |
+| RAND MOS / Medical Outcomes Study Social Support Survey | `comp_social_support`; `comp_social_support_tangible` | Continuous social-support sums, including the tangible-support subscale | MOS items also have ordinal and binary item-level GWAS |
+| Social Cohesion Neighborhood Scale | `comp_social_cohesion` | 4-item prorated continuous cohesion sum | Component items also have ordinal and binary item-level GWAS |
+| Ross-Mirowsky Perceived Neighborhood Disorder Scale | `comp_neighborhood_disorder`; `comp_neighborhood_physical_disorder`; `comp_neighborhood_social_disorder` | Continuous disorder sums with order/safety items reverse-keyed | Component items also have ordinal and binary item-level GWAS |
+| PANES / International Physical Activity Prevalence Study neighborhood walkability | `comp_neighborhood_walkability` | Continuous built-environment/walkability sum with crime-safety items reverse-keyed | PANES/IPS environment items also have ordinal and binary item-level GWAS |
+| IPAQ, International Physical Activity Questionnaire | `num_ipaq_total_met_minutes_week_pop`; `num_ipaq_sitting_minutes_weekday`; activity-specific `_pop` day/minute phenotypes | Continuous activity-volume phenotypes; total MET-min/week is population-referenced with inactive activity gates set to 0 | Raw IPAQ day/hour/minute fields are also numeric phenotypes where QC permits |
+| Children’s HealthWatch Hunger Vital Sign | `comp_hunger_vital_sign` | 2-item continuous food-insecurity sum | Hunger Vital Sign items also have ordinal and binary item-level GWAS |
+| BMMRS / Brief Multidimensional Measure of Religiousness/Spirituality | `comp_daily_spiritual_experience` | Daily Spiritual Experience short-form continuous sum | BMMRS/DSES items also have ordinal and binary item-level GWAS; no broad all-domain BMMRS total is currently built |
+| IES-R-6 / Impact of Event Scale | `comp_ies_event_impact` | 6-item continuous event-related distress sum | IES items also have ordinal and binary item-level GWAS |
+| PTSD Checklist / PCL-C-style abbreviated checklist | `comp_ptsd_pcl` | 5-item continuous PTSD symptom sum | PCL items also have ordinal and binary item-level GWAS |
+| CIDI-derived lifetime anxiety | `psych_probable_gad_lifetime`; `psych_cidi_gad_symptom_sum` | Binary probable lifetime GAD plus continuous lifetime GAD symptom-severity sum | CIDI items also have item-level ordinal/binary/numeric GWAS where applicable |
+| SITBI, Self-Injurious Thoughts and Behaviors Interview | `psych_sitbi_suicidality_count`; population-zero attempt-count phenotype | Continuous self-harm/suicidality count plus standalone sensitive binaries | SITBI items also have binary/numeric item-level GWAS where applicable |
+| BRFSS-derived modules | no single BRFSS total score | BRFSS is treated as a source/module, not one unified psychometric scale | BRFSS-derived items are GWASed individually when codeable |
+| Medical-setting discrimination | `comp_healthcare_discrimination` | Complete-case seven-item 0..28 frequency sum | Seven item-level ordinal/binary GWAS remain |
+| ACS disability domains | `comp_disability_count` | Complete-case pooled Basics/Life Functioning six-domain 0..6 count | Six item-level binary GWAS remain |
+| Accountable Health Communities: Housing Insecurity | `comp_housing_problem_count` | Seven-option 0..7 problem count from one valid checkbox event | Housing option-level binaries remain |
+| BHP lifetime psychotic experiences | `psych_psychotic_experiences_count` | Sensitive complete-case four-item 0..4 count including visual experiences | Four item-level binaries remain; existing three-item `psych_psychotic_experiences_any` is unchanged |
+| Lifestyle lifetime drug exposure breadth | `num_drugs_ever_used` | Nine-class 0..9 checkbox count; breadth, not severity/frequency | Existing option-level binaries remain |
+| Optimism / Life Orientation Test | no cross-item LOT-R summary score currently built | Only the available `lot_r_1` item is currently represented | `lot_r_1` has ordinal and binary item-level GWAS |
+
+The approved construction identities and exact primary rules are:
+
+| Phenotype ID | Construction ID | Source qid(s) | Primary scoring rule |
+| --- | --- | --- | --- |
+| `comp_healthcare_discrimination` | `healthcare_discrimination_complete_case_v1` | `40192497`, `40192425`, `40192503`, `40192505`, `40192423`, `40192394`, `40192383` | Never=0 through Always=4; all seven required; range 0..28; pan-AoU-derived, not a validated named scale |
+| `comp_disability_count` | `disability_count_basics_life_functioning_pooled_complete_case_v1` | `903573`..`903578` | Pool identical Basics/Life Functioning qids, then sum six complete-case No=0/Yes=1 domains; range 0..6; domain breadth, not severity |
+| `comp_housing_problem_count` | `housing_problem_count_complete_case_v1` | `40192402` | Count seven AHC-2 problem selections; None alone=0; None plus a problem is invalid; range 0..7; not a validated AHC severity scale |
+| `psych_psychotic_experiences_count` | `psychotic_experiences_count_four_item_complete_case_v1` | `1703885`, `1703901`, `1703915`, `1703871` | Sum four complete-case No=0/Yes=1 lifetime experience types; range 0..4; sensitive mental-health provenance; follow-ups excluded |
+| `num_drugs_ever_used` | `drugs_ever_used_nine_class_checkbox_v1` | `1585636` | Count nine scored lifetime classes; None alone=0; None plus scored is invalid; Other ignored and Other-only missing; range 0..9 |
+
+`num_drugs_ever_used` measures exposure breadth only: one lifetime trial and frequent use each add
+one, categories have unequal prevalence/risk, self-report is subject to recall and stigma, and
+excluding Other can undercount unlisted-only exposure. It does not combine tobacco, alcohol, COPE,
+or other recall periods. All five keep internal participant/construction QC and retain their existing
+component-level GWAS.
+
+### GAD-7 — Generalized Anxiety Disorder scale (anxiety)
+
+- **Items:** 7
+- **Per-item scoring:** Not at all = 0, Several days = 1, Over half the days = 2, Nearly all days = 3
+- **Total score:** prorated sum of 7 items; no reverse-keyed items
+- **Auto-built:** yes (comp_gad7_anxiety)
+- **Questions:**
+    - Feeling nervous, anxious, or on edge
+    - Not being able to stop or control worrying
+    - Worrying too much about different things
+    - Trouble relaxing
+    - Being so restless that it's hard to sit still
+    - Becoming easily annoyed or irritable
+    - Feeling afraid as if something awful might happen
+
+### PHQ-9 — Patient Health Questionnaire (depression)
+
+- **Items:** 9
+- **Per-item scoring:** Not at all = 0, Several days = 1, Over half the days = 2, Nearly all days = 3
+- **Total score:** prorated sum of 9 items; no reverse-keyed items
+- **Auto-built:** yes (comp_phq9_depression)
+- **Questions:**
+    - Little interest or pleasure in doing things
+    - Feeling down, depressed, or hopeless
+    - Trouble falling or staying asleep, or sleeping too much
+    - Feeling tired or having little energy
+    - Poor appetite or overeating
+    - Feeling bad about yourself or that you are a failure or have let yourself or your family down
+    - Trouble concentrating on things, such as reading the newspaper or watching television
+    - Moving or speaking so slowly that other people could have noticed? Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual
+    - Thoughts that you would be better off dead or of hurting yourself in some way
+
+### PSS — Perceived Stress Scale
+
+- **Items:** 10
+- **Per-item scoring:** 2 answer scales across items (shown per item below)
+- **Total score:** prorated sum of 10 items; 4 reverse-keyed
+- **Auto-built:** yes (comp_pss_perceived_stress)
+- **Pooling:** SDOH is primary; COPE fills COPE-only responses. The GWAS residualization includes `from_cope`.
+- **Questions:**
+    - In the last month, how often have you been upset because of something that happened unexpectedly?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you felt that you were unable to control the important things in your life?  — [Never=0.0, Almost never=1.0, Sometime=2.0, Fairly often=3.0, Often=4.0]
+    - In the last month, how often have you felt nervous and "stressed?"  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you felt confident about your ability to handle your personal problems? *(reverse-keyed)*  — [Never=0.0, Almost never=1.0, Sometime=2.0, Fairly often=3.0, Often=4.0]
+    - In the last month, how often have you felt that things were going your way? *(reverse-keyed)*  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you found that you could not cope with all the things that you had to do?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you been able to control irritations in your life? *(reverse-keyed)*  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you felt that you were on top of things? *(reverse-keyed)*  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you been angered because of things that were outside of your control?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+    - In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?  — [Never=0.0, Almost Never=1.0, Sometime=2.0, Fairly Often=3.0, Often=4.0, Sometimes=2.0, Very Often=4.0]
+
+### AUDIT-C — Alcohol Use Disorders Identification Test, concise
+
+- **Items:** 3 (drinking frequency, typical quantity, and 6+ drink frequency), each scored 0..4
+- **Total score:** prorated 3-item sum requiring at least 2 valid items
+- **Auto-built:** yes (`comp_auditc_alcohol` and `comp_auditc_alcohol_pop`)
+- **Pooling:** fixed Lifestyle/COPE qid pairs with Lifestyle priority and COPE fill-in. Any COPE-filled item sets `from_cope=1`.
+- **Population score:** Lifestyle lifetime abstainers are 0. COPE-only respondents with Q1=`Never` are also 0; other participants require at least 2 valid pooled items.
+- **Reference period:** Lifestyle asks about the past year and COPE about the past month. Values are not rescaled; source is adjusted using `from_cope`.
+- **Construction IDs:** `auditc_lifestyle_cope_pooled_v1` and `auditc_population_zero_pooled_v1`
+- **Item GWAS:** the three existing Lifestyle ordinal IDs are rebuilt from their explicit
+  Lifestyle/COPE pairs with the same source priority and `from_cope` adjustment
+
+### ACE — Adverse Childhood Experiences
+
+- **Items:** 11
+- **Per-item scoring:** 3 answer scales across items (shown per item below)
+- **Total score:** prorated sum of 11 items; no reverse-keyed items
+- **Auto-built:** yes (comp_ace_adversity)
+- **Questions:**
+    - During your first 18 years of life, did you live with anyone who was depressed, mentally ill, or suicidal? (ACE category: Mentally ill household member)  — [Yes=1.0, No=0.0]
+    - During your first 18 years of life, did you live with anyone who was a problem drinker or alcoholic? (ACE category: Substance abuse in household)  — [Yes=1.0, No=0.0]
+    - During your first 18 years of life, did you live with anyone who used illegal street drugs or who abused prescription medications? (ACE category: Substance abuse in household)  — [Yes=1.0, No=0.0]
+    - During your first 18 years of life, did you live with anyone who served time or was sentenced to serve time in a prison, jail, or other correctional facility? (ACE category: Incarcerated household member)  — [Yes=1.0, No=0.0]
+    - During your first 18 years of life, were your parents separated or divorced? (ACE category: Parental separation/divorce)  — [Yes=1.0, No=0.0, Parents not married=0.0]
+    - During your first 18 years of life, how often did your parents or adults in your home ever slap, hit, kick, punch or beat each other up? (ACE category: Violence between adults in household)  — [Never=0.0, Once=1.0, More than once=1.0]
+    - Before age 18, how often did a parent or adult in your home ever hit, beat, kick, or physically hurt you in any way? Do not include spanking. (ACE category: Physical abuse)  — [Never=0.0, Once=1.0, More than once=1.0]
+    - During your first 18 years of life, how often did a parent or adult in your home ever swear at you, insult you, or put you down? (ACE category: Emotional abuse)  — [Never=0.0, Once=1.0, More than once=1.0]
+    - During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, ever touch you sexually? (ACE category: Sexual abuse)  — [Never=0.0, Once=1.0, More than once=1.0]
+    - During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, try to make you touch them sexually? (ACE category: Sexual abuse)  — [Never=0.0, Once=1.0, More than once=1.0]
+    - During your first 18 years of life, how often did anyone at least 5 years older than you or an adult, force you to have sex? (ACE category: Sexual abuse)  — [Never=0.0, Once=1.0, More than once=1.0]
+
+### IES — Impact of Event Scale (event-related distress)
+
+- **Items:** 6
+- **Per-item scoring:** Not at all = 0, A little bit = 1, Moderately = 2, Quite a bit = 3, Extremely = 4
+- **Total score:** prorated sum of 6 items; no reverse-keyed items
+- **Auto-built:** yes (comp_ies_event_impact)
+- **Questions:**
+    - In the past 7 days, I thought about COVID-19 when I didn't mean to.
+    - In the past 7 days, I felt watchful or on-guard.
+    - In the past 7 days, other things kept making me think about COVID-19.
+    - In the past 7 days, I was aware that I still had a lot of feelings about COVID-19, but I didn't deal with them.
+    - In the past 7 days, I tried not to think about COVID-19.
+    - In the past 7 days, I had trouble concentrating.
+
+### ASRS — Adult ADHD Self-Report Scale (Part A screener)
+
+- **Items:** 6
+- **Per-item scoring:** 2 answer scales across items (shown per item below)
+- **Total score:** prorated sum of 6 items; no reverse-keyed items
+- **Auto-built:** yes (comp_asrs_adhd)
+- **Additional frequency-sum GWAS:** `comp_asrs_adhd_0_24` is the complete-case sum of the same
+  six items scored Never=0, Rarely=1, Sometimes=2, Often=3, and Very often=4 (raw range 0..24;
+  `construction_id=asrs_frequency_sum_complete_case_v1`). It does not replace the existing 0..6
+  shaded-box composite.
+- **Questions:**
+    - How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?  — [Never=0.0, Rarely=0.0, Sometimes=1.0, Often=1.0, Very often=1.0]
+    - How often do you have difficulty getting things in order when you have to do a task that requires organization?  — [Never=0.0, Rarely=0.0, Sometimes=1.0, Often=1.0, Very often=1.0]
+    - How often do you have problems remembering appointments or obligations?  — [Never=0.0, Rarely=0.0, Sometimes=1.0, Often=1.0, Very often=1.0]
+    - When you have a task that requires a lot of thought, how often do you avoid or delay getting started?  — [Never=0.0, Rarely=0.0, Sometimes=0.0, Often=1.0, Very often=1.0]
+    - How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?  — [Never=0.0, Rarely=0.0, Sometimes=0.0, Often=1.0, Very often=1.0]
+    - How often do you feel overly active and compelled to do things, like you were driven by a motor?  — [Never=0.0, Rarely=0.0, Sometimes=0.0, Often=1.0, Very often=1.0]
+
+### UCLA / ULS-8 — Loneliness
+
+- **Items:** 8
+- **Per-item scoring:** 2 answer scales across items (shown per item below)
+- **Total score:** prorated sum of 8 items; 2 reverse-keyed
+- **Auto-built:** yes (comp_ucla_loneliness)
+- **Pooling:** all eight explicit SDOH/COPE qid pairs, SDOH priority and COPE fill-in; any COPE-filled
+  retained item sets the sumscore's `from_cope` covariate to 1
+- **Item GWAS:** the eight existing SDOH ordinal IDs are rebuilt from these pooled pairs; positive
+  companionship/outgoing items are reverse-keyed only in the composite, not in their item GWAS
+- **Questions:**
+    - I lack companionship  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+    - There is no one I can turn to  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+    - I am an outgoing person *(reverse-keyed)*  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0]
+    - I feel left out  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+    - I feel isolated from others  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+    - I can find companionship when I want it *(reverse-keyed)*  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0]
+    - I am unhappy being so withdrawn  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+    - People are around me but not with me  — [Often=3.0, Sometime=2.0, Rarely=1.0, Never=0.0, Sometimes=2.0]
+
+### Everyday Discrimination Scale
+
+- **Items:** 9
+- **Pooled scoring:** COPE's four past-month levels define the common 0..3 scale: Never=0, A few
+  times a month=1, At least once a week=2, Almost everyday=3. SDOH's Less than once a year and A few
+  times a year levels collapse to the no-past-month-occurrence floor (0).
+- **Total score:** prorated sum of 9 items; no reverse-keyed items
+- **Auto-built:** yes (comp_everyday_discrimination)
+- **Pooling:** all nine explicit SDOH/COPE qid pairs, SDOH priority and COPE fill-in; any COPE-filled
+  retained item sets the sumscore's `from_cope` covariate to 1
+- **Item GWAS:** the nine existing SDOH ordinal IDs are rebuilt on the harmonized pooled 0..3 scale
+- **Questions:**
+    - You are treated with less courtesy than other people are.
+    - You are treated with less respect than other people are.
+    - You receive poorer service than other people at restaurants or stores.
+    - People act as if they are afraid of you.
+    - People act as if they're better than you are.
+    - You are called names or insulted.
+    - You are threatened or harassed.
+    - People act as if they think you are not smart.
+    - People act as if they think you are dishonest.
+
+### MOS Social Support (RAND) + Tangible subscale
+
+- **Items:** 8 unique questions; the tangible subscale uses items 1-4
+- **Per-item scoring:** None of the time = 1, A little of the time = 2, Some of the time = 3, Most of the time = 4, All of the time = 5
+- **Total score:** prorated sum of 8 items; no reverse-keyed items
+- **Auto-built:** yes (`comp_social_support` and `comp_social_support_tangible`)
+- **Pooling:** eight fixed SDOH/COPE qid pairs are joined by item number, with SDOH priority and COPE fill-in. The GWAS residualization includes `from_cope`.
+- **Item GWAS:** `ord_sdoh_mos_ss_1` through `ord_sdoh_mos_ss_8` use the pooled 0..4 scale; standalone COPE copies for items 1-8 are superseded. COPE-only items 13 and 17 remain standalone.
+- **Questions:**
+    - Someone to help you if you were confined to bed
+    - Someone to take you to the doctor if you need/needed it
+    - Someone to prepare your meals if you were unable to do it yourself
+    - Someone to help with daily chores if you were sick
+    - Someone to have a good time with
+    - Someone to turn to for suggestions about how to deal with a personal problem
+    - Someone who understands your problems
+    - Someone to love and make you feel wanted
+
+### Neighborhood, walkability & food-insecurity composites
+
+Built directly from the survey items (reusing their ordinal scores), because the scoring sheet groups these with mixed item valence. Opposite-valence items are reverse-keyed.
+
+#### comp_social_cohesion
+
+- Neighborhood social cohesion; higher = more cohesion.
+- **Items:** 4; **reverse-keyed:** 0; prorated sum
+- **Questions:**
+    - People around here are willing to help their neighbors.
+    - People in my neighborhood generally get along with each other.
+    - People in my neighborhood can be trusted.
+    - People in my neighborhood share the same values.
+
+#### comp_neighborhood_disorder
+
+- Perceived neighborhood disorder (order items reversed); higher = more disorder.
+- **Items:** 13; **reverse-keyed:** 4; prorated sum
+- **Questions:**
+    - There is a lot of graffiti in my neighborhood.
+    - My neighborhood is noisy.
+    - Vandalism is common in my neighborhood.
+    - There are lot of abandoned buildings in my neighborhood.
+    - There are too many people hanging around on the streets near my home.
+    - There is a lot of crime in my neighborhood.
+    - There is too much drug use in my neighborhood.
+    - There is too much alcohol use in my neighborhood.
+    - I'm always having trouble with my neighbors.
+    - My neighborhood is clean. *(reverse-keyed)*
+    - People in my neighborhood take good care of their houses and apartments. *(reverse-keyed)*
+    - In my neighborhood, people watch out for each other. *(reverse-keyed)*
+    - My neighborhood is safe. *(reverse-keyed)*
+
+#### comp_neighborhood_physical_disorder
+
+- Physical disorder subscale (order items reversed); higher = more disorder.
+- **Items:** 6; **reverse-keyed:** 2; prorated sum
+- **Questions:**
+    - There is a lot of graffiti in my neighborhood.
+    - My neighborhood is noisy.
+    - Vandalism is common in my neighborhood.
+    - There are lot of abandoned buildings in my neighborhood.
+    - My neighborhood is clean. *(reverse-keyed)*
+    - People in my neighborhood take good care of their houses and apartments. *(reverse-keyed)*
+
+#### comp_neighborhood_social_disorder
+
+- Social disorder subscale (order items reversed); higher = more disorder.
+- **Items:** 7; **reverse-keyed:** 2; prorated sum
+- **Questions:**
+    - There are too many people hanging around on the streets near my home.
+    - There is a lot of crime in my neighborhood.
+    - There is too much drug use in my neighborhood.
+    - There is too much alcohol use in my neighborhood.
+    - I'm always having trouble with my neighbors.
+    - In my neighborhood, people watch out for each other. *(reverse-keyed)*
+    - My neighborhood is safe. *(reverse-keyed)*
+
+#### comp_neighborhood_walkability
+
+- PANES neighborhood walkability (crime-safety items reversed); higher = more walkable.
+- **Items:** 7; **reverse-keyed:** 2; prorated sum
+- **Questions:**
+    - Many shops, stores, markets or other places to buy things I need are within easy walking distance of my home. Would you say that you...
+    - It is within a 10-15 minute walk to a transit stop (such as bus, train, trolley, or tram) from my home. Would you say that you...
+    - There are sidewalks on most of the streets in my neighborhood. Would you say that you...
+    - There are facilities to bicycle in or near my neighborhood, such as special lanes, separate paths or trails, or shared use paths for cycles and pedestrians. Would you say that you...
+    - My neighborhood has several free or low-cost recreation facilities, such as parks, walking trails, bike paths, recreation centers, playgrounds, public swimming pools, etc. Would you say that you...
+    - The crime rate in my neighborhood makes it unsafe to go on walks at night. Would you say that you... *(reverse-keyed)*
+    - The crime rate in my neighborhood makes it unsafe to go on walks during the day. Would you say that you... *(reverse-keyed)*
+
+#### comp_hunger_vital_sign
+
+- Hunger Vital Sign food-insecurity screener; higher = more food insecurity.
+- **Items:** 2; **reverse-keyed:** 0; prorated sum
+- **Questions:**
+    - Within the past 12 months, we worried whether our food would run out before we got money to buy more.
+    - Within the past 12 months, the food we bought just didn't last and we didn't have money to get more.
+
+#### comp_ptsd_pcl
+
+- PTSD symptoms (abbreviated PCL, 5 items, 0-4 each); higher = more symptoms.
+- **Items:** 5; **reverse-keyed:** 0; prorated sum
+- **Questions:**
+    - In the past month, have you had repeated, disturbing memories, thoughts, or images of a stressful experience from the past?
+    - In the past month, have you felt very upset when something reminded you of a stressful experience from the past?
+    - In the past month, have you avoided activities or situations because they reminded you of a stressful experience from the past?
+    - In the past month, have you felt distant or cut off from other people?
+    - In the past month, have you felt irritable or had angry outbursts?
+
+#### comp_subjective_wellbeing
+
+- Subjective well-being (happiness + life meaning, UKB-style); higher = greater well-being.
+- **Items:** 2; **reverse-keyed:** 0; prorated sum
+- **Pooling:** explicit EHHWB/COPE pairs with EHHWB priority, COPE fill-in, and `from_cope`
+- **Item GWAS:** `ord_mhqukb_57` and `ord_mhqukb_58` are rebuilt from the pooled responses
+- **Construction ID:** `subjective_wellbeing_ehw_cope_pooled_v1`
+- **Questions:**
+    - In general, how happy are you?
+    - To what extent do you feel your life to be meaningful?
+
+## 11d. Derived psychiatric phenotypes (UKB-MHQ / CIDI-SF / PCL)
+
+AoU imported the UKB Mental Health Questionnaire, so the published algorithmic phenotypes are
+derivable from the raw items. These are screening-level derivations (documented assumptions below),
+**all sensitive** (mental health / suicidality → sensitive release tier). Binary unless noted.
+
+```text
+psych_psychotic_experiences_any     any Yes to voices / thought-insertion / paranoia (cidi5_21/22/23)
+psych_self_harm_ideation_lifetime   ss_1  (ever thoughts of purposely hurting yourself)
+psych_suicidal_ideation_lifetime    ss_2  (ever thoughts of killing yourself)
+psych_suicide_attempt_lifetime      ss_3  (ever a suicide attempt)
+psych_sitbi_suicidality_count       prorated count of ss_1/ss_2/ss_3 Yes endorsements; >=2/3 valid items
+psych_probable_gad_lifetime         worryanxiety Yes AND (cidi5_8 OR cidi5_9 present) AND >=3/5 associated symptoms
+psych_cidi_gad_symptom_sum          prorated sum of cidi5_6..14 (0..4 each); worryanxiety No = 0
+mhq_trauma_exposure_count           prorated count of mhqukb_34..42 lifetime trauma categories; >=5/9 valid items
+ord_social_shy_chronicity           0=cidi5_27 No; 1=cidi5_27 Yes + cidi5_29 No; 2=cidi5_27 Yes + cidi5_29 Yes
+ord_social_judgment_chronicity      0=pmi_3 No; 1=pmi_3 Yes + cidi5_29 No; 2=pmi_3 Yes + cidi5_29 Yes
+ord_agoraphobia_chronicity          0=cidi5_30 No; 1=cidi5_30 Yes + cidi5_32 No; 2=cidi5_30 Yes + cidi5_32 Yes
+bin_mania_euphoric__*               mhqukb_43 Yes plus one mhqukb_45 symptom; mhqukb_43 No included as controls
+bin_mania_irritable__*              mhqukb_44 Yes plus one mhqukb_45 symptom; mhqukb_44 No included as controls
+psych_mania_episode_screen          (ever high/hyper OR irritable) AND >=3 manic symptoms (mhqukb_43/44/45)
+psych_probable_bipolar              mania screen AND >=4-day duration (mhqukb_46) AND impairment (mhqukb_47)
+psych_lifetime_depressed_episode    ever a >=2-week low-mood / anhedonia period (mhqukb_5/6)
+psych_probable_recurrent_depression lifetime depressed episode AND several episodes (mhqukb_24)
+mhq_depression_symptom_count        prorated 10-item worst-episode symptom count; screen-negatives set to 0
+ptsd_pcl (composite, §11c)          abbreviated PCL 5-item sum (pcl_1..5), continuous
+```
+
+The SITBI count is additive to the three standalone SITBI binaries. It is scored as
+mean(valid Yes/No items) × 3, requiring more than half of the three items, so partial but mostly
+complete SITBI respondents can contribute without treating missing items as No.
+
+The lifetime GAD binary follows the CIDI-SF structure mapped to available AoU EHHWB items:
+symptoms are present when endorsed "Most of the time" or "All or almost all of the time".
+AoU has five of the associated GAD symptoms available here (restless/on edge, concentration,
+irritability, muscle tension, sleep), so the diagnosis proxy requires ≥3 of 5. Participants with
+`worryanxiety = No` are controls and get symptom-sum score 0; `worryanxiety = Yes` respondents
+with enough symptom data get a prorated 0..36 severity sum from cidi5_6..14.
+The live BHP question IDs for `cidi5_6..14` are explicitly bound to their codebook items because
+their extracted prompts add a "During those 6 months" prefix that does not match the shorter
+codebook labels. This binding also supplies the nine population-referenced item phenotypes.
+
+The MHQ trauma count scores mhqukb_34..42 as ever exposed (either "within the last 12 months" or
+"but not in the last 12 months") vs never exposed, then prorates to a 0..9 count when at least
+five of nine items have valid responses. It is the lifetime/adult analogue of the ACE childhood
+adversity score, not a replacement for it.
+
+The social anxiety / agoraphobia chronicity phenotypes are 3-level ordinal traits. A valid screener
+No response is the floor (0). A valid screener Yes response requires the paired chronicity follow-up:
+follow-up No = 1 and follow-up Yes = 2. Skip / prefer-not-to-answer / don't-know on the screener or
+on a required follow-up is missing. `ord_social_shy_chronicity` and
+`ord_social_judgment_chronicity` intentionally share cidi5_29 as the ">6 months" follow-up because
+that BHP follow-up is gated on either social-anxiety screener; each phenotype is still keyed to its
+own screener independently.
+
+The `bin_mania_euphoric__*` and `bin_mania_irritable__*` phenotypes are BHP-specific
+population-control symptom GWAS. For each of the eight mhqukb_45 mania-symptom checklist
+answers, the euphoric version uses mhqukb_43 as the denominator and the irritable version uses
+mhqukb_44 as the denominator. Cases answered Yes to that screener and endorsed the symptom;
+controls are everyone else with a valid Yes/No answer to that same screener, including screener-No
+participants. Skip / prefer-not-to-answer / don't-know screener responses are missing. The other
+mania screener is ignored, so dual-screen-positive respondents can contribute to both families.
+
+The depression and bipolar derivations follow the UKB Smith et al. 2013 logic at the item level; they
+are not the full CIDI symptom-count diagnoses, so they read as "probable"/"screen". Controls are
+participants who completed the relevant module and do not meet criteria.
+The MHQ depression symptom count is an additional continuous severity proxy for the worst lifetime
+episode: mhqukb_5/6/12/16/17/18/19/20 are Yes/No symptoms, mhqukb_14 counts appetite increase or
+decrease, and mhqukb_15 counts gained/lost/both weight change. The atypical-features heavy-limbs
+item mhqukb_13 is not included in the primary 10-item DSM-style count. Participants who validly
+screen negative on mhqukb_5 and mhqukb_6 are scored 0; screen-positive participants need at least
+six of ten valid symptom components and are prorated to the 0..10 scale.
+
+## 11e. Acculturation index
+
+A cultural-assimilation score (`accult_index`, quantitative; higher = more acculturated):
+
+```text
+US-born (birthplace = USA)               + 1 / 0
+English spoken at home (chis_1 = No)     + 1 / 0
+English proficiency (chis_1_xx)          + 0..1  (imputed 1 for English-at-home speakers)
+```
+
+Summed to a 0–3 index, then INT'd and residualized (§4.1). Mainly informative across the immigrant /
+language-minority gradient; US-born English-at-home participants sit at the ceiling.
+
+## 11f. Geographic / political state-cluster membership
+
+One binary GWAS per state cluster (member vs non-member), from `metadata/state_clusters.tsv` — 12
+clusters: the 4 Census regions (Northeast, Midwest, South, West), 4 subregions (New England, Great
+Lakes, Rocky Mountain, Sunbelt), and 4 political groupings (Swing, Solid Blue, Lean Blue, Solid Red).
+Phenotype ids `geo_<cluster>`.
+
+State source: the participant's **work-address state** (`employmentworkaddress_state`) by default —
+the only participant-linked state in the survey, since home address is privacy-suppressed. For true
+**residence state**, supply a `person_id,state,age` CSV (derived from the AoU ZIP3 geography) via
+`PAN_AOU_STATE_CSV`; the builder uses it in preference. "Southern California" (Sunbelt) is
+approximated by all of California; Alaska/Hawaii/DC are unassigned (controls).
+
+**Interpretation caveat:** within EUR-unrelated samples, residualized on 10 PCs, these largely capture
+**residual fine-scale geographic genetic structure** (the PCs already absorb the major geographic
+gradients) — read them as geography/structure/migration signals, not trait biology. Political
+clusters via work-state are a coarse proxy for where people actually live and vote.
+
+## 12. Phenotype-eligibility thresholds
+
+```text
+Binary:            cases >= 200  AND  controls >= 200
+Ordinal/numeric:   N >= 500  AND  >= 3 observed levels  AND  no single level > 98%  AND finite variance
+```
+
+(Recommended-for-LDSC tiers, e.g. h² z-scores, are a downstream concern and not gated here.)
+
+---
+
+## 13. PLINK2 command (the only association call)
+
+One covariate-free linear pass per phenotype over the whole autosomal bfile:
+
+```bash
+plink2 \
+  --bfile ${HM3_BFILE} \
+  --keep sample_qc/unrelated_eur.keep \
+  --pheno phenotypes/${PHENO}.resid.pheno.tsv \
+  --pheno-name ${PHENO}_resid \
+  --glm allow-no-covars \
+  --no-input-missing-phenotype \
+  --out gwas/${PHENO}/${PHENO}
+```
+
+No `--mac`, `--geno`, `--hwe`, or `--threads` (see §0, §2). Output: `${PHENO}.${PHENO}_resid.glm.linear`.
+The keep-list is per-phenotype (analysis complete-cases); the phenotype file already holds only the
+residualized values for those samples.
+
+---
+
+## 14. Candidate GWAS counts (from the v9 codebook, this classification)
+
+Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case filters.
+
+| Category | Questions | Binary | Ordinal | Numeric | Total |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| The Basics | 29 | 268 | 2 | 2 | 272 |
+| Life Functioning (+Basics disability) | 6 | 12 | 0 | 0 | 12 |
+| Lifestyle | 36 | 105 | 18 | 5 | 128 |
+| Overall Health | 24 | 95 | 13 | 3 | 111 |
+| Healthcare Access & Utilization | 57 | 202 | 20 | 0 | 222 |
+| Social Determinants of Health | 81 | 395 | 77 | 1 | 473 |
+| COVID-19 Participant Experience (COPE) | 222 | 914 | 129 | 25 | 1068 |
+| Minute Survey on COVID-19 Vaccines | 72 | 499 | 3 | 0 | 502 |
+| Emotional Health History & Well-Being | 103 | 311 | 58 | 8 | 377 |
+| Behavioral Health & Personality | 60 | 176 | 25 | 9 | 210 |
+| PFHH self-history allowlist (binary self_has) | 33 | 33 | 0 | 0 | 33 |
+| PFHH relatedness-burden sumscore (quant) | 33 | 0 | 33 | 0 | 33 |
+| Physical measurements | 9 | 0 | 0 | 9 | 9 |
+| ZIP3 socioeconomic context (§11b.1) | 7 | 0 | 0 | 7 | 7 |
+| Cognitive / EA-proxy external scores | 10 | 0 | 0 | 10 | 10 |
+| Validated composite scores (§11c): scales + BFI-2 Big Five + neighborhood/walkability/hunger + PCL + well-being | 34 | 0 | 34 | 0 | 34 |
+| Derived psychiatric phenotypes (§11d) | 14 | 9 | 0 | 5 | 14 |
+| Acculturation index (§11e) | 1 | 0 | 1 | 0 | 1 |
+| Geographic / political state clusters (§11f) | 12 | 12 | 0 | 0 | 12 |
+| Wearable (Fitbit) phenotypes incl. chronotype (§10b) | 6 | 0 | 0 | 6 | 6 |
+| **TOTAL** | **~863** | **3037** | **413** | **91** | **3542** |
+
+(The 33 `pfhh_burden_*` sumscores and the 10 `cog_*` external scores are counted as
+quantitative traits. Physical measurements now include pulse pressure and MAP.)
+
+---
+
+## 15. Output files
+
+```text
+metadata/survey_item_inventory.tsv        every codebook item, field type, options (audit source)
+metadata/survey_question_manifest.tsv     every question: disposition, ordinal rule, sensitivity
+metadata/ordinal_answer_templates.tsv     shared ordinal rule library (rule -> label -> value)
+metadata/ordinal_mapping_manifest.tsv     per (ordinal question, answer) -> value
+metadata/flagged_questions.tsv            sensitive + uncertain/stretched items for review
+metadata/pfhh_self_allowlist.tsv          33 self_has_<condition> phenotypes
+metadata/ea_proxy_feature_sources.tsv     supplemental live v9 source questions from SES-EA/direct-XGB
+phenotypes/<pheno>.raw.pheno.tsv          raw + residualized phenotype vectors (audit)
+phenotypes/<pheno>.resid.pheno.tsv        the vector PLINK2 reads
+gwas/<pheno>/<pheno>.<pheno>_resid.glm.linear      per-phenotype summary statistics
+gwas/<pheno>/<pheno>.sumstats.tsv.gz      lightweight columns (rsid,a1,a1freq,beta,se,p,n,...)
+metadata/phenotype_manifest.tsv           one row per run phenotype: N, cases/controls, rule, paths
+metadata/run_manifest.json               inputs, covariates, sample counts, timing
+```
+
+Lightweight sumstats columns: `chrom pos rsid a1 a2 a1freq beta se t_or_z p n phenotype trait_type
+case_count control_count`.
+
+---
+
+## 16. How to run on the AoU Researcher Workbench
+
+```bash
+# From inside the AoU Verily Jupyter terminal, after the main pipeline has produced
+# the European keep-list, genetic sex, PCs, and the HapMap3 HQ bfile.
+cd aou-sbayesrc-gwas/pan_aou_gwas
+
+# (once, off-platform or on) regenerate the phenotype manifests from the codebook:
+python3 scripts/parse_codebooks.py
+python3 scripts/build_manifests.py
+
+# extract survey/measurement data, build residualized phenotypes, run PLINK2:
+bash run_pan_aou_gwas.sh --setup-only     # extract + build phenotypes + manifests, no GWAS
+bash run_pan_aou_gwas.sh --smoke          # a few phenotypes end-to-end as a smoke test
+bash run_pan_aou_gwas.sh                   # full run
+```

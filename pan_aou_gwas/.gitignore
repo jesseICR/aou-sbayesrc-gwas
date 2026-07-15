@@ -1,0 +1,8 @@
+# runtime outputs (produced on the AoU platform)
+work/
+phenotypes/
+gwas/
+metadata/phenotype_manifest.tsv
+metadata/run_manifest.json
+__pycache__/
+*.pyc

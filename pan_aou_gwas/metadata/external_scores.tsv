@@ -1,0 +1,22 @@
+phenotype_id	description	score_file	iid_col	value_col
+# Pre-computed continuous cognitive / EA-proxy scores from the ea_proxy workflow.
+# These are GWASed as external quantitative traits: IRNT -> residualize on
+# sex_c + PC1..PC10 (they are already age/sex-normalized upstream; this matches
+# the repo's final g-EA proxy GWAS covariates). Run the ea_proxy scoring steps
+# first, then VERIFY each score_file path and value_col below on the platform;
+# missing files (or a wrong column -> 0 samples) are skipped with a warning.
+# PAN_AOU_ETM_COG_DIR / PAN_AOU_SES_EA_DIR / PAN_AOU_FINETUNED_DIR /
+# PAN_AOU_DIRECT_XGB_DIR default to the v9 output locations used by this repo.
+#
+# --- ETM cognitive task scores (recommended per-task summary, age/sex-normalized) ---
+dd_patience_z_age_sex	Delay Discounting: patience = negative log mean discount rate k (official -lnk); higher = more patient / less delay discounting	${PAN_AOU_ETM_COG_DIR}/etm_cog_task_factors_recommended_wide.tsv	IID	dd_patience_z_age_sex
+gradcpt_perf_z_age_sex	GradCPT sustained attention: PC1 of d-prime, -log(RT CV), -log(median RT); higher = better sustained attention	${PAN_AOU_ETM_COG_DIR}/etm_cog_task_factors_recommended_wide.tsv	IID	gradcpt_perf_z_age_sex
+flanker_efficiency_z_age_sex	Flanker inhibitory control: official AoU Flanker rate-correct score (0-100); higher = better attentional control/efficiency	${PAN_AOU_ETM_COG_DIR}/etm_cog_task_factors_recommended_wide.tsv	IID	flanker_efficiency_z_age_sex
+emorecog_perf_z_age_sex	Emotional Recognition: PC1 of accuracy score, -log(RT CV), -log(median RT); higher = better emotion recognition	${PAN_AOU_ETM_COG_DIR}/etm_cog_task_factors_recommended_wide.tsv	IID	emorecog_perf_z_age_sex
+#
+# --- EA / SES / cognitive proxy scores ---
+teacher_z	EA teacher label: educational-attainment years residualized on year-of-birth, sex, and their interaction, then z-scored	${PAN_AOU_SES_EA_DIR}/all_scores.tsv	IID	teacher_z
+ses_ea_proxy_z	SES-EA proxy: cross-fit XGBoost survey/area-SES -> EA-years proxy (no genotypes), z-scored	${PAN_AOU_SES_EA_DIR}/all_scores.tsv	IID	ses_ea_proxy_z
+gradcpt_flanker_finetuned_ea_proxy_z	Fine-tuned proxy: SES-EA boosters continued-trained toward the GradCPT+Flanker mean, z-scored	${PAN_AOU_FINETUNED_DIR}/g4_finetuned_ea_proxy_scores_wide.tsv	IID	gradcpt_flanker_finetuned_ea_proxy_z
+gradcpt_flanker_direct_xgb_proxy_z	Direct scratch-XGBoost survey -> GradCPT+Flanker proxy (trained from scratch, not fine-tuned), z-scored	${PAN_AOU_DIRECT_XGB_DIR}/gradcpt_flanker_direct_xgb_proxy_scores_wide.tsv	IID	gradcpt_flanker_direct_xgb_proxy_z
+gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z	Final selected g-EA proxy: no-teacher calibration of the SES-EA + fine-tuned + direct proxies (the headline phenotype)	${DX_REGENIE_INPUT_DIR}/g_ea_proxy_sbayesrc7m/phen.txt	IID	gradcpt_flanker_factor18_no_teacher_calibrated_proxy_z

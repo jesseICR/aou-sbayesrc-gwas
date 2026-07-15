@@ -16,3 +16,9 @@ CLAUDE.md
 .ipynb_checkpoints/
 nohup.out
 proxy_gwas_spec.md
+pan_aou_gwas/work/
+pan_aou_gwas/phenotypes/
+pan_aou_gwas/gwas/
+pan_aou_gwas/metadata/phenotype_manifest.tsv
+pan_aou_gwas/metadata/skipped_phenotypes.tsv
+pan_aou_gwas/metadata/run_manifest.json

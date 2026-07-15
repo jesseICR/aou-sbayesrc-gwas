@@ -1,0 +1,8 @@
+item_concept	sex_filter	reason
+pregnancy_1pregnancystatus	female	pregnancy status is a female-specific reproductive phenotype
+overallhealth_ovaryremovalhistory	female	ovary removal history is a female reproductive-anatomy phenotype
+overallhealthovaryremovalhistoryage	female	ovary removal age is a female reproductive-anatomy phenotype
+overallhealth_hysterectomyhistory	female	hysterectomy history is a female reproductive-anatomy phenotype
+overallhealth_hysterectomyhistoryage	female	hysterectomy age is a female reproductive-anatomy phenotype
+overallhealth_menstrualstopped	female	menstrual status is a female reproductive phenotype
+yesnone_menstrualstoppedreason	female	menstrual stopped reason is a female reproductive phenotype
