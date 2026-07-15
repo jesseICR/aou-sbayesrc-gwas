@@ -102,6 +102,10 @@ Each composite is a **prorated sum**: mean(available item scores) × n_items, re
 - **Per-item scoring:** 2 answer scales across items (shown per item below)
 - **Total score:** prorated sum of 6 items; no reverse-keyed items
 - **Auto-built:** yes (comp_asrs_adhd)
+- **Additional frequency-sum GWAS:** `comp_asrs_adhd_0_24` is the complete-case sum of the same
+  six items scored Never=0, Rarely=1, Sometimes=2, Often=3, and Very often=4 (raw range 0..24;
+  `construction_id=asrs_frequency_sum_complete_case_v1`). It does not replace the existing 0..6
+  shaded-box composite.
 - **Questions:**
     - How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?  — [Never=0.0, Rarely=0.0, Sometimes=1.0, Often=1.0, Very often=1.0]
     - How often do you have difficulty getting things in order when you have to do a task that requires organization?  — [Never=0.0, Rarely=0.0, Sometimes=1.0, Often=1.0, Very often=1.0]
@@ -168,6 +172,82 @@ Each composite is a **prorated sum**: mean(available item scores) × n_items, re
     - Someone to turn to for suggestions about how to deal with a personal problem
     - Someone who understands your problems
     - Someone to love and make you feel wanted
+
+### Approved complete-case pan-AoU-derived sums and counts
+
+These five additional phenotypes retain raw integer scores, then use the standard quantitative IRNT and full-covariate residualization path. They do not replace any item-level GWAS. Multi-question ages are the mean of finite component-event ages; checkbox ages are the response-event age. Concept IDs are authoritative, with normalized text used only as a checked fallback when the concept is absent.
+
+#### `comp_disability_count`
+
+- **Construction ID:** `disability_count_basics_life_functioning_pooled_complete_case_v1`
+- **Registration:** `trait_type=composite`, `kind=quant`, `covar_mode=full`
+- **Source:** The Basics, Life Functioning: Basics Survey Companion
+- **Raw range:** integer 0..6; complete case; no prorating
+- **Scoring:** Six pooled Basics/Life Functioning disability domains scored No=0 and Yes=1.
+- **Missing/invalid policy:** Complete case: require one valid Yes/No answer for every one of the six qids; do not infer No or prorate missing, non-substantive, or invalid domains.
+- **Interpretation:** Higher values indicate more disability domains endorsed; this pan-AoU-derived count is not symptom severity or an official ACS severity scale.
+- **Qualification:** Equal-weight domain breadth, not symptom severity.
+- **Qualification:** Requires complete valid responses to all six domains.
+- **Question concept IDs:** `903573`, `903574`, `903575`, `903576`, `903577`, `903578`
+- **Item concepts:** `disability_deaf`, `disability_blind`, `disability_difficultyconcentrating`, `disability_walkingclimbing`, `disability_dressingbathing`, `disability_errandsalone`
+
+#### `comp_healthcare_discrimination`
+
+- **Construction ID:** `healthcare_discrimination_complete_case_v1`
+- **Registration:** `trait_type=composite`, `kind=quant`, `covar_mode=full`
+- **Source:** Social Determinants of Health
+- **Raw range:** integer 0..28; complete case; no prorating
+- **Scoring:** Seven SDOH medical-setting discrimination items scored Never=0, Rarely=1, Sometimes=2, Most of the time=3, Always=4 and summed without reverse scoring.
+- **Missing/invalid policy:** Complete case: require one valid substantive 0..4 response for all seven items; do not prorate or infer zero from absence.
+- **Interpretation:** Higher scores indicate more frequent and/or more broadly experienced discrimination in medical settings.
+- **Qualification:** This is a pan-AoU-derived equal-weight sum, not an officially validated named scale.
+- **Question concept IDs:** `40192497`, `40192425`, `40192503`, `40192505`, `40192423`, `40192394`, `40192383`
+- **Item concepts:** `sdoh_dms_1`, `sdoh_dms_2`, `sdoh_dms_3`, `sdoh_dms_4`, `sdoh_dms_5`, `sdoh_dms_6`, `sdoh_dms_7`
+
+#### `comp_housing_problem_count`
+
+- **Construction ID:** `housing_problem_count_complete_case_v1`
+- **Registration:** `trait_type=composite`, `kind=quant`, `covar_mode=full`
+- **Source:** Social Determinants of Health
+- **Raw range:** integer 0..7; complete case; no prorating
+- **Scoring:** Seven AHC-2 housing problem options contribute one each; explicit None alone is zero, and None plus a problem is invalid.
+- **Missing/invalid policy:** One substantive checkbox response event is required. None alone is zero; no recognized option and non-substantive answers are missing; unknown concepts, concept/text conflicts, and None-plus-problem sets are invalid and unscored; no prorating.
+- **Interpretation:** Higher values indicate a larger number of housing-condition problem types, not greater severity of any one problem.
+- **Qualification:** This is a pan-AoU-derived count, not a validated AHC total severity scale.
+- **Qualification:** The separate number-of-moves item and other housing questions are excluded.
+- **Question concept IDs:** `40192402`
+- **Item concepts:** `ahc_2`
+
+#### `num_drugs_ever_used`
+
+- **Construction ID:** `drugs_ever_used_nine_class_checkbox_v1`
+- **Registration:** `trait_type=composite`, `kind=quant`, `covar_mode=full`
+- **Source:** Lifestyle
+- **Raw range:** integer 0..9; complete case; no prorating
+- **Scoring:** Nine lifetime drug-class options contribute one each; explicit None alone is zero, None plus a scored class is invalid, and Other is ignored but Other-only is missing.
+- **Missing/invalid policy:** One substantive checkbox response event is required. None alone anchors zero; Other is ignored but Other-only is missing; absence, empty selection, and non-substantive answers are missing; unknown concepts, concept/text conflicts, and None-plus-scored-class sets are invalid and unscored.
+- **Interpretation:** Higher values indicate broader lifetime exposure across the nine listed drug classes, not severity, frequency, quantity, recency, or dependence.
+- **Qualification:** Breadth is not severity or frequency: one lifetime trial and frequent use each contribute one.
+- **Qualification:** Survey classes have unequal prevalence and risk but receive equal weight.
+- **Qualification:** Lifetime use is self-reported and may be affected by recall and stigma.
+- **Qualification:** Other (Specify) is excluded, so unlisted-only use is not counted and Other-only is missing.
+- **Question concept IDs:** `1585636`
+- **Item concepts:** `recreationaldruguse_whichdrugsused`
+
+#### `psych_psychotic_experiences_count`
+
+- **Construction ID:** `psychotic_experiences_count_four_item_complete_case_v1`
+- **Registration:** `trait_type=derived_psych`, `kind=quant`, `covar_mode=full`
+- **Source:** Behavioral Health and Personality
+- **Raw range:** integer 0..4; complete case; no prorating
+- **Scoring:** Four BHP lifetime experience items scored No=0 and Yes=1, including the visual item.
+- **Missing/invalid policy:** Complete case: require one valid substantive Yes/No response for all four items; do not infer No from absence or calculate a partial count.
+- **Interpretation:** Higher values indicate more distinct types of lifetime psychotic experiences, not episode frequency, recency, distress, impairment, diagnosis, or treatment.
+- **Qualification:** This is a pan-AoU-derived equal-weight count, not a validated severity scale.
+- **Qualification:** Conditional frequency, age, distress, professional-contact, and treatment follow-up questions are excluded.
+- **Qualification:** The existing three-item psych_psychotic_experiences_any phenotype is retained unchanged and is not emitted by this construction.
+- **Question concept IDs:** `1703885`, `1703901`, `1703915`, `1703871`
+- **Item concepts:** `mhqukb_49`, `cidi5_21`, `cidi5_22`, `cidi5_23`
 
 ### Neighborhood, walkability & food-insecurity composites
 

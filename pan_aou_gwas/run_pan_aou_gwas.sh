@@ -440,7 +440,9 @@ if [[ ! -s "${PERSON_AGE_CSV}" || "${FORCE}" == 1 ]]; then
 fi
 
 # --- 2. extract survey responses ------------------------------------------- #
-if [[ "${SMOKE}" == 1 ]]; then
+if [[ -n "${PAN_AOU_SURVEY_CSV:-}" ]]; then
+  SURVEY_CSV="${PAN_AOU_SURVEY_CSV}"
+elif [[ "${SMOKE}" == 1 ]]; then
   SURVEY_CSV="${EXTRACT_DIR}/survey_responses.smoke.csv"
 else
   SURVEY_CSV="${EXTRACT_DIR}/survey_responses.csv"
@@ -472,7 +474,7 @@ fi
 
 # Behavioral Health / Emotional Health may live in the off-cycle MHWB CDR.
 # Extract it too and let the worker union it (deduped by person/question/datetime).
-BHP_CSV="${EXTRACT_DIR}/bhp_ehw_responses.csv"
+BHP_CSV="${PAN_AOU_BHP_CSV:-${EXTRACT_DIR}/bhp_ehw_responses.csv}"
 if [[ "${PAN_AOU_SKIP_MHWB:-0}" != 1 && ( ! -s "${BHP_CSV}" || "${FORCE}" == 1 ) ]]; then
   if bq --project_id="${GOOGLE_PROJECT}" show "${WORKSPACE_MHWB_CDR/./:}.survey_conduct" >/dev/null 2>&1; then
     echo "Extracting BHP/EHW responses from ${WORKSPACE_MHWB_CDR} ..."
@@ -701,10 +703,15 @@ export PAN_AOU_COG_DIR="${PAN_AOU_COG_DIR:-${PAN_AOU_ETM_COG_DIR}}"
 [[ -n "${PAN_AOU_STATE_CSV:-}" && -s "${PAN_AOU_STATE_CSV}" ]] && PY_ARGS+=(--state-csv "${PAN_AOU_STATE_CSV}")
 [[ "${FORCE}" == 1 ]] && PY_ARGS+=(--force)
 [[ "${PAN_AOU_REUSE_EXISTING_PHENOTYPES:-0}" == 1 ]] && PY_ARGS+=(--reuse-existing-phenotypes)
+[[ -n "${PAN_AOU_RESPONSE_QIDS:-}" ]] && PY_ARGS+=(--response-qids "${PAN_AOU_RESPONSE_QIDS}")
+[[ "${PAN_AOU_PRESERVE_UNSELECTED_MANIFEST:-0}" == 1 ]] && PY_ARGS+=(--preserve-unselected-manifest)
+[[ -n "${PAN_AOU_PHENOTYPES:-}" ]] && PY_ARGS+=(--phenotypes "${PAN_AOU_PHENOTYPES}")
 if [[ "${SETUP_ONLY}" == 1 || "${PAN_AOU_GWAS_BACKEND}" == "none" || "${PAN_AOU_GWAS_BACKEND}" == "dsub" ]]; then
   PY_ARGS+=(--skip-gwas)
 fi
-[[ "${SMOKE}" == 1 ]] && PY_ARGS+=(--phenotypes "${SMOKE_PHENOS}")
+if [[ "${SMOKE}" == 1 && -z "${PAN_AOU_PHENOTYPES:-}" ]]; then
+  PY_ARGS+=(--phenotypes "${SMOKE_PHENOS}")
+fi
 
 echo "Running pan_aou_gwas.py (GWAS backend: ${PAN_AOU_GWAS_BACKEND}) ..."
 python3 "${SCRIPT_DIR}/scripts/pan_aou_gwas.py" "${PY_ARGS[@]}"

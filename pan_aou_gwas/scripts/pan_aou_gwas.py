@@ -33,7 +33,6 @@ import re
 import sys
 import shutil
 import subprocess
-import sys
 import time
 from collections import Counter, defaultdict
 from datetime import datetime
@@ -43,6 +42,16 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ordinal_rules as R  # noqa: E402
+import approved_composites as AC  # noqa: E402
+import composite_disability_count as _composite_disability_count  # noqa: F401,E402
+import composite_drugs_ever_used as _composite_drugs_ever_used  # noqa: F401,E402
+import composite_healthcare_discrimination as _composite_healthcare_discrimination  # noqa: F401,E402
+import composite_housing_problem_count as _composite_housing_problem_count  # noqa: F401,E402
+import composite_psychotic_experiences_count as _composite_psychotic_experiences_count  # noqa: F401,E402
+import numeric_average_pain as NAP  # noqa: E402
+import new_quantitative_gwas as NQ  # noqa: E402
+import gated_followup_binaries as GFB  # noqa: E402
+import sex_specific_gwas as SSG  # noqa: E402
 
 PC_COLUMNS = [f"PC{i}_AVG" for i in range(1, 11)]
 SEX_FILTERS = {"all", "female", "male"}
@@ -124,6 +133,26 @@ for _scale, _item_code, _label, _ehhwb_qid, _cope_qid in PHQ_GAD_POOLED_ITEMS:
     PHQ_GAD_SOURCE_QIDS.add(_ehhwb_qid)
     PHQ_GAD_SOURCE_QIDS.add(_cope_qid)
 PHQ_GAD_COMPOSITE_SLUGS = {"phq9_depression", "gad7_anxiety"}
+
+ASRS_FREQUENCY_PHENO_ID = "comp_asrs_adhd_0_24"
+ASRS_FREQUENCY_CONSTRUCTION_ID = "asrs_frequency_sum_complete_case_v1"
+ASRS_FREQUENCY_RULE = "asrs_frequency_sum_0_24"
+ASRS_FREQUENCY_ITEMS = [
+    ("asrs_1", "1703874"),
+    ("asrs_2", "1703914"),
+    ("asrs_3", "1703878"),
+    ("asrs_4", "1703916"),
+    ("asrs_5", "1703913"),
+    ("asrs_6", "1703925"),
+]
+ASRS_FREQUENCY_SOURCE_QIDS = {qid for _item_code, qid in ASRS_FREQUENCY_ITEMS}
+ASRS_FREQUENCY_ANSWER_VALUES = {
+    "never": 0.0,
+    "rarely": 1.0,
+    "sometimes": 2.0,
+    "often": 3.0,
+    "very often": 4.0,
+}
 
 PSS_CONSTRUCTION_ID = "pss_sdoh_cope_pooled_v1"
 PSS_RULE = "freq_pss_0_4"
@@ -341,6 +370,48 @@ EDS_POOLED_ITEM_PHENO_IDS = {
     "eds_7": "ord_live_q40192496",
     "eds_8": "ord_live_q40192519",
     "eds_9": "ord_live_q40192451",
+}
+
+# Whole-cohort breadth of the grounds participants attribute everyday
+# discrimination to.  The nine EDS qids below are the SDOH battery only (not
+# the differently timed COPE counterparts); the checkbox is the SDOH
+# attribution follow-up.
+EDS_BREADTH_PHENO_ID = "ord_sdoh_eds_discrimination_breadth_pop"
+EDS_BREADTH_CONSTRUCTION_ID = "eds_attribution_breadth_population_zero_v1"
+EDS_ATTRIBUTION_QID = "40192428"
+EDS_BREADTH_SOURCE_QIDS = tuple(spec[2] for spec in EDS_POOLED_ITEMS)
+# This gate is intentionally not the pooled SDOH/COPE score mapping above:
+# less-than-annual and annual SDOH events are still positive discrimination
+# reports even though EDS_ANSWER_VALUES collapses them to the COPE 0 floor.
+EDS_SDOH_GATE_STATUS = {
+    "never": "screener-negative",
+    "less than once a year": "reporter",
+    "a few times a year": "reporter",
+    "a few times a month": "reporter",
+    "at least once a week": "reporter",
+    "almost every day": "reporter",
+    "almost everyday": "reporter",
+}
+EDS_ATTRIBUTION_GROUND_ALIASES = {
+    "ancestry_or_national_origins": {"your ancestry or national origins", "sdoh_29"},
+    "gender": {"your gender", "sdoh_30"},
+    "race": {"your race", "sdoh_31"},
+    "age": {"your age", "sdoh_32"},
+    "religion": {"your religion", "sdoh_33"},
+    "height": {"your height", "sdoh_34"},
+    "weight": {"your weight", "sdoh_35"},
+    "physical_appearance": {
+        "some other aspect of your physical appearance",
+        "sdoh_36",
+    },
+    "sexual_orientation": {"your sexual orientation", "sdoh_37"},
+    "education_or_income": {"your education or income level", "sdoh_38"},
+}
+EDS_ATTRIBUTION_OTHER_ALIASES = {
+    "other",
+    "other (specify)",
+    "other specify",
+    "sdoh_39",
 }
 CROSS_SURVEY_POOLED_ITEM_PHENO_IDS = {
     **UCLA_POOLED_ITEM_PHENO_IDS,
@@ -832,7 +903,21 @@ REBUILD_EXISTING_PHENO_IDS = (
         "bin_sdoh_cpss_6__very_often",
     }
     | {f"ord_cidi5_{item}_pop" for item in range(6, 15)}
+    | set(AC.approved_phenotype_ids())
+    | NQ.phenotype_ids()
+    | SSG.phenotype_ids()
 )
+
+# These two repaired one-vs-rest families have an answer-dependent set of
+# phenotype IDs.  Prefix matching makes every observed subtype rebuild its
+# phenotype matrix instead of reusing the old follow-up-only denominator.
+REBUILD_EXISTING_PHENO_PREFIXES = GFB.PHENOTYPE_PREFIXES
+
+
+def should_rebuild_existing_phenotype(pheno_id: str) -> bool:
+    return pheno_id in REBUILD_EXISTING_PHENO_IDS or pheno_id.startswith(
+        REBUILD_EXISTING_PHENO_PREFIXES
+    )
 
 # Preserve the already-completed one-vs-rest binary IDs when a repaired
 # codebook binding adds a canonical ordinal for the same live question.  These
@@ -1317,14 +1402,15 @@ def build_latest_responses(
     keep,
     allowed_qids: set[str] | None = None,
     allowed_question_texts: set[str] | None = None,
+    retain_latest_missing_qids: set[str] | frozenset[str] | None = None,
 ):
     """Return dict[qid] -> {question, pid -> (age, [(ans_text)...])}.
 
     Per (person, question), keep the latest event containing at least one valid
-    non-missing answer. Participants with only skip/PNA/missing answers for a
-    question are omitted; downstream phenotype builders treat absence the same
-    as an all-missing response, and this avoids retaining millions of unusable
-    rows in memory.
+    non-missing answer. For explicitly requested qids, retain the latest
+    skip/PNA/missing event only when no substantive event exists, making
+    approved-composite missingness explicit without expanding the legacy
+    response tuple or retaining millions of generic unusable rows.
     """
     # Per (pid, qid): keep max valid datetime, collecting answers at the
     # selected datetime.
@@ -1337,9 +1423,11 @@ def build_latest_responses(
     qid_to_index = {}
     qid_by_index = []
     question_text_by_qid_index = []
-    answer_to_index = {}
-    answer_by_index = []
-    latest_valid = {}  # compact_key -> [datetime, age, answer_index | list[answer_index]]
+    response_record_to_index = {}
+    response_record_by_index = []
+    latest_valid = {}  # compact_key -> [datetime, age, record_index | list[record_index]]
+    latest_missing = {}
+    retain_latest_missing_qids = set(retain_latest_missing_qids or ())
 
     def qid_index(qid: str, question_text: str) -> int:
         idx = qid_to_index.get(qid)
@@ -1354,12 +1442,12 @@ def build_latest_responses(
             question_text_by_qid_index[idx] = question_text
         return idx
 
-    def answer_index(answer: str) -> int:
-        idx = answer_to_index.get(answer)
+    def response_record_index(record: tuple[str, str, str]) -> int:
+        idx = response_record_to_index.get(record)
         if idx is None:
-            idx = len(answer_by_index)
-            answer_to_index[answer] = idx
-            answer_by_index.append(answer)
+            idx = len(response_record_by_index)
+            response_record_to_index[record] = idx
+            response_record_by_index.append(record)
         return idx
 
     def update_latest(store: dict[int, list], key: int, dt: str, age: float, ans_idx: int) -> None:
@@ -1376,8 +1464,6 @@ def build_latest_responses(
 
     for row in read_survey_rows(survey_paths, keep, allowed_qids, allowed_question_texts):
         ans_text_raw = (row.get("answer") or "").strip()
-        if not ans_text_raw or is_missing_answer(ans_text_raw):
-            continue
         pid = row["person_id"].strip()
         pid_idx = pid_to_index.get(pid)
         if pid_idx is None:
@@ -1387,18 +1473,30 @@ def build_latest_responses(
             continue
         dt = sys.intern((row.get("survey_datetime") or "").strip())
         ans_text = sys.intern(ans_text_raw)
-        ans_idx = answer_index(ans_text)
+        answer_concept_id = sys.intern((row.get("answer_concept_id") or "").strip())
+        source_survey = sys.intern((row.get("survey") or "").strip())
+        ans_idx = response_record_index((ans_text, answer_concept_id, source_survey))
         try:
             age = float(row.get("age_at_survey") or "nan")
         except ValueError:
             age = float("nan")
         qid_idx = qid_index(qid, row.get("question") or "")
         k = pid_idx * key_mult + qid_idx
+        if not ans_text_raw or is_missing_answer(ans_text_raw):
+            if qid in retain_latest_missing_qids:
+                update_latest(latest_missing, k, dt, age, ans_idx)
+            continue
         update_latest(latest_valid, k, dt, age, ans_idx)
 
-    questions = defaultdict(lambda: {"question": "", "responses": {}})
+    while latest_missing:
+        key, missing_response = latest_missing.popitem()
+        latest_valid.setdefault(key, missing_response)
+
+    questions = defaultdict(
+        lambda: {"question": "", "responses": {}, "response_sidecars": {}}
+    )
     while latest_valid:
-        k, (_dt, age, answer_indexes) = latest_valid.popitem()
+        k, (response_dt, age, answer_indexes) = latest_valid.popitem()
         pid_idx, qid_idx = divmod(k, key_mult)
         pid = pid_by_index[pid_idx]
         qid = qid_by_index[qid_idx]
@@ -1406,10 +1504,16 @@ def build_latest_responses(
         if not q["question"]:
             q["question"] = question_text_by_qid_index[qid_idx]
         if isinstance(answer_indexes, int):
-            answers = (answer_by_index[answer_indexes],)
+            response_records = (response_record_by_index[answer_indexes],)
         else:
-            answers = tuple(answer_by_index[i] for i in answer_indexes)
+            response_records = tuple(response_record_by_index[i] for i in answer_indexes)
+        answers = tuple(record[0] for record in response_records)
         q["responses"][pid] = (age, answers)
+        q["response_sidecars"][pid] = {
+            "answer_concept_ids": tuple(record[1] for record in response_records),
+            "source_surveys": tuple(record[2] for record in response_records),
+            "response_timestamps": tuple(response_dt for _record in response_records),
+        }
     return questions
 
 
@@ -2103,6 +2207,118 @@ def valid_single_scaled_response(questions, qid, pid, answer_values):
     if value is None:
         return None
     return value, age
+
+
+def asrs_complete_case_score(item_scores):
+    """Return the six-item 0..24 ASRS frequency sum, or None if incomplete."""
+    if len(item_scores) != len(ASRS_FREQUENCY_ITEMS) or any(v is None for v in item_scores):
+        return None
+    return float(sum(item_scores))
+
+
+def write_asrs_frequency_qc(qc_path, participant_ids, valid_ids_by_item, scored_rows):
+    """Write long-form construction QC without creating additional phenotypes."""
+    qc_path = Path(qc_path)
+    qc_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_counts = Counter(int(score) for score, _original_count in scored_rows)
+    cross_tab = Counter(
+        (score >= 14.0, original_count >= 4.0)
+        for score, original_count in scored_rows
+    )
+    if len(scored_rows) >= 2:
+        raw = np.array([score for score, _original_count in scored_rows], dtype=float)
+        original = np.array([count for _score, count in scored_rows], dtype=float)
+        correlation = float(np.corrcoef(raw, original)[0, 1])
+    else:
+        correlation = float("nan")
+
+    rows = [
+        ("summary", "participants_with_any_valid_item", len(participant_ids), ""),
+        ("summary", "complete_case_n", len(scored_rows), ""),
+        ("summary", "raw_score_min", min(raw_counts) if raw_counts else "", ""),
+        ("summary", "raw_score_max", max(raw_counts) if raw_counts else "", ""),
+        ("summary", "pearson_r_with_original_0_6", correlation, "complete cases"),
+    ]
+    for item_code, _qid in ASRS_FREQUENCY_ITEMS:
+        valid_n = len(valid_ids_by_item[item_code])
+        rows.extend([
+            ("item", f"{item_code}_valid_n", valid_n, ""),
+            ("item", f"{item_code}_missing_n", len(participant_ids) - valid_n,
+             "denominator=participants_with_any_valid_item"),
+        ])
+    rows.extend(
+        ("raw_score", str(score), raw_counts.get(score, 0), "0..24 frequency sum")
+        for score in range(25)
+    )
+    for research_positive in (False, True):
+        for original_positive in (False, True):
+            key = (
+                f"research_{'positive' if research_positive else 'negative'}__"
+                f"original_{'positive' if original_positive else 'negative'}"
+            )
+            rows.append((
+                "screen_crosstab",
+                key,
+                cross_tab.get((research_positive, original_positive), 0),
+                "research threshold=14; original shaded-box threshold=4",
+            ))
+
+    with qc_path.open("w", newline="") as f:
+        writer = csv.writer(f, delimiter="\t")
+        writer.writerow(["section", "metric", "value", "detail"])
+        writer.writerows(rows)
+
+
+def build_asrs_frequency_sum_phenotype(questions, qc_path=None):
+    """Build the complete-case six-item ASRS frequency sum as one quant trait."""
+    participant_ids = set()
+    for _item_code, qid in ASRS_FREQUENCY_ITEMS:
+        if qid in questions:
+            participant_ids.update(questions[qid]["responses"].keys())
+
+    valid_ids_by_item = {item_code: set() for item_code, _qid in ASRS_FREQUENCY_ITEMS}
+    values = {}
+    scored_rows = []
+    for pid in participant_ids:
+        item_scores = []
+        ages = []
+        for item_code, qid in ASRS_FREQUENCY_ITEMS:
+            got = valid_single_scaled_response(
+                questions, qid, pid, ASRS_FREQUENCY_ANSWER_VALUES
+            )
+            if got is None:
+                item_scores.append(None)
+                continue
+            score, age = got
+            item_scores.append(score)
+            valid_ids_by_item[item_code].add(pid)
+            if age is not None and math.isfinite(age):
+                ages.append(age)
+
+        score = asrs_complete_case_score(item_scores)
+        if score is None or len(ages) != len(ASRS_FREQUENCY_ITEMS):
+            continue
+        original_count = float(
+            sum(v >= 2.0 for v in item_scores[:3])
+            + sum(v >= 3.0 for v in item_scores[3:])
+        )
+        values[pid] = (score, sum(ages) / len(ages))
+        scored_rows.append((score, original_count))
+
+    if qc_path is not None:
+        write_asrs_frequency_qc(
+            qc_path, participant_ids, valid_ids_by_item, scored_rows
+        )
+
+    yield ASRS_FREQUENCY_PHENO_ID, "composite", "quant", values, {
+        "question_concept_id": "|".join(qid for _item_code, qid in ASRS_FREQUENCY_ITEMS),
+        "item_concept": "|".join(item_code for item_code, _qid in ASRS_FREQUENCY_ITEMS),
+        "question": "ASRS-v1.1 six-item ADHD symptom-frequency sum",
+        "answer": "complete-case sum of six 0..4 items; raw range 0..24",
+        "ordinal_rule": ASRS_FREQUENCY_RULE,
+        "covar_mode": "full",
+        "construction_id": ASRS_FREQUENCY_CONSTRUCTION_ID,
+    }
 
 
 def valid_single_rule_response(questions, qid, pid, rule):
@@ -3369,6 +3585,48 @@ def build_population_gated_phenotypes(questions, item_labels, qid_by_item=None):
                            "mhq_depression_followup_population_zero_v1",
                            ordinal_rule=ordinal_rule))
 
+    # Keep the established zero floors for ord_mhqukb_21_pop and
+    # ord_mhqukb_24_pop above.  Episode interference has an intrinsic zero
+    # ("Not at all"), so its screener-negative participants need a distinct
+    # floor below every episode endorser.
+    dep_impairment = resp_item("mhqukb_22")
+    dep_impairment_values = {}
+    for pid in set(dep5) | set(dep6) | set(dep_impairment):
+        stem = depressed_screen(pid)
+        if stem == 0.0:
+            a = age_of(pid, dep5, dep6)
+            if a is not None:
+                dep_impairment_values[pid] = (-1.0, a)
+            continue
+        if stem != 1.0:
+            continue
+        v = ordinal_value(pid, dep_impairment, "impact_0_3")
+        if v is not None:
+            a = age_of(pid, dep_impairment, dep5, dep6)
+            if a is not None:
+                dep_impairment_values[pid] = (v, a)
+    yield (
+        "ord_mhqukb_22_pop",
+        "ordinal",
+        "quant",
+        dep_impairment_values,
+        source_meta(
+            [
+                qid_for_item("mhqukb_5"),
+                qid_for_item("mhqukb_6"),
+                qid_for_item("mhqukb_22"),
+            ],
+            "mhqukb_5|mhqukb_6|mhqukb_22",
+            "Population-referenced lifetime depression episode interference/impairment",
+            (
+                "mhqukb_5=No and mhqukb_6=No set to -1 (no episode); "
+                "screen-positive respondents use impact_0_3"
+            ),
+            "mhq_depression_followup_population_zero_v1",
+            ordinal_rule="impact_0_3_population_zero",
+        ),
+    )
+
     dep_count = resp_item("mhqukb_25_number")
     dep_count_values = {}
     for pid in set(dep5) | set(dep6) | set(dep_count):
@@ -3447,6 +3705,103 @@ def build_population_gated_phenotypes(questions, item_labels, qid_by_item=None):
                            f"COPE months since last {label} use",
                            "current users=0; past users convert weeks/months/years to months; never-users missing",
                            "cope_quit_recency_current0_v1"))
+
+    # ---- SDOH everyday-discrimination attribution breadth -----------------
+    # A valid non-Never response to any of the nine EDS items is sufficient to
+    # establish that the participant is a reporter.  The no-discrimination
+    # floor is stricter: all nine items must be valid Never responses.  This
+    # mirrors the instrument gate without turning an incomplete EDS battery
+    # into a negative screen.
+    eds_rs = [resp_qid(qid) for qid in EDS_BREADTH_SOURCE_QIDS]
+    attribution_r = resp_qid(EDS_ATTRIBUTION_QID)
+    ground_by_alias = {
+        alias: ground
+        for ground, aliases in EDS_ATTRIBUTION_GROUND_ALIASES.items()
+        for alias in aliases
+    }
+
+    def eds_item_status(pid, r):
+        row = r.get(pid)
+        if not row or not row[1] or any(is_missing_answer(answer) for answer in row[1]):
+            return None
+        statuses = {
+            EDS_SDOH_GATE_STATUS.get(answer_norm(answer))
+            for answer in row[1]
+        }
+        if None in statuses or len(statuses) != 1:
+            return None
+        return next(iter(statuses))
+
+    def eds_reported(pid):
+        statuses = [eds_item_status(pid, r) for r in eds_rs]
+        if "reporter" in statuses:
+            return "reporter"
+        if len(statuses) == len(EDS_BREADTH_SOURCE_QIDS) and all(
+            status == "screener-negative" for status in statuses
+        ):
+            return "screener-negative"
+        return None
+
+    def attribution_ground_count(pid):
+        row = attribution_r.get(pid)
+        if not row or not row[1]:
+            return None
+        if any(is_missing_answer(answer) for answer in row[1]):
+            return None
+        grounds = set()
+        for answer in row[1]:
+            normalized = answer_norm(answer)
+            ground = ground_by_alias.get(normalized)
+            if ground is not None:
+                grounds.add(ground)
+            elif normalized in EDS_ATTRIBUTION_OTHER_ALIASES:
+                continue
+            else:
+                # An unknown checkbox option makes the response event
+                # uncodeable; never silently reinterpret it as a zero.
+                return None
+        return float(len(grounds)) if grounds else None
+
+    eds_breadth_values = {}
+    eds_breadth_pids = set(attribution_r)
+    for r in eds_rs:
+        eds_breadth_pids.update(r)
+    for pid in eds_breadth_pids:
+        gate = eds_reported(pid)
+        if gate == "screener-negative":
+            age = age_of(pid, *eds_rs)
+            if age is not None:
+                eds_breadth_values[pid] = (-1.0, age)
+            continue
+        if gate != "reporter":
+            continue
+        count = attribution_ground_count(pid)
+        if count is None:
+            continue
+        age = age_of(pid, attribution_r, *eds_rs)
+        if age is not None:
+            eds_breadth_values[pid] = (count, age)
+
+    yield (
+        EDS_BREADTH_PHENO_ID,
+        "derived",
+        "quant",
+        eds_breadth_values,
+        source_meta(
+            [*EDS_BREADTH_SOURCE_QIDS, EDS_ATTRIBUTION_QID],
+            "sdoh_eds_1|sdoh_eds_2|sdoh_eds_3|sdoh_eds_4|sdoh_eds_5|"
+            "sdoh_eds_6|sdoh_eds_7|sdoh_eds_8|sdoh_eds_9|sdoh_eds_follow_up_1",
+            "Whole-cohort breadth of perceived everyday-discrimination grounds",
+            (
+                "-1=all nine SDOH EDS items valid Never; any EDS item above Never "
+                "requires a substantive attribution checkbox response; count distinct "
+                "SDOH_29..SDOH_38 grounds as 1..10; SDOH_39 Other is ignored and "
+                "Other-only, missing, non-substantive, or unknown responses are missing"
+            ),
+            EDS_BREADTH_CONSTRUCTION_ID,
+            ordinal_rule="eds_attribution_breadth_population_zero",
+        ),
+    )
 
 
 # Group -> PFHH category-screen question_concept_id used to recover controls.
@@ -4045,6 +4400,73 @@ def build_derived_psych_phenotypes(questions, item_labels, qid_by_item=None):
                       "psych_psychotic_experiences_any",
                       "any lifetime psychotic experience (voices/thought-insertion/paranoia)")
 
+    # Whole-cohort distress from unusual/psychotic experiences.  The existing
+    # three-item binary above intentionally remains unchanged; this phenotype
+    # uses the approved four-item screen, including the visual-experience item.
+    r49 = resp("mhqukb_49")
+    r54 = resp("mhqukb_54")
+    psychosis_screen_rs = [r49, r21, r22, r23]
+
+    def psychosis_screen_status(pid):
+        screen_values = [single_yes_no(pid, r) for r in psychosis_screen_rs]
+        if any(value == 1.0 for value in screen_values):
+            return "endorser"
+        if all(value == 0.0 for value in screen_values):
+            return "screener-negative"
+        return None
+
+    psychosis_distress_values = {}
+    psychosis_distress_pids = set(r54)
+    for screen_r in psychosis_screen_rs:
+        psychosis_distress_pids.update(screen_r)
+    for pid in psychosis_distress_pids:
+        screen_status = psychosis_screen_status(pid)
+        if screen_status == "screener-negative":
+            a = age_of(pid, *psychosis_screen_rs)
+            if a is not None:
+                psychosis_distress_values[pid] = (-1.0, a)
+            continue
+        if screen_status != "endorser":
+            continue
+        distress_values = [
+            ordinal_value_from_rule("distress_0_4", answer)
+            for answer in nonmiss(pid, r54)
+        ]
+        distress_values = [value for value in distress_values if value is not None]
+        if len(distress_values) != 1:
+            continue
+        a = age_of(pid, r54, *psychosis_screen_rs)
+        if a is not None:
+            psychosis_distress_values[pid] = (distress_values[0], a)
+
+    psychosis_distress_codes = [
+        "mhqukb_49",
+        "cidi5_21",
+        "cidi5_22",
+        "cidi5_23",
+        "mhqukb_54",
+    ]
+    yield (
+        "ord_mhqukb_54_pop",
+        "ordinal",
+        "quant",
+        psychosis_distress_values,
+        {
+            "question_concept_id": qid_list(psychosis_distress_codes),
+            "item_concept": "|".join(psychosis_distress_codes),
+            "question": "Whole-cohort distress from unusual/psychotic experiences",
+            "answer": (
+                "-1=all four psychosis screeners valid No; any screener Yes requires "
+                "mhqukb_54 distress_0_4 (0=positive/not distressing through "
+                "4=very distressing); incomplete screens and missing follow-up are missing"
+            ),
+            "ordinal_rule": "distress_0_4_population_floor",
+            "covar_mode": "full",
+            "construction_id": "psychosis_distress_population_zero_v1",
+            "sensitive_topics": "mental_health;psychosis",
+        },
+    )
+
     # ---- suicidality / self-harm (each its own binary) ------------------------
     for code, pid_name, desc in [
         ("ss_1", "psych_self_harm_ideation_lifetime", "lifetime thoughts of purposely hurting yourself"),
@@ -4173,6 +4595,81 @@ def build_derived_psych_phenotypes(questions, item_labels, qid_by_item=None):
             "ordinal_rule": "derived_psych", "covar_mode": "full",
             "construction_id": "mhq_trauma_exposure_count_v1"})
 
+    # ---- whole-cohort PCL burden, with an explicit no-trauma floor ----------
+    # The PCL follow-up is structurally available only after lifetime trauma.
+    # Preserve that hurdle: a fully observed all-Never trauma battery is the -1
+    # floor, while trauma endorsers require all five primary PCL items.  A
+    # partially observed trauma battery with no endorsement remains missing.
+    pcl_trauma_codes = [*trauma_codes, "cidi5_4", "cidi5_5"]
+    pcl_trauma_rs = {code: resp(code) for code in pcl_trauma_codes}
+    pcl_codes = [f"pcl_{i}" for i in range(1, 6)]
+    pcl_rs = {code: resp(code) for code in pcl_codes}
+
+    def pcl_trauma_gate(pid):
+        states = []
+        for code in pcl_trauma_codes:
+            answers = [answer_norm(a) for a in nonmiss(pid, pcl_trauma_rs[code])]
+            if any(a == "yes" or a.startswith("yes,") for a in answers):
+                states.append("yes")
+            elif len(answers) == 1 and answers[0] == "never":
+                states.append("never")
+            else:
+                states.append(None)
+        if "yes" in states:
+            return "endorser"
+        if all(state == "never" for state in states):
+            return "screener-negative"
+        return None
+
+    pcl_sum_values = {}
+    pcl_pids = set()
+    for r in (*pcl_trauma_rs.values(), *pcl_rs.values()):
+        pcl_pids.update(r)
+    for pid in pcl_pids:
+        gate = pcl_trauma_gate(pid)
+        if gate is None:
+            continue
+        if gate == "screener-negative":
+            a = age_of(pid, *pcl_trauma_rs.values())
+            if a is not None:
+                pcl_sum_values[pid] = (-1.0, a)
+            continue
+        scores = []
+        for code in pcl_codes:
+            vals = [
+                ordinal_value_from_rule("intensity_0_4", answer)
+                for answer in nonmiss(pid, pcl_rs[code])
+            ]
+            vals = [value for value in vals if value is not None]
+            if len(vals) != 1:
+                scores = []
+                break
+            scores.append(vals[0])
+        if len(scores) != len(pcl_codes):
+            continue
+        a = age_of(pid, *pcl_rs.values(), *pcl_trauma_rs.values())
+        if a is not None:
+            pcl_sum_values[pid] = (sum(scores), a)
+    yield (
+        "mhq_pcl_symptom_sum_pop",
+        "derived_psych",
+        "quant",
+        pcl_sum_values,
+        {
+            "question_concept_id": qid_list([*pcl_trauma_codes, *pcl_codes]),
+            "item_concept": "|".join([*pcl_trauma_codes, *pcl_codes]),
+            "question": "Whole-cohort past-month PTSD symptom burden",
+            "answer": (
+                "-1=all 11 lifetime trauma items valid Never; trauma endorsers "
+                "require complete pcl_1..pcl_5 and use their intensity_0_4 sum (0..20)"
+            ),
+            "ordinal_rule": "pcl_intensity_0_4_population_floor",
+            "covar_mode": "full",
+            "construction_id": "pcl_symptom_sum_population_zero_v1",
+            "sensitive_topics": "mental_health;trauma",
+        },
+    )
+
     # ---- social anxiety / agoraphobia chronicity, with screener-No floor -----
     def chronicity_values(screener_r, followup_r):
         values = {}
@@ -4287,6 +4784,225 @@ def build_derived_psych_phenotypes(questions, item_labels, qid_by_item=None):
                     "construction_id": "mania_symptom_screener_no_controls_v1",
                 },
             )
+
+    # Whole-cohort manic/hypomanic symptom breadth.  Preserve a distinct
+    # screener-negative floor below the checklist's genuine zero level.
+    mania_symptom_labels = {answer_norm(label) for _slug, label in mania_symptoms}
+    mania_checklist_zero = "none of the above"
+
+    def mania_episode_stem(pid):
+        s43 = single_yes_no(pid, r43)
+        s44 = single_yes_no(pid, r44)
+        if s43 == 1.0 or s44 == 1.0:
+            return "endorser"
+        if s43 == 0.0 and s44 == 0.0:
+            return "screener-negative"
+        return None
+
+    def mania_symptom_count(pid):
+        row = r45.get(pid)
+        if not row or not row[1]:
+            return None
+        # A refusal/skip makes the checkbox event non-substantive even if a
+        # malformed extract also carries a selected option on that event.
+        if any(is_missing_answer(answer) for answer in row[1]):
+            return None
+        selected = {answer_norm(answer) for answer in row[1]}
+        allowed = mania_symptom_labels | {mania_checklist_zero}
+        if not selected or not selected <= allowed:
+            return None
+        return float(len(selected & mania_symptom_labels))
+
+    mania_count_values = {}
+    for pid in set(r43) | set(r44) | set(r45):
+        stem = mania_episode_stem(pid)
+        if stem is None:
+            continue
+        if stem == "screener-negative":
+            a = age_of(pid, r43, r44)
+            if a is not None:
+                mania_count_values[pid] = (-1.0, a)
+            continue
+        symptom_count = mania_symptom_count(pid)
+        if symptom_count is None:
+            continue
+        a = age_of(pid, r43, r44, r45)
+        if a is not None:
+            mania_count_values[pid] = (symptom_count, a)
+
+    yield (
+        "ord_mania_symptom_count_pop",
+        "derived_psych",
+        "quant",
+        mania_count_values,
+        {
+            "question_concept_id": qid_list(["mhqukb_43", "mhqukb_44", "mhqukb_45"]),
+            "item_concept": "mhqukb_43|mhqukb_44|mhqukb_45",
+            "question": "Whole-cohort manic/hypomanic symptom count",
+            "answer": (
+                "-1=mhqukb_43 No and mhqukb_44 No; either screener Yes requires a "
+                "substantive mhqukb_45 response and counts 8 distinct symptoms (0..8)"
+            ),
+            "ordinal_rule": "mania_symptom_count_0_8_population_floor",
+            "covar_mode": "full",
+            "construction_id": "mania_symptom_count_population_zero_v1",
+            "sensitive_topics": "mental_health",
+        },
+    )
+
+    # Whole-cohort duration of manic/hypomanic episodes. Participants who
+    # validly deny both screeners occupy a distinct floor below every duration
+    # band; endorsers must have a substantive duration response.
+    mania_duration_values = {}
+    for pid in set(r43) | set(r44) | set(r46):
+        stem = mania_episode_stem(pid)
+        if stem is None:
+            continue
+        if stem == "screener-negative":
+            a = age_of(pid, r43, r44)
+            if a is not None:
+                mania_duration_values[pid] = (-1.0, a)
+            continue
+        durations = [
+            ordinal_value_from_rule("episode_duration_days_midpoint", answer)
+            for answer in nonmiss(pid, r46)
+        ]
+        durations = [value for value in durations if value is not None]
+        if len(durations) != 1:
+            continue
+        a = age_of(pid, r46, r43, r44)
+        if a is not None:
+            mania_duration_values[pid] = (durations[0], a)
+
+    yield (
+        "ord_mhqukb_46_pop",
+        "ordinal",
+        "quant",
+        mania_duration_values,
+        {
+            "question_concept_id": qid_list(["mhqukb_43", "mhqukb_44", "mhqukb_46"]),
+            "item_concept": "mhqukb_43|mhqukb_44|mhqukb_46",
+            "question": "Whole-cohort longest manic/hypomanic episode duration",
+            "answer": (
+                "-1=mhqukb_43 No and mhqukb_44 No; either screener Yes requires "
+                "mhqukb_46 and uses duration-band midpoints 0.5, 2.5, 5.5, or 10 days"
+            ),
+            "ordinal_rule": "episode_duration_days_midpoint_population_zero",
+            "covar_mode": "full",
+            "construction_id": "mania_followup_population_zero_v1",
+            "sensitive_topics": "mental_health",
+        },
+    )
+
+    # Whole-cohort hypomania severity hurdle.  Valid screener-negatives retain
+    # a distinct -1 floor.  Complete-case endorsers are ranked on an
+    # equal-weight sum of symptom breadth, duration, and impairment after each
+    # component is standardized within the complete-case endorser group.
+    def strict_ordinal_component(pid, responses, rule):
+        row = responses.get(pid)
+        if not row or not row[1]:
+            return None
+        # Do not allow a substantive answer to rescue a malformed response
+        # event that also contains a refusal, skip, or unmapped answer.
+        if any(is_missing_answer(answer) for answer in row[1]):
+            return None
+        mapped = [ordinal_value_from_rule(rule, answer) for answer in row[1]]
+        if len(mapped) != 1 or mapped[0] is None:
+            return None
+        return float(mapped[0])
+
+    hypomania_components = {}
+    hypomania_pids = set(r43) | set(r44) | set(r45) | set(r46) | set(r47)
+    for pid in hypomania_pids:
+        if mania_episode_stem(pid) != "endorser":
+            continue
+        symptom_count = mania_symptom_count(pid)
+        duration = strict_ordinal_component(
+            pid, r46, "episode_duration_days_midpoint"
+        )
+        impairment = strict_ordinal_component(pid, r47, "impairment_0_1")
+        age = age_of(pid, r43, r44, r45, r46, r47)
+        if (
+            symptom_count is None
+            or duration is None
+            or impairment is None
+            or age is None
+        ):
+            continue
+        hypomania_components[pid] = (
+            symptom_count,
+            duration,
+            impairment,
+            age,
+        )
+
+    component_names = ("symptom_count", "duration_days", "impairment")
+    hypomania_values = {}
+    component_means = np.zeros(3, dtype=float)
+    component_sds = np.zeros(3, dtype=float)
+    degenerate_components = list(component_names)
+    if hypomania_components:
+        component_matrix = np.asarray(
+            [values[:3] for values in hypomania_components.values()], dtype=float
+        )
+        component_means = component_matrix.mean(axis=0)
+        # Population SD (ddof=0) matches the standard z-score convention used
+        # for a fully observed analysis population.  A constant component has
+        # no ranking information, so it contributes z=0 instead of NaN/Inf.
+        component_sds = component_matrix.std(axis=0, ddof=0)
+        nondegenerate = np.isfinite(component_sds) & (component_sds > 0.0)
+        standardized = np.zeros_like(component_matrix, dtype=float)
+        standardized[:, nondegenerate] = (
+            component_matrix[:, nondegenerate]
+            - component_means[nondegenerate]
+        ) / component_sds[nondegenerate]
+        endorser_sums = standardized.sum(axis=1)
+        shifted_sums = endorser_sums - endorser_sums.min()
+        for (pid, component_values), value in zip(
+            hypomania_components.items(), shifted_sums
+        ):
+            hypomania_values[pid] = (float(value), component_values[3])
+        degenerate_components = [
+            name for name, valid in zip(component_names, nondegenerate) if not valid
+        ]
+
+    for pid in hypomania_pids:
+        if mania_episode_stem(pid) != "screener-negative":
+            continue
+        age = age_of(pid, r43, r44)
+        if age is not None:
+            hypomania_values[pid] = (-1.0, age)
+
+    yield (
+        "dim_hypomania",
+        "derived_psych",
+        "quant",
+        hypomania_values,
+        {
+            "question_concept_id": qid_list(
+                ["mhqukb_43", "mhqukb_44", "mhqukb_45", "mhqukb_46", "mhqukb_47"]
+            ),
+            "item_concept": "mhqukb_43|mhqukb_44|mhqukb_45|mhqukb_46|mhqukb_47",
+            "question": "Whole-cohort dimensional hypomania severity hurdle",
+            "answer": (
+                "-1=mhqukb_43 No and mhqukb_44 No; either screener Yes requires "
+                "complete symptom-count, duration, and impairment components; "
+                "endorsers use the shifted equal-weight sum of endorser-standardized "
+                "components"
+            ),
+            "ordinal_rule": "hypomania_equal_weight_z_hurdle_population_floor",
+            "covar_mode": "full",
+            "construction_id": "dim_hypomania_severity_hurdle_v1",
+            "sensitive_topics": "mental_health",
+            "component_standardization": "complete-case endorsers; population SD (ddof=0)",
+            "component_names": "|".join(component_names),
+            "component_means": "|".join(f"{value:.17g}" for value in component_means),
+            "component_sds": "|".join(f"{value:.17g}" for value in component_sds),
+            "degenerate_sd_policy": "constant/nonfinite component contributes z=0",
+            "degenerate_sd_components": "|".join(degenerate_components),
+            "n_complete_case_endorsers": len(hypomania_components),
+        },
+    )
 
     def mania_core(pid):
         return yes(nonmiss(pid, r43)) or yes(nonmiss(pid, r44))
@@ -4913,6 +5629,36 @@ def load_reusable_phenotype_rows(outdir: Path) -> dict[str, dict[str, str]]:
         }
 
 
+def validate_reserved_phenotype_ids(
+    outdir: Path,
+    definitions,
+) -> None:
+    """Reject prior manifest rows that use a reserved ID for another definition.
+
+    A matching construction ID is an earlier build of the same definition and
+    is allowed (but the caller still forces its phenotype matrices to rebuild).
+    """
+    expected = {definition.phenotype_id: definition.construction_id for definition in definitions}
+    if not expected:
+        return
+    for filename in ("phenotype_manifest.tsv", "skipped_phenotypes.tsv"):
+        path = outdir / "metadata" / filename
+        if not path.is_file() or path.stat().st_size == 0:
+            continue
+        with path.open(newline="") as handle:
+            for row in csv.DictReader(handle, delimiter="\t"):
+                pheno_id = (row.get("pheno_id") or "").strip()
+                if pheno_id not in expected:
+                    continue
+                observed = (row.get("construction_id") or "").strip()
+                if observed != expected[pheno_id]:
+                    raise RuntimeError(
+                        f"Reserved phenotype ID collision in {path}: {pheno_id} "
+                        f"has construction_id={observed or '<missing>'}, expected "
+                        f"{expected[pheno_id]}"
+                    )
+
+
 def reusable_preparation(
     pheno_id: str,
     kind: str,
@@ -5195,6 +5941,22 @@ def main() -> None:
     ap.add_argument("--gwas-batch-size", type=int, default=64,
                     help="Number of residualized phenotypes per PLINK2 genotype scan.")
     ap.add_argument("--phenotypes", default="", help="comma-separated pheno_id filter (smoke test).")
+    ap.add_argument(
+        "--response-qids",
+        default="",
+        help=(
+            "optional comma-separated exact survey question_concept_id allowlist; "
+            "used for memory-bounded targeted runs"
+        ),
+    )
+    ap.add_argument(
+        "--preserve-unselected-manifest",
+        action="store_true",
+        help=(
+            "with --phenotypes, merge prior runnable/skipped rows for unselected "
+            "IDs back into the output manifests"
+        ),
+    )
     ap.add_argument("--plink2-bin", default=shutil.which("plink2") or "plink2")
     ap.add_argument("--skip-gwas", action="store_true")
     ap.add_argument("--force", action="store_true")
@@ -5207,16 +5969,27 @@ def main() -> None:
         ),
     )
     args = ap.parse_args()
+    if args.preserve_unselected_manifest and not args.phenotypes.strip():
+        raise SystemExit("--preserve-unselected-manifest requires --phenotypes")
     if args.gwas_batch_size < 1:
         raise SystemExit("--gwas-batch-size must be >= 1")
     if args.gwas_workdir is None:
         args.gwas_workdir = args.outdir / "work" / "gwas"
 
+    validate_reserved_phenotype_ids(
+        args.outdir,
+        [*AC.registered_composites(), *NQ.DEFINITIONS, *SSG.DEFINITIONS],
+    )
     reusable_rows = (
         load_reusable_phenotype_rows(args.outdir)
         if args.reuse_existing_phenotypes
         else {}
     )
+    prior_skipped_rows = []
+    prior_skipped_path = args.outdir / "metadata" / "skipped_phenotypes.tsv"
+    if args.preserve_unselected_manifest and prior_skipped_path.is_file():
+        with prior_skipped_path.open(newline="") as handle:
+            prior_skipped_rows = list(csv.DictReader(handle, delimiter="\t"))
     if reusable_rows:
         log(
             f"eligible prior phenotype matrices={len(reusable_rows)}; "
@@ -5285,32 +6058,93 @@ def main() -> None:
     )
     allowed_qids.update(load_tsv_column_values(args.pfhh_allowlist, "question_concept_id"))
     allowed_qids.update(PFHH_SCREEN_QID.values())
+    allowed_qids.update(AC.approved_source_qids())
+    allowed_qids.update(NAP.DEFINITION.source_qids)
     allowed_qids.update(PHQ_GAD_SOURCE_QIDS)
+    allowed_qids.update(ASRS_FREQUENCY_SOURCE_QIDS)
     allowed_qids.update(PSS_SOURCE_QIDS)
     allowed_qids.update(MOS_SS_SOURCE_QIDS)
     allowed_qids.update(CROSS_SURVEY_COMPOSITE_SOURCE_QIDS)
+    allowed_qids.update(EDS_BREADTH_SOURCE_QIDS)
+    allowed_qids.add(EDS_ATTRIBUTION_QID)
     allowed_qids.update(AUDITC_SOURCE_QIDS)
     allowed_qids.update(WELLBEING_SOURCE_QIDS)
     allowed_qids.update(TARGETED_SDOH_ORDINAL_QID_TO_ITEM)
     allowed_qids.update(BASELINE_COPE_SOURCE_QIDS)
     allowed_qids.update(POP_GATED_SOURCE_QIDS)
+    allowed_qids.update(GFB.SOURCE_QIDS)
+    allowed_qids.update(SSG.SOURCE_QIDS)
     allowed_question_texts = {
         norm_q(row.get("field_label") or "")
         for row in qman_rows
         if (row.get("field_label") or "").strip()
         and not (row.get("disposition") or "").startswith("excluded")
     }
+    response_qids = {
+        qid.strip()
+        for qid in args.response_qids.split(",")
+        if qid.strip()
+    }
+    if response_qids:
+        invalid_response_qids = {qid for qid in response_qids if not qid.isdigit()}
+        if invalid_response_qids:
+            raise SystemExit(
+                f"--response-qids contains nonnumeric IDs: {sorted(invalid_response_qids)}"
+            )
+        allowed_qids = response_qids
+        allowed_question_texts = set()
+        log(f"targeted response-qid allowlist enabled: {len(allowed_qids)} qids")
     log("Building latest-valid response table ...")
     log(
         f"survey row filter: qids={len(allowed_qids)} "
         f"question_texts={len(allowed_question_texts)}"
     )
-    questions = build_latest_responses(survey_paths, keep, allowed_qids, allowed_question_texts)
+    questions = build_latest_responses(
+        survey_paths,
+        keep,
+        allowed_qids,
+        allowed_question_texts,
+        retain_latest_missing_qids=AC.approved_source_qids(),
+    )
     log(f"questions with responses: {len(questions)}")
 
     only = {p.strip() for p in args.phenotypes.split(",") if p.strip()}
 
+    construction_codebook_paths = [
+        path
+        for path in (
+            args.question_manifest,
+            args.ordinal_manifest,
+            args.item_inventory,
+            args.aou_question_concepts,
+            args.composite_manifest,
+        )
+        if path is not None
+    ]
+    construction_fingerprints = AC.file_fingerprints(construction_codebook_paths)
+    pipeline_git_state = AC.pipeline_revision(Path(__file__).resolve().parents[2])
+
     builders = []
+    approved_ids = AC.approved_phenotype_ids()
+    reserved_new_ids = NQ.phenotype_ids()
+    reserved_new_constructions = NQ.construction_ids_by_phenotype()
+    reserved_sex_specific_ids = SSG.phenotype_ids()
+    reserved_sex_specific_constructions = SSG.construction_ids_by_phenotype()
+    if wants_phenotype_source(only, exact=(NAP.PHENOTYPE_ID,)):
+        builders.append(NAP.build_numeric_average_pain(questions))
+    if wants_phenotype_source(only, exact=approved_ids):
+        builders.append(AC.build_registered_composite_phenotypes(
+            questions,
+            phenotype_ids=(only & approved_ids) if only else None,
+            qc_dir=args.outdir / "metadata" / "approved_composites",
+            codebook_fingerprints=construction_fingerprints,
+            git_state=pipeline_git_state,
+        ))
+    if wants_phenotype_source(only, exact=(ASRS_FREQUENCY_PHENO_ID,)):
+        builders.append(build_asrs_frequency_sum_phenotype(
+            questions,
+            args.outdir / "metadata" / "asrs_frequency_sum_qc.tsv",
+        ))
     if wants_phenotype_source(
         only,
         prefixes=("bin_phq9_", "ord_phq9_", "bin_gad7_", "ord_gad7_"),
@@ -5354,6 +6188,10 @@ def main() -> None:
         builders.append(build_pooled_baseline_cope_phenotypes(
             questions, qman, ord_lookup, sex_specific_items
         ))
+    if wants_phenotype_source(only, prefixes=GFB.PHENOTYPE_PREFIXES):
+        builders.append(GFB.build_gated_followup_binary_phenotypes(questions))
+    if wants_phenotype_source(only, exact=reserved_sex_specific_ids):
+        builders.append(SSG.build_sex_specific_phenotypes(questions))
     pooled_source_qids = (
         PHQ_GAD_SOURCE_QIDS | PSS_SOURCE_QIDS | MOS_SS_SOURCE_QIDS | BASELINE_COPE_SOURCE_QIDS
     )
@@ -5381,7 +6219,7 @@ def main() -> None:
             skip_ordinal_qids=(
                 HCAU_ALREADY_COMPLETED_ORDINAL_QIDS | POOLED_ITEM_ORDINAL_SOURCE_QIDS
             ),
-            skip_binary_qids=TARGETED_ORDINAL_ONLY_QIDS,
+            skip_binary_qids=TARGETED_ORDINAL_ONLY_QIDS | GFB.FOLLOWUP_QIDS,
         ))
     if wants_phenotype_source(only, exact=("ord_urs_8c",)):
         builders.append(build_sdoh_move_count_ordinal(questions))
@@ -5403,6 +6241,10 @@ def main() -> None:
             "ord_social_shy_chronicity",
             "ord_social_judgment_chronicity",
             "ord_agoraphobia_chronicity",
+            "ord_mania_symptom_count_pop",
+            "ord_mhqukb_46_pop",
+            "ord_mhqukb_54_pop",
+            "dim_hypomania",
         ),
     ):
         builders.append(build_derived_psych_phenotypes(questions, item_labels, qid_by_item))
@@ -5450,6 +6292,75 @@ def main() -> None:
         for pheno_id, trait_type, kind, values, meta in gen:
             if only and pheno_id not in only:
                 continue
+            if pheno_id in approved_ids and not meta.get("_approved_composite"):
+                raise RuntimeError(
+                    f"Reserved approved composite phenotype ID was generated by an "
+                    f"unregistered builder: {pheno_id}"
+                )
+            if pheno_id in reserved_new_ids:
+                expected_construction = reserved_new_constructions[pheno_id]
+                observed_construction = meta.get("construction_id", "")
+                if kind != "quant":
+                    raise RuntimeError(
+                        f"Reserved new phenotype {pheno_id} must use kind=quant, got {kind}"
+                    )
+                if observed_construction != expected_construction:
+                    raise RuntimeError(
+                        f"Reserved new phenotype ID collision: {pheno_id} has "
+                        f"construction_id={observed_construction or '<missing>'}, "
+                        f"expected {expected_construction}"
+                    )
+                qc_path = NQ.write_construction_qc(
+                    args.outdir
+                    / "metadata"
+                    / "new_quantitative_gwas"
+                    / f"{pheno_id}.construction.json",
+                    phenotype_id=pheno_id,
+                    trait_type=trait_type,
+                    kind=kind,
+                    values=values,
+                    metadata=meta,
+                    codebook_fingerprints=construction_fingerprints,
+                    git_state=pipeline_git_state,
+                )
+                meta["_new_quantitative_qc_path"] = str(qc_path)
+            if pheno_id in reserved_sex_specific_ids:
+                definition = SSG.DEFINITION_BY_ID[pheno_id]
+                observed_construction = meta.get("construction_id", "")
+                if kind != definition.kind:
+                    raise RuntimeError(
+                        f"Reserved sex-specific phenotype {pheno_id} must use "
+                        f"kind={definition.kind}, got {kind}"
+                    )
+                if meta.get("sex_filter") != definition.sex_filter:
+                    raise RuntimeError(
+                        f"Reserved sex-specific phenotype {pheno_id} must use "
+                        f"sex_filter={definition.sex_filter}, got "
+                        f"{meta.get('sex_filter') or '<missing>'}"
+                    )
+                if meta.get("covar_mode") != "agepc":
+                    raise RuntimeError(
+                        f"Reserved sex-specific phenotype {pheno_id} must use "
+                        f"covar_mode=agepc, got {meta.get('covar_mode') or '<missing>'}"
+                    )
+                if observed_construction != reserved_sex_specific_constructions[pheno_id]:
+                    raise RuntimeError(
+                        f"Reserved sex-specific phenotype ID collision: {pheno_id} has "
+                        f"construction_id={observed_construction or '<missing>'}, expected "
+                        f"{reserved_sex_specific_constructions[pheno_id]}"
+                    )
+                qc_path = SSG.write_construction_qc(
+                    args.outdir
+                    / "metadata"
+                    / "sex_specific_gwas"
+                    / f"{pheno_id}.construction.json",
+                    phenotype_id=pheno_id,
+                    values=values,
+                    metadata=meta,
+                    codebook_fingerprints=construction_fingerprints,
+                    git_state=pipeline_git_state,
+                )
+                meta["_sex_specific_qc_path"] = str(qc_path)
             if meta.get("skip_reason"):
                 extra_covariates = meta.get("extra_covariates", {})
                 n_cases = sum(1 for y, _age in values.values() if y == 1.0) if kind == "binary" else 0
@@ -5474,6 +6385,10 @@ def main() -> None:
                 })
                 continue
             if pheno_id in seen_pheno_ids:
+                if pheno_id in approved_ids | reserved_new_ids | reserved_sex_specific_ids:
+                    raise RuntimeError(
+                        f"Reserved phenotype ID was generated twice: {pheno_id}"
+                    )
                 extra_covariates = meta.get("extra_covariates", {})
                 skipped_rows.append({
                     "pheno_id": pheno_id,
@@ -5496,7 +6411,7 @@ def main() -> None:
                 continue
             extra_covariates = meta.get("extra_covariates", {})
             prep = None
-            if pheno_id not in REBUILD_EXISTING_PHENO_IDS:
+            if not should_rebuild_existing_phenotype(pheno_id):
                 prep = reusable_preparation(
                     pheno_id,
                     kind,
@@ -5518,6 +6433,15 @@ def main() -> None:
                     meta.get("sex_filter", "all"),
                     extra_covariates,
                 )
+            AC.finalize_construction_qc(
+                meta.get("_approved_composite_qc_path"), prep.get("n", 0)
+            )
+            NQ.finalize_construction_qc(
+                meta.get("_new_quantitative_qc_path"), prep.get("n", 0)
+            )
+            SSG.finalize_construction_qc(
+                meta.get("_sex_specific_qc_path"), prep.get("n", 0)
+            )
             if "skip_reason" in prep:
                 skipped_rows.append({
                     "pheno_id": pheno_id,
@@ -5610,6 +6534,22 @@ def main() -> None:
             for job in batch:
                 _, _, elapsed = outputs[job["pheno_id"]]
                 job["row"]["gwas_seconds"] = round(elapsed, 1)
+
+    if args.preserve_unselected_manifest:
+        preserved_manifest_rows = [
+            row for pheno_id, row in reusable_rows.items() if pheno_id not in only
+        ]
+        preserved_skipped_rows = [
+            row for row in prior_skipped_rows if row.get("pheno_id", "") not in only
+        ]
+        manifest_rows.extend(preserved_manifest_rows)
+        skipped_rows.extend(preserved_skipped_rows)
+        manifest_rows.sort(key=lambda row: row.get("pheno_id", ""))
+        skipped_rows.sort(key=lambda row: row.get("pheno_id", ""))
+        log(
+            f"preserved unselected manifest rows: runnable={len(preserved_manifest_rows)} "
+            f"skipped={len(preserved_skipped_rows)}"
+        )
 
     man_path = metadir / "phenotype_manifest.tsv"
     if manifest_rows:

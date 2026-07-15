@@ -15,6 +15,12 @@ from collections import OrderedDict
 from pathlib import Path
 
 import composite_rules as CR
+import approved_composites as AC
+import composite_disability_count as _composite_disability_count  # noqa: F401
+import composite_drugs_ever_used as _composite_drugs_ever_used  # noqa: F401
+import composite_healthcare_discrimination as _composite_healthcare_discrimination  # noqa: F401
+import composite_housing_problem_count as _composite_housing_problem_count  # noqa: F401
+import composite_psychotic_experiences_count as _composite_psychotic_experiences_count  # noqa: F401
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -45,6 +51,69 @@ GROUPS = OrderedDict([
 ])
 
 REVERSE_FRAG = CR.REVERSE_TEXT_FRAGMENTS
+
+APPROVED_SCORING_SUMMARIES = {
+    "comp_healthcare_discrimination": (
+        "Seven SDOH medical-setting discrimination items scored Never=0, Rarely=1, "
+        "Sometimes=2, Most of the time=3, Always=4 and summed without reverse scoring."
+    ),
+    "comp_disability_count": (
+        "Six pooled Basics/Life Functioning disability domains scored No=0 and Yes=1."
+    ),
+    "comp_housing_problem_count": (
+        "Seven AHC-2 housing problem options contribute one each; explicit None alone is zero, "
+        "and None plus a problem is invalid."
+    ),
+    "psych_psychotic_experiences_count": (
+        "Four BHP lifetime experience items scored No=0 and Yes=1, including the visual item."
+    ),
+    "num_drugs_ever_used": (
+        "Nine lifetime drug-class options contribute one each; explicit None alone is zero, "
+        "None plus a scored class is invalid, and Other is ignored but Other-only is missing."
+    ),
+}
+
+
+def approved_composite_lines() -> list[str]:
+    """Render the five approved complete-case composites from their registry."""
+    out = [
+        "### Approved complete-case pan-AoU-derived sums and counts\n",
+        (
+            "These five additional phenotypes retain raw integer scores, then use the standard "
+            "quantitative IRNT and full-covariate residualization path. They do not replace any "
+            "item-level GWAS. Multi-question ages are the mean of finite component-event ages; "
+            "checkbox ages are the response-event age. Concept IDs are authoritative, with "
+            "normalized text used only as a checked fallback when the concept is absent.\n"
+        ),
+    ]
+    for definition in AC.registered_composites():
+        lo, hi = definition.valid_range
+        out.append(f"#### `{definition.phenotype_id}`\n")
+        out.append(f"- **Construction ID:** `{definition.construction_id}`")
+        out.append(
+            f"- **Registration:** `trait_type={definition.trait_type}`, "
+            f"`kind={definition.kind}`, `covar_mode={definition.covar_mode}`"
+        )
+        out.append(f"- **Source:** {', '.join(definition.source_surveys)}")
+        out.append(f"- **Raw range:** integer {lo}..{hi}; complete case; no prorating")
+        out.append(f"- **Scoring:** {APPROVED_SCORING_SUMMARIES[definition.phenotype_id]}")
+        out.append(f"- **Missing/invalid policy:** {definition.missing_policy}")
+        if definition.interpretation:
+            out.append(f"- **Interpretation:** {definition.interpretation}")
+        for limitation in definition.limitations:
+            out.append(f"- **Qualification:** {limitation}")
+        out.append(
+            "- **Question concept IDs:** "
+            + ", ".join(f"`{qid}`" for qid in definition.source_qids)
+        )
+        item_concepts = []
+        for mapping in definition.item_mappings:
+            item = str(mapping.get("item_concept", ""))
+            if item and item not in item_concepts:
+                item_concepts.append(item)
+        out.append("- **Item concepts:** " + ", ".join(f"`{item}`" for item in item_concepts))
+        out.append("")
+    return out
 
 
 def main() -> None:
@@ -92,6 +161,14 @@ def main() -> None:
         combo += f"; {len(revs)} reverse-keyed" if revs else "; no reverse-keyed items"
         out.append(f"- **Total score:** {combo}")
         out.append(f"- **Auto-built:** {'yes (comp_' + slug + ')' if slug else 'no — documented only; items are also GWASed individually as ordinal phenotypes'}")
+        if slug == "asrs_adhd":
+            out.append(
+                "- **Additional frequency-sum GWAS:** `comp_asrs_adhd_0_24` is the complete-case "
+                "sum of the same six items scored Never=0, Rarely=1, Sometimes=2, Often=3, and "
+                "Very often=4 (raw range 0..24; "
+                "`construction_id=asrs_frequency_sum_complete_case_v1`). It does not replace "
+                "the existing 0..6 shaded-box composite."
+            )
         if slug == "pss_perceived_stress":
             out.append("- **Pooling:** SDOH is primary; COPE fills COPE-only responses. The GWAS residualization includes `from_cope`.")
         out.append("- **Questions:**")
@@ -103,6 +180,8 @@ def main() -> None:
                 sc = ", ".join(f"{lbl}={val}" for lbl, val in amap.values())
                 out.append(f"    - {q}{rev}  — [{sc}]")
         out.append("")
+
+    out.extend(approved_composite_lines())
 
     # explicit mixed-valence composites, item labels from the ordinal manifest
     code_qtext, code_vals = {}, {}

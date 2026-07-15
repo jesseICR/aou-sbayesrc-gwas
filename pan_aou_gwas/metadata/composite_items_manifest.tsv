@@ -797,3 +797,76 @@ BFI-2-XS	Behavioral Health and Personality	bfi2xs_15	I am someone who is origina
 BFI-2-XS	Behavioral Health and Personality	bfi2xs_15	I am someone who is original, comes up with new ideas.	Neutral; no opinion	3.0
 BFI-2-XS	Behavioral Health and Personality	bfi2xs_15	I am someone who is original, comes up with new ideas.	Agree a little	4.0
 BFI-2-XS	Behavioral Health and Personality	bfi2xs_15	I am someone who is original, comes up with new ideas.	Agree strongly	5.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_1	Treated with less courtesy in a doctor's office or other health care setting.	Never	0.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_1	Treated with less courtesy in a doctor's office or other health care setting.	Rarely	1.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_1	Treated with less courtesy in a doctor's office or other health care setting.	Sometimes	2.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_1	Treated with less courtesy in a doctor's office or other health care setting.	Most of the time	3.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_1	Treated with less courtesy in a doctor's office or other health care setting.	Always	4.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_2	Treated with less respect in a doctor's office or other health care setting.	Never	0.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_2	Treated with less respect in a doctor's office or other health care setting.	Rarely	1.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_2	Treated with less respect in a doctor's office or other health care setting.	Sometimes	2.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_2	Treated with less respect in a doctor's office or other health care setting.	Most of the time	3.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_2	Treated with less respect in a doctor's office or other health care setting.	Always	4.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_3	Received poorer service in a doctor's office or other health care setting.	Never	0.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_3	Received poorer service in a doctor's office or other health care setting.	Rarely	1.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_3	Received poorer service in a doctor's office or other health care setting.	Sometimes	2.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_3	Received poorer service in a doctor's office or other health care setting.	Most of the time	3.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_3	Received poorer service in a doctor's office or other health care setting.	Always	4.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_4	A doctor or nurse acted as if the participant was not smart.	Never	0.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_4	A doctor or nurse acted as if the participant was not smart.	Rarely	1.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_4	A doctor or nurse acted as if the participant was not smart.	Sometimes	2.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_4	A doctor or nurse acted as if the participant was not smart.	Most of the time	3.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_4	A doctor or nurse acted as if the participant was not smart.	Always	4.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_5	A doctor or nurse acted as if afraid of the participant.	Never	0.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_5	A doctor or nurse acted as if afraid of the participant.	Rarely	1.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_5	A doctor or nurse acted as if afraid of the participant.	Sometimes	2.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_5	A doctor or nurse acted as if afraid of the participant.	Most of the time	3.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_5	A doctor or nurse acted as if afraid of the participant.	Always	4.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_6	A doctor or nurse was not listening to the participant.	Never	0.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_6	A doctor or nurse was not listening to the participant.	Rarely	1.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_6	A doctor or nurse was not listening to the participant.	Sometimes	2.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_6	A doctor or nurse was not listening to the participant.	Most of the time	3.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_6	A doctor or nurse was not listening to the participant.	Always	4.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_7	A doctor or nurse acted as if better than the participant.	Never	0.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_7	A doctor or nurse acted as if better than the participant.	Rarely	1.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_7	A doctor or nurse acted as if better than the participant.	Sometimes	2.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_7	A doctor or nurse acted as if better than the participant.	Most of the time	3.0
+comp_healthcare_discrimination	Social Determinants of Health	sdoh_dms_7	A doctor or nurse acted as if better than the participant.	Always	4.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_deaf	Are you deaf or do you have serious difficulty hearing?	No	0.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_deaf	Are you deaf or do you have serious difficulty hearing?	Yes	1.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_blind	Are you blind or do you have serious difficulty seeing, even when wearing glasses?	No	0.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_blind	Are you blind or do you have serious difficulty seeing, even when wearing glasses?	Yes	1.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_difficultyconcentrating	Serious difficulty concentrating, remembering, or making decisions.	No	0.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_difficultyconcentrating	Serious difficulty concentrating, remembering, or making decisions.	Yes	1.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_walkingclimbing	Serious difficulty walking or climbing stairs.	No	0.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_walkingclimbing	Serious difficulty walking or climbing stairs.	Yes	1.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_dressingbathing	Difficulty dressing or bathing.	No	0.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_dressingbathing	Difficulty dressing or bathing.	Yes	1.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_errandsalone	Difficulty doing errands alone.	No	0.0
+comp_disability_count	The Basics + Life Functioning: Basics Survey Companion	disability_errandsalone	Difficulty doing errands alone.	Yes	1.0
+comp_housing_problem_count	Social Determinants of Health	ahc_2	Housing-condition problems selected in AHC-2.	Bug infestation	1.0
+comp_housing_problem_count	Social Determinants of Health	ahc_2	Housing-condition problems selected in AHC-2.	Mold	1.0
+comp_housing_problem_count	Social Determinants of Health	ahc_2	Housing-condition problems selected in AHC-2.	Lead paint or pipes	1.0
+comp_housing_problem_count	Social Determinants of Health	ahc_2	Housing-condition problems selected in AHC-2.	Inadequate heat	1.0
+comp_housing_problem_count	Social Determinants of Health	ahc_2	Housing-condition problems selected in AHC-2.	Oven or stove not working	1.0
+comp_housing_problem_count	Social Determinants of Health	ahc_2	Housing-condition problems selected in AHC-2.	No or not working smoke detector	1.0
+comp_housing_problem_count	Social Determinants of Health	ahc_2	Housing-condition problems selected in AHC-2.	Water leaks	1.0
+comp_housing_problem_count	Social Determinants of Health	ahc_2	Housing-condition problems selected in AHC-2.	None of the above	0.0
+psych_psychotic_experiences_count	Behavioral Health and Personality	mhqukb_49	Lifetime visual unusual experience.	No	0.0
+psych_psychotic_experiences_count	Behavioral Health and Personality	mhqukb_49	Lifetime visual unusual experience.	Yes	1.0
+psych_psychotic_experiences_count	Behavioral Health and Personality	cidi5_21	Lifetime auditory unusual experience.	No	0.0
+psych_psychotic_experiences_count	Behavioral Health and Personality	cidi5_21	Lifetime auditory unusual experience.	Yes	1.0
+psych_psychotic_experiences_count	Behavioral Health and Personality	cidi5_22	Lifetime special signs or signals experience.	No	0.0
+psych_psychotic_experiences_count	Behavioral Health and Personality	cidi5_22	Lifetime special signs or signals experience.	Yes	1.0
+psych_psychotic_experiences_count	Behavioral Health and Personality	cidi5_23	Lifetime persecutory-belief experience.	No	0.0
+psych_psychotic_experiences_count	Behavioral Health and Personality	cidi5_23	Lifetime persecutory-belief experience.	Yes	1.0
+num_drugs_ever_used	Lifestyle	recreationaldruguse_whichdrugsused	Which of these drugs have you ever used?	Marijuana	1.0
+num_drugs_ever_used	Lifestyle	recreationaldruguse_whichdrugsused	Which of these drugs have you ever used?	Cocaine	1.0
+num_drugs_ever_used	Lifestyle	recreationaldruguse_whichdrugsused	Which of these drugs have you ever used?	Hallucinogens	1.0
+num_drugs_ever_used	Lifestyle	recreationaldruguse_whichdrugsused	Which of these drugs have you ever used?	Prescription stimulants (non-medical)	1.0
+num_drugs_ever_used	Lifestyle	recreationaldruguse_whichdrugsused	Which of these drugs have you ever used?	Sedatives or sleeping pills (non-medical)	1.0
+num_drugs_ever_used	Lifestyle	recreationaldruguse_whichdrugsused	Which of these drugs have you ever used?	Prescription opioids (non-medical)	1.0
+num_drugs_ever_used	Lifestyle	recreationaldruguse_whichdrugsused	Which of these drugs have you ever used?	Methamphetamine	1.0
+num_drugs_ever_used	Lifestyle	recreationaldruguse_whichdrugsused	Which of these drugs have you ever used?	Inhalants	1.0
+num_drugs_ever_used	Lifestyle	recreationaldruguse_whichdrugsused	Which of these drugs have you ever used?	Street opioids	1.0
+num_drugs_ever_used	Lifestyle	recreationaldruguse_whichdrugsused	Which of these drugs have you ever used?	None of these drugs	0.0

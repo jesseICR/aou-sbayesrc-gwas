@@ -256,6 +256,20 @@ Exact complements (Yes vs No, 1 vs 2, etc.) are collapsed to one GWAS. The retai
 case-like answer (`Yes`, `Too many to count`, `Needed treatment/problems`, `Other`, `Attempt`) and
 otherwise keeps the higher ordinal/numeric value when available.
 
+Two structurally gated The Basics follow-up families use expanded, parent-informed controls while
+retaining their existing phenotype IDs:
+
+| Follow-up | Case | Additional controls | Construction ID |
+| --- | --- | --- | --- |
+| Sexuality closer description, qid `1585357` | Each selected closer-description option (multi-select events retain every selected case) | Different substantive follow-up options plus parent sexual-orientation qid `1585899` responses Straight, Bisexual, Gay, or Lesbian | `sexuality_closer_description_expanded_parent_controls_v3` |
+| Current living subtype, qid `1585402` | Selected current-living option | Different substantive follow-up options plus parent home-own qid `1585370` responses Own or Rent | `current_living_expanded_parent_controls_v2` |
+
+The parent gate responses (Sexual Orientation None; Other Arrangement) are not controls when their
+follow-up is missing, because the participant's subtype is unknown. Skip, PNA, and DK remain missing.
+All binaries in both answer-dependent ID families are forced to rebuild. The versioned construction
+IDs also invalidate stale GWAS parameter sidecars, so the next full run overwrites the old
+follow-up-only-denominator association outputs rather than reusing them.
+
 Five same-survey reused REDCap item codes are deliberately disambiguated by live
 `question_concept_id` in the output phenotype ID: `mhqukb_50`,
 `mhqukb_25_number`, `mhqukb_26_age`, `ipaq_1_cope_a_24`, and
@@ -280,6 +294,59 @@ Selected gated follow-up fields also emit separate population-referenced derived
 keep the original endorser-only item GWAS but add explicit screener-negative respondents as true
 zeros when the follow-up is structurally absent because the participant is at the floor. Missing,
 DK, and PNA screeners remain missing. Age-at-onset/event fields are never zero-imputed.
+
+### 6.4 Eight additional quantitative survey GWAS
+
+The following are reserved, versioned additions. All retain their raw score, then use the standard
+quantitative IRNT and full-covariate residualization path. Except for pain, a valid negative
+screener/battery is coded `-1`, strictly below the follow-up's genuine zero or minimum level.
+Ambiguous/incomplete screeners and missing required follow-ups remain missing. Existing endorser-only
+and item-level GWAS remain in place.
+
+| Phenotype ID | Construction ID | Raw construction |
+| --- | --- | --- |
+| `num_overallhealth_averagepain7days` | `overallhealth_pain_slider_numeric_v1` | Overall Health qid `1585747`; integer slider 0..10; no screener floor |
+| `ord_mania_symptom_count_pop` | `mania_symptom_count_population_zero_v1` | Both `mhqukb_43/44` No = -1; either Yes requires `mhqukb_45`, then count 8 distinct symptoms (0..8) |
+| `mhq_pcl_symptom_sum_pop` | `pcl_symptom_sum_population_zero_v1` | All 11 lifetime-trauma items valid Never = -1; any trauma requires complete `pcl_1..5`, summed 0..20 |
+| `ord_mhqukb_22_pop` | `mhq_depression_followup_population_zero_v1` | Both `mhqukb_5/6` No = -1; either Yes uses impairment 0..3. Older `ord_mhqukb_21_pop`/`24_pop` remain unchanged |
+| `ord_mhqukb_46_pop` | `mania_followup_population_zero_v1` | Both mania screeners No = -1; endorser duration midpoint is 0.5, 2.5, 5.5, or 10 |
+| `ord_mhqukb_54_pop` | `psychosis_distress_population_zero_v1` | All four visual/auditory/sign/persecutory screeners No = -1; any Yes uses distress 0..4 |
+| `ord_sdoh_eds_discrimination_breadth_pop` | `eds_attribution_breadth_population_zero_v1` | All nine SDOH EDS items Never = -1; reporters count 1..10 recognized attribution grounds; Other is unscored |
+| `dim_hypomania` | `dim_hypomania_severity_hurdle_v1` | Both mania screeners No = -1; complete-case endorsers get the shifted equal-weight sum of endorser-standardized symptom-count, duration, and impairment components |
+
+The eight IDs are collision-checked against prior runnable and skipped manifests and must match the
+listed construction IDs. Their phenotype matrices are always rebuilt, and internal construction QC
+records codebook fingerprints, pipeline Git state, raw moments/histograms, and final filtered N.
+The mania, PTSD, depression, psychosis, and hypomania traits use the sensitive mental-health release
+tier; the discrimination breadth trait retains its discrimination-sensitive provenance.
+
+### 6.5 Twelve sex-stratified survey GWAS
+
+Twelve additional IDs are reserved for genetic-sex-stratified analyses. The builder constructs the
+response phenotype first, then restricts to `sex_01=1` for `_male` and `sex_01=0` for `_female`
+before QC. Within each stratum, residualization uses `age_c + PC1..PC10` (`covar_mode=agepc`);
+the invariant sex term and age-by-sex interaction are omitted. Missing, Skip, PNA, DK, invalid, and
+unrecognized responses remain missing rather than becoming controls.
+
+| Phenotype ID | Cases / raw value | Controls | Construction ID |
+| --- | --- | --- | --- |
+| `bin_gender_transgender_expanded_male` | Generic Transgender or Trans woman/Transgender Woman/MTF | Other substantive gender/closer-gender responders within males | `gender_transgender_or_trans_woman_male_v1` |
+| `bin_gender_transgender_expanded_female` | Generic Transgender or Trans man/Transgender Man/FTM | Other substantive gender/closer-gender responders within females | `gender_transgender_or_trans_man_female_v1` |
+| `bin_thebasics_sexualorientation__gay_male` | Gay | Other substantive sexual-orientation responders within males | `sexual_orientation_gay_male_v1` |
+| `bin_thebasics_sexualorientation__gay_or_lesbian_female` | Gay or Lesbian | Other substantive sexual-orientation responders within females | `sexual_orientation_gay_or_lesbian_female_v1` |
+| `bin_activeduty_activedutyservestatus__yes_male` | Yes | No within males | `active_duty_yes_male_v1` |
+| `bin_activeduty_activedutyservestatus__yes_female` | Yes | No within females | `active_duty_yes_female_v1` |
+| `num_livingsituation_peopleunder18_male` | Integer 1..20 | quantitative | `people_under_18_basics_cope_pooled_male_v1` |
+| `num_livingsituation_peopleunder18_female` | Integer 1..20 | quantitative | `people_under_18_basics_cope_pooled_female_v1` |
+| `bin_maritalstatus_currentmaritalstatus__divorced_male` | Divorced | Other substantive marital statuses within males | `marital_status_divorced_basics_cope_pooled_male_v1` |
+| `bin_maritalstatus_currentmaritalstatus__divorced_female` | Divorced | Other substantive marital statuses within females | `marital_status_divorced_basics_cope_pooled_female_v1` |
+| `bin_maritalstatus_currentmaritalstatus__never_married_male` | Never married | Other substantive marital statuses within males | `marital_status_never_married_basics_cope_pooled_male_v1` |
+| `bin_maritalstatus_currentmaritalstatus__never_married_female` | Never married | Other substantive marital statuses within females | `marital_status_never_married_basics_cope_pooled_female_v1` |
+
+Marital status and the under-18 household count preserve the standard Basics-primary, COPE-fill-in
+construction and include centered `from_cope` as an extra covariate. All 12 IDs are collision-checked
+against prior runnable and skipped manifests, force their phenotype matrices to rebuild, retain their
+raw vectors, and write internal construction QC with raw distributions and final sex-filtered N.
 
 ---
 
@@ -750,6 +817,11 @@ items. The output `pheno_id` is unchanged, but the manifest records `sex_filter=
 
 Each composite is a **prorated sum**: mean(available item scores) × n_items, requiring valid answers for more than half of items. Reverse-worded items (flagged per scale) are flipped on their own min/max before summing. Generic composites match items to survey responses using curated item aliases. PHQ-9 and GAD-7 pool EHHWB and COPE administrations with EHHWB priority and a `from_cope` covariate; PSS-10 and MOS-SS pool explicit SDOH/COPE question-concept pairs with SDOH priority and the same source covariate. The score is then inverse-normal-transformed and residualized like any quantitative trait (§4.1). Phenotype ids are prefixed `comp_`.
 
+The five approved pan-AoU-derived composites listed below are explicit **complete-case exceptions**
+to that generic prorating rule. They preserve raw integer sums/counts, resolve known answer concepts
+before checked text aliases, and then use the same quantitative IRNT/full-covariate path. Missing,
+non-substantive, unknown, or contradictory required responses are never converted to zero.
+
 The cross-item scale GWAS are therefore **continuous quantitative summary phenotypes**, not ordinal
 summary phenotypes. The individual Likert-style questions still receive ordinal GWAS when they have
 a defensible ordered response scale (§6.2), plus binary one-vs-rest GWAS where applicable (§6.1).
@@ -775,8 +847,28 @@ question-level phenotypes. The summary-score coverage for the named survey instr
 | CIDI-derived lifetime anxiety | `psych_probable_gad_lifetime`; `psych_cidi_gad_symptom_sum` | Binary probable lifetime GAD plus continuous lifetime GAD symptom-severity sum | CIDI items also have item-level ordinal/binary/numeric GWAS where applicable |
 | SITBI, Self-Injurious Thoughts and Behaviors Interview | `psych_sitbi_suicidality_count`; population-zero attempt-count phenotype | Continuous self-harm/suicidality count plus standalone sensitive binaries | SITBI items also have binary/numeric item-level GWAS where applicable |
 | BRFSS-derived modules | no single BRFSS total score | BRFSS is treated as a source/module, not one unified psychometric scale | BRFSS-derived items are GWASed individually when codeable |
-| Accountable Health Communities: Housing Insecurity | no cross-item housing-insecurity summary score currently built | Not currently a composite; housing/living-situation questions are item-level phenotypes | Housing items are GWASed individually when codeable |
+| Medical-setting discrimination | `comp_healthcare_discrimination` | Complete-case seven-item 0..28 frequency sum | Seven item-level ordinal/binary GWAS remain |
+| ACS disability domains | `comp_disability_count` | Complete-case pooled Basics/Life Functioning six-domain 0..6 count | Six item-level binary GWAS remain |
+| Accountable Health Communities: Housing Insecurity | `comp_housing_problem_count` | Seven-option 0..7 problem count from one valid checkbox event | Housing option-level binaries remain |
+| BHP lifetime psychotic experiences | `psych_psychotic_experiences_count` | Sensitive complete-case four-item 0..4 count including visual experiences | Four item-level binaries remain; existing three-item `psych_psychotic_experiences_any` is unchanged |
+| Lifestyle lifetime drug exposure breadth | `num_drugs_ever_used` | Nine-class 0..9 checkbox count; breadth, not severity/frequency | Existing option-level binaries remain |
 | Optimism / Life Orientation Test | no cross-item LOT-R summary score currently built | Only the available `lot_r_1` item is currently represented | `lot_r_1` has ordinal and binary item-level GWAS |
+
+The approved construction identities and exact primary rules are:
+
+| Phenotype ID | Construction ID | Source qid(s) | Primary scoring rule |
+| --- | --- | --- | --- |
+| `comp_healthcare_discrimination` | `healthcare_discrimination_complete_case_v1` | `40192497`, `40192425`, `40192503`, `40192505`, `40192423`, `40192394`, `40192383` | Never=0 through Always=4; all seven required; range 0..28; pan-AoU-derived, not a validated named scale |
+| `comp_disability_count` | `disability_count_basics_life_functioning_pooled_complete_case_v1` | `903573`..`903578` | Pool identical Basics/Life Functioning qids, then sum six complete-case No=0/Yes=1 domains; range 0..6; domain breadth, not severity |
+| `comp_housing_problem_count` | `housing_problem_count_complete_case_v1` | `40192402` | Count seven AHC-2 problem selections; None alone=0; None plus a problem is invalid; range 0..7; not a validated AHC severity scale |
+| `psych_psychotic_experiences_count` | `psychotic_experiences_count_four_item_complete_case_v1` | `1703885`, `1703901`, `1703915`, `1703871` | Sum four complete-case No=0/Yes=1 lifetime experience types; range 0..4; sensitive mental-health provenance; follow-ups excluded |
+| `num_drugs_ever_used` | `drugs_ever_used_nine_class_checkbox_v1` | `1585636` | Count nine scored lifetime classes; None alone=0; None plus scored is invalid; Other ignored and Other-only missing; range 0..9 |
+
+`num_drugs_ever_used` measures exposure breadth only: one lifetime trial and frequent use each add
+one, categories have unequal prevalence/risk, self-report is subject to recall and stigma, and
+excluding Other can undercount unlisted-only exposure. It does not combine tobacco, alcohol, COPE,
+or other recall periods. All five keep internal participant/construction QC and retain their existing
+component-level GWAS.
 
 ### GAD-7 — Generalized Anxiety Disorder scale (anxiety)
 
@@ -880,6 +972,10 @@ question-level phenotypes. The summary-score coverage for the named survey instr
 - **Per-item scoring:** 2 answer scales across items (shown per item below)
 - **Total score:** prorated sum of 6 items; no reverse-keyed items
 - **Auto-built:** yes (comp_asrs_adhd)
+- **Additional frequency-sum GWAS:** `comp_asrs_adhd_0_24` is the complete-case sum of the same
+  six items scored Never=0, Rarely=1, Sometimes=2, Often=3, and Very often=4 (raw range 0..24;
+  `construction_id=asrs_frequency_sum_complete_case_v1`). It does not replace the existing 0..6
+  shaded-box composite.
 - **Questions:**
     - How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?  — [Never=0.0, Rarely=0.0, Sometimes=1.0, Often=1.0, Very often=1.0]
     - How often do you have difficulty getting things in order when you have to do a task that requires organization?  — [Never=0.0, Rarely=0.0, Sometimes=1.0, Often=1.0, Very often=1.0]
@@ -1206,12 +1302,12 @@ Pre-QC candidate counts; actual runnable counts are lower after the §12 N/case 
 | Physical measurements | 9 | 0 | 0 | 9 | 9 |
 | ZIP3 socioeconomic context (§11b.1) | 7 | 0 | 0 | 7 | 7 |
 | Cognitive / EA-proxy external scores | 10 | 0 | 0 | 10 | 10 |
-| Validated composite scores (§11c): scales + BFI-2 Big Five + neighborhood/walkability/hunger + PCL + well-being | 29 | 0 | 29 | 0 | 29 |
-| Derived psychiatric phenotypes (§11d) | 13 | 9 | 0 | 4 | 13 |
+| Validated composite scores (§11c): scales + BFI-2 Big Five + neighborhood/walkability/hunger + PCL + well-being | 34 | 0 | 34 | 0 | 34 |
+| Derived psychiatric phenotypes (§11d) | 14 | 9 | 0 | 5 | 14 |
 | Acculturation index (§11e) | 1 | 0 | 1 | 0 | 1 |
 | Geographic / political state clusters (§11f) | 12 | 12 | 0 | 0 | 12 |
 | Wearable (Fitbit) phenotypes incl. chronotype (§10b) | 6 | 0 | 0 | 6 | 6 |
-| **TOTAL** | **~857** | **3037** | **408** | **90** | **3536** |
+| **TOTAL** | **~863** | **3037** | **413** | **91** | **3542** |
 
 (The 33 `pfhh_burden_*` sumscores and the 10 `cog_*` external scores are counted as
 quantitative traits. Physical measurements now include pulse pressure and MAP.)
