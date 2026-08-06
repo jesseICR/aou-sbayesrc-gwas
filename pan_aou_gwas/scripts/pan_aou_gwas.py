@@ -594,7 +594,15 @@ def log(msg: str) -> None:
 def norm_q(text: str) -> str:
     text = re.sub(r"<[^>]+>", " ", str(text or ""))
     text = text.translate(str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'}))
-    text = re.sub(r"\s+", " ", text).strip().lower().strip(" ?.\"'")
+    # Drop quote characters ANYWHERE, not just at the ends.  The codebook and the
+    # live survey text sometimes differ only in internal quoting -- e.g. mhqukb_43
+    # is  so "high," "excited," or "hyper"  in the codebook but
+    #        so "high, "excited, or "hyper"  in the live prompt.
+    # With only the outer .strip() below, those normalise differently, resp()
+    # returns {}, and the phenotype is silently built with no rows (the euphoric
+    # mania arm shipped at N=0 for exactly this reason).
+    text = re.sub(r"[\"']", "", text)
+    text = re.sub(r"\s+", " ", text).strip().lower().strip(" ?.")
     return text
 
 
