@@ -1352,7 +1352,7 @@ After the resources are added and the Jupyter environment is running, the
 clean-workspace terminal workflow is:
 
 ```bash
-git clone https://github.com/jesseICR/aou-sbayesrc-gwas.git
+git clone https://github.com/human-genomics/aou-sbayesrc-gwas.git
 cd aou-sbayesrc-gwas
 bash get_genotypes.sh
 ```

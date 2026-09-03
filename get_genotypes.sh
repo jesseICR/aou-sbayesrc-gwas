@@ -268,9 +268,9 @@ export LOCAL_REGENIE_DIR="${SCRIPT_DIR}/data/regenie"
 export LOCAL_SNP_QC_FILE="${SCRIPT_DIR}/data/support/ukb_snp_qc.txt"
 export ALIGNMENT_FILE="${SCRIPT_DIR}/data/support/sbayesrc_hg38.csv"
 export SBAYESRC_LIFTOVER_FILE="${SCRIPT_DIR}/data/support/sbayesrc_liftover_results.csv"
-export DIRECT_SNPS_URL="https://raw.githubusercontent.com/jesseICR/ukbb-sbayesrc-gwas/main/data/support/direct_snps/ukbb_500k_qc_pass_direct_snps.txt"
-export SBAYESRC_LIFTOVER_URL="https://github.com/jesseICR/sbayesrc-liftover/releases/download/v1.0/sbayesrc_liftover_results.csv"
-export ADMIXTURE_TSV_URL="https://raw.githubusercontent.com/jesseICR/public-statgen/main/outputs/admixture-global-6/admixture_allele_freqs.tsv"
+export DIRECT_SNPS_URL="https://raw.githubusercontent.com/human-genomics/ukbb-sbayesrc-gwas/main/data/support/direct_snps/ukbb_500k_qc_pass_direct_snps.txt"
+export SBAYESRC_LIFTOVER_URL="https://github.com/human-genomics/sbayesrc-liftover/releases/download/v1.0/sbayesrc_liftover_results.csv"
+export ADMIXTURE_TSV_URL="https://raw.githubusercontent.com/human-genomics/public-statgen/main/outputs/admixture-global-6/admixture_allele_freqs.tsv"
 export ADMIXTURE_DOWNLOAD_URL="https://dalexander.github.io/admixture/binaries/admixture_linux-1.3.0.tar.gz"
 export UKB_SNP_QC_URL="https://biobank.ndph.ox.ac.uk/ukb/ukb/auxdata/ukb_snp_qc.txt"
 export PCA_HIGH_LD_URL="https://raw.githubusercontent.com/meyer-lab-cshl/plinkQC/master/inst/extdata/high-LD-regions-hg38-GRCh38.bed"
@@ -642,7 +642,7 @@ if [[ -s "${ALIGNMENT_FILE}" ]]; then
 else
     echo "  Downloading sbayesrc_hg38.csv ..."
     curl -fsSL -o "${ALIGNMENT_FILE}" \
-        "https://github.com/jesseICR/sbayesrc-liftover/releases/download/v1.0/sbayesrc_hg38.csv"
+        "https://github.com/human-genomics/sbayesrc-liftover/releases/download/v1.0/sbayesrc_hg38.csv"
     echo "  Downloaded ($(wc -l < "${ALIGNMENT_FILE}") lines)"
 fi
 
